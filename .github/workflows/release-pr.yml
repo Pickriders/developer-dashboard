@@ -70,9 +70,11 @@ jobs:
           # the note in CLAUDE.md about checks on release PRs.
           GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          # Passed through env, not pasted into the script: "dev>main" inline is a bash redirect.
+          CHAINS: ${{ steps.plan.outputs.chains }}
         run: |
           set -euo pipefail
-          for chain in ${{ steps.plan.outputs.chains }}; do
+          for chain in $CHAINS; do
             head="${chain%>*}"
             base="${chain#*>}"
             title="release: ${base} ← ${head}"
