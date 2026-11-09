@@ -1,0 +1,112 @@
+name: Release PR
+
+# Keeps the promotion chain flowing without anyone opening a PR by hand:
+#
+#   merge into dev  →  create/refresh  "release: main ← dev"
+#
+# Same workflow as backend-api, minus the staging hop: there is no staging
+# environment yet because every branch already gets a Vercel preview. To add one later,
+# create a `staging` branch and restore the dev>staging / staging>main chains below.
+#
+# If the release PR is already open it is not duplicated — its description is
+# regenerated from the commits now in the range (see .github/scripts/release-notes.sh).
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+  workflow_dispatch:
+    inputs:
+      chain:
+        description: Which release PR to create or refresh
+        type: choice
+        default: "main ← dev"
+        options:
+          - "main ← dev"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  # Serialise so two merges landing together can't race on the same release PR.
+  group: release-pr-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Only merged PRs promote. A closed-without-merge PR must not open a release.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches
+        run: git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+
+      - name: Decide which release PRs to sync
+        id: plan
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            chains="dev>main"
+          else
+            case "${{ github.event.pull_request.base.ref }}" in
+              dev) chains="dev>main" ;;
+              *)   chains="" ;;
+            esac
+          fi
+          echo "chains=$chains" >> "$GITHUB_OUTPUT"
+          echo "Will sync: ${chains:-<nothing>}"
+
+      - name: Create or refresh release PR(s)
+        if: steps.plan.outputs.chains != ''
+        env:
+          # A PAT in RELEASE_PR_TOKEN lets the created PR trigger the CI workflow.
+          # With the default GITHUB_TOKEN, GitHub suppresses those events — see
+          # the note in CLAUDE.md about checks on release PRs.
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for chain in ${{ steps.plan.outputs.chains }}; do
+            head="${chain%>*}"
+            base="${chain#*>}"
+            title="release: ${base} ← ${head}"
+
+            if ! git rev-parse --verify --quiet "origin/${base}" >/dev/null; then
+              echo "::warning::branch '${base}' does not exist — skipping ${title}"
+              continue
+            fi
+
+            body="$(mktemp)"
+            bash .github/scripts/release-notes.sh "$head" "$base" "$REPO_URL" > "$body"
+
+            existing="$(gh pr list --base "$base" --head "$head" --state open \
+                          --json number --jq '.[0].number // empty')"
+
+            if [ -n "$existing" ]; then
+              gh pr edit "$existing" --title "$title" --body-file "$body"
+              echo "::notice::refreshed #${existing} — ${title}"
+            elif [ "$(git rev-list --count "origin/${base}..origin/${head}")" -eq 0 ]; then
+              echo "::notice::nothing to release — ${base} already contains ${head}"
+            elif output="$(gh pr create --base "$base" --head "$head" --title "$title" --body-file "$body" 2>&1)"; then
+              echo "::notice::opened ${output} — ${title}"
+            else
+              # By far the most common cause: the repo/org forbids Actions from opening PRs.
+              # Without this branch it surfaces as an opaque GraphQL error.
+              if echo "$output" | grep -qi 'not permitted to create or approve pull requests'; then
+                echo "::error::GitHub Actions is not allowed to create pull requests in this repository."
+                echo "::error::Fix: Settings → Actions → General → Workflow permissions →"
+                echo "::error::tick 'Allow GitHub Actions to create and approve pull requests'."
+                echo "::error::(Org-level settings can override the repo setting.)"
+                echo "::error::Alternative: add a PAT as the RELEASE_PR_TOKEN secret."
+              else
+                echo "::error::Could not open '${title}': ${output}"
+              fi
+              exit 1
+            fi
+          done
