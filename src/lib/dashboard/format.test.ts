@@ -28,6 +28,8 @@ describe("dates", () => {
     ["2026-11-12T10:00:00Z", "2 hours ago"],
     ["2026-11-11T12:00:00Z", "yesterday"],
     ["2026-11-12T13:00:00Z", "in 1 hour"],
+    ["2026-11-12T12:59:59Z", "in 1 hour"],
+    ["2026-11-12T12:40:00Z", "in 40 minutes"],
     ["2026-10-01T12:00:00Z", "last month"],
   ])("says %s as %p", (iso, said) => {
     expect(timeAgo(iso, now)).toBe(said);

@@ -39,8 +39,9 @@ export const timeAgo = (iso: string | Date, now: Date = new Date()): string => {
   const ms = new Date(iso).getTime() - now.getTime();
   if (Math.abs(ms) < 45_000) return "just now";
   const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  // A unit counts from 95% of it, so a grace period just started ("59 minutes 59 seconds") says 1 hour.
   for (const [unit, size] of UNITS) {
-    if (Math.abs(ms) >= size || unit === "minute") return rtf.format(Math.round(ms / size), unit);
+    if (Math.abs(ms) >= size * 0.95 || unit === "minute") return rtf.format(Math.round(ms / size), unit);
   }
   return "just now";
 };

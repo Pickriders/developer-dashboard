@@ -42,6 +42,7 @@ type Case = {
 };
 
 const TOKEN = "inv_open_0000000000000000001";
+const KEY = "6560f0c2a1b2c3d4e5f60718";
 const SIGNUP = { firstname: "Ada", lastname: "Obi", email: "ada@acme.com", phone: "+2348031234567", password: "p" };
 
 const CASES: Case[] = [
@@ -134,6 +135,28 @@ const CASES: Case[] = [
     method: "POST",
     path: `${D}/account/live-access`,
   },
+  {
+    name: "keys.list",
+    call: () => api.keys.list("live"),
+    method: "GET",
+    path: `${D}/api-keys`,
+    params: { livemode: "true" },
+  },
+  {
+    name: "keys.create",
+    call: () => api.keys.create({ label: "Laptop", livemode: false, scopes: ["orders:write"] }),
+    method: "POST",
+    path: `${D}/api-keys`,
+    data: { label: "Laptop", livemode: false, scopes: ["orders:write"] },
+  },
+  {
+    name: "keys.roll",
+    call: () => api.keys.roll(KEY, "24h"),
+    method: "POST",
+    path: `${D}/api-keys/${KEY}/roll`,
+    data: { expiresIn: "24h" },
+  },
+  { name: "keys.revoke", call: () => api.keys.revoke(KEY), method: "POST", path: `${D}/api-keys/${KEY}/revoke` },
 ];
 
 describe("dashboard api routes", () => {

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
+import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { formatMoney } from "@/lib/dashboard/format";
@@ -169,6 +170,7 @@ export function Showcase() {
       </Section>
 
       <Section id="forms" title="Forms">
+        <SegmentedDemo />
         <div className="grid max-w-2xl gap-5 sm:grid-cols-2">
           <Field id="d-email" label="Email" hint="We'll never share it.">
             {(a11y) => <Input {...a11y} type="email" placeholder="ada@acme.com" />}
@@ -306,5 +308,21 @@ export function Showcase() {
         />
       </Section>
     </div>
+  );
+}
+
+function SegmentedDemo() {
+  const [level, setLevel] = React.useState<"none" | "read" | "write">("read");
+  return (
+    <Segmented
+      label="Orders access"
+      value={level}
+      onChange={setLevel}
+      options={[
+        { value: "none", label: "None" },
+        { value: "read", label: "Read" },
+        { value: "write", label: "Write" },
+      ]}
+    />
   );
 }

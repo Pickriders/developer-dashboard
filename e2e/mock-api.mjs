@@ -410,7 +410,72 @@ const routes = {
     Object.assign(t, { liveStatus: "PENDING", liveRequestedAt: new Date().toISOString(), liveRejectionReason: null });
     return [200, accountOf(t)];
   },
+
+  "GET /api-keys": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "keys.read");
+    const live = url.searchParams.get("livemode");
+    const keys = t.keys.filter((k) => usable(k) && (live === null || k.livemode === (live === "true")));
+    return [200, keys.map(presentKey).reverse()];
+  },
+  "POST /api-keys": (req, body) => {
+    const { user, team: t } = requireTeam(req, "keys.write");
+    const label = String(body.label ?? "").trim();
+    if (!label) throw new ApiError(400, "parameter_invalid", "label should not be empty", "label");
+    if (body.livemode && t.liveStatus !== "APPROVED")
+      throw new ApiError(403, "live_access_required", "Live keys need approved live access.");
+    if (t.keys.filter((k) => usable(k) && k.livemode === !!body.livemode).length >= 20)
+      throw new ApiError(403, "key_limit_reached", "A team can have 20 keys. Revoke one you no longer use.");
+    return [201, issueKey(t, user, { label, livemode: !!body.livemode, scopes: body.scopes ?? [] })];
+  },
+  "POST /api-keys/:id/roll": (req, body, { id }) => {
+    const { user, team: t } = requireTeam(req, "keys.write");
+    const old = t.keys.find((k) => k.id === id && usable(k));
+    if (!old) throw new ApiError(404, "key_not_found", "No API key with that id in this team.");
+    if (old.status === "EXPIRING")
+      throw new ApiError(409, "key_already_rolled", "This key was already rolled or revoked.");
+    const grace = { now: 0, "1h": 3600, "24h": 86400, "7d": 604800 }[body.expiresIn];
+    if (grace === undefined)
+      throw new ApiError(400, "parameter_invalid", "expiresIn must be one of now, 1h, 24h, 7d", "expiresIn");
+    Object.assign(
+      old,
+      grace
+        ? { status: "EXPIRING", expiresAt: new Date(Date.now() + grace * 1000).toISOString() }
+        : { status: "EXPIRED" },
+    );
+    return [200, issueKey(t, user, { label: old.label, livemode: old.livemode, scopes: old.scopes })];
+  },
+  "POST /api-keys/:id/revoke": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "keys.write");
+    const key = t.keys.find((k) => k.id === id);
+    if (!key) throw new ApiError(404, "key_not_found", "No API key with that id in this team.");
+    if (key.status === "REVOKED") throw new ApiError(409, "key_already_revoked", "This key is already revoked.");
+    Object.assign(key, { status: "REVOKED", revokedAt: new Date().toISOString() });
+    return [200, presentKey(key)];
+  },
 };
+
+const usable = (k) => k.status === "ACTIVE" || (k.status === "EXPIRING" && new Date(k.expiresAt) > new Date());
+const presentKey = ({ secret, ...key }) => key;
+function issueKey(t, user, { label, livemode, scopes }) {
+  const secret = `sk_${livemode ? "live" : "test"}_${randomUUID().replace(/-/g, "")}`;
+  const key = {
+    id: newId(),
+    label,
+    prefix: secret.slice(0, 12),
+    livemode,
+    scopes,
+    status: "ACTIVE",
+    createdBy: { id: user.id, name: `${user.firstname} ${user.lastname}` },
+    createdAt: new Date().toISOString(),
+    lastUsedAt: null,
+    lastUsedIp: null,
+    expiresAt: null,
+    revokedAt: null,
+    secret,
+  };
+  t.keys.push(key);
+  return key;
+}
 
 /** Routes are "METHOD /path/:param"; the first whose pattern fits wins. */
 const compiled = Object.entries(routes).map(([key, handler]) => {
