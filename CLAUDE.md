@@ -65,8 +65,9 @@ That changes what "safe" means compared with the admin:
 ```
 src/
 ├── app/
-│   ├── (dashboard)/      (later) home (get-started checklist), orders, wallet, keys, webhooks,
-│   │                     logs, team, settings, usage — each with `_components/`
+│   ├── (dashboard)/      every signed-in page, in the shell: home (get-started checklist) and,
+│   │                     as they land, keys, webhooks, orders, wallet, logs, team, settings,
+│   │                     usage — each with `_components/`. Its layout wraps them in the workspace
 │   ├── auth/             login, signup, verify (email then phone), forgot-password, invite
 │   ├── api/backend/      the proxy to the API: session cookie → bearer token (lib/session/proxy.ts)
 │   ├── api/session/      DELETE signs out (clears the cookie)
@@ -83,7 +84,6 @@ src/
 │   ├── format.ts         money (kobo ↔ naira) and display helpers
 │   ├── hooks.ts          (later) React Query hooks over api.ts (`useAction` = mutation + toast)
 │   └── url-state.ts      (later) useTableState / useTabParam
-├── lib/team-access.ts    (later) role → permission matrix (mirrors the backend's), can()
 ├── lib/mode.tsx          (later) test / live mode context
 ├── components/kit/       PageHeader, Panel, StatCard, IdText, CopyButton, CodeBlock, SecretReveal,
 │                         ConfirmDialog, EmptyState, TestModeBanner, Kbd, ThemeToggle
@@ -91,6 +91,10 @@ src/
 ├── components/auth/      AuthShell (brand panel), Field, PasswordInput, CodeInput, alerts
 ├── lib/session/          cookie, proxy, guest/open paths, safeRedirect, crossSessionBoundary
 ├── components/brand/     the Logo
+├── components/shell/     DashboardShell (sidebar, header, phone drawer), TeamSwitcher, AccountMenu,
+│                         NAV (a page joins the sidebar in the step that builds it)
+├── lib/workspace/        WorkspaceProvider / useWorkspace: the signed-in user, the selected team
+│                         (sets X-Team-Id before any page fetches), can(permission)
 └── middleware.ts         the auth gate
 ```
 
@@ -161,12 +165,16 @@ export const keys = {
 export const useApiKeys = (mode: Mode) => useQuery({ queryKey: ["keys", mode], queryFn: () => keys.list(mode) });
 ```
 
+Team data hooks take the team id and key their queries under `["team", teamId, …]` (`teamKeys`), so
+switching team never shows the other team's data. Pages read the team, the user and permissions from
+`useWorkspace()`, never from `useMe()` directly.
+
 Mutations use `useAction(fn, { success, invalidate })` — it toasts and invalidates. Never call
 `apiService` or an `api.ts` namespace directly from a component. Query keys always include the
 mode (and the team id via the client), so switching never shows the other mode's data.
 
-**Permissions** — add the permission to `src/lib/team-access.ts` and gate controls with
-`const { can } = useCan(); can("keys.write")`.
+**Permissions** — the API sends each team's `permissions` for the signed-in user's role (`me`), so
+there is no client-side matrix: gate controls with `const { can } = useWorkspace(); can("keys.write")`.
 
 **Server vs client components** — App Router. Anything using hooks, React Query or browser
 APIs needs `"use client"`; keep that boundary as low in the tree as you can.

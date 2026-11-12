@@ -12,13 +12,16 @@ import {
   IdText,
   Kbd,
   Panel,
+  ProgressRing,
   SecretReveal,
   StatCard,
   TestModeBanner,
 } from "@/components/kit";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -195,6 +198,31 @@ export function Showcase() {
       </Section>
 
       <Section id="data" title="Data">
+        <div className="flex flex-wrap items-center gap-6">
+          <ProgressRing value={3} total={7} />
+          <ProgressRing value={7} total={7} size={64} />
+          <span className="flex items-center gap-2">
+            <Avatar name="Ada Obi" />
+            <Avatar name="Acme Logistics" shape="square" />
+          </span>
+          <Menu
+            label="Row actions"
+            trigger={({ ref, ...props }) => (
+              <Button ref={ref} variant="secondary" size="sm" {...props}>
+                Open a menu
+              </Button>
+            )}
+          >
+            <MenuLabel>Key</MenuLabel>
+            <MenuItem icon={<RotateCw />} onSelect={() => toast("Rolled")}>
+              Roll key
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem icon={<Trash2 />} tone="danger" onSelect={() => toast("Revoked")}>
+              Revoke key
+            </MenuItem>
+          </Menu>
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard label="Wallet balance" value={formatMoney(12_450_000)} hint="Test mode" />
           <StatCard label="Orders this week" value="128" />

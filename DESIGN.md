@@ -105,12 +105,25 @@ secondary, ghost, danger, link; sm, md, lg, icon; `loading`, `fullWidth`), `Inpu
 `Textarea`, `Badge` (tones, `dot`), `Card`, `Skeleton`, `ToggleSwitch`, `Modal` (native
 `<dialog>`: focus trap and Escape for free), `Toaster` (Sonner, restyled).
 
+**Also in `components/ui`:** `Menu` / `MenuItem` / `MenuLabel` / `MenuSeparator` (a dropdown: arrow
+keys, Escape, focus back to the trigger), `Avatar` (people: round, two initials; teams: square, one).
+
+**Shell** (`components/shell`): the storefront dashboard's frame. A white sidebar from `lg` (logo,
+team switcher, pages, the account menu at the foot), a slim sticky header (page actions, Docs), and
+the same sidebar as a drawer below `lg`. The selected page is a `brand-subtle` pill with `brand-fg`
+text. Pages sit in a 72rem column and slide up 6px on arrival.
+
+**Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
+action, the others folded to a line, finished steps ticked with what was done (the address, the date).
+A refused or suspended live request opens first. Copy for every step lives in one place
+(`(dashboard)/_components/home/steps.tsx`).
+
 **Auth** (`components/auth`): `AuthShell` (brand panel + form column), `AuthHeading`, `Field`
 (label, control, error or hint, wired for screen readers), `PasswordInput` (show/hide, Caps Lock),
 `PasswordMeter`, `CodeInput` (one real input drawn as boxes: paste, SMS autofill, shake),
 `ResendButton`, `FormAlert` / `ApiErrorAlert`, `SignOutButton`.
 
-**Kit** (`components/kit`): PageHeader, Panel, StatCard, IdText, CopyButton, CodeBlock,
+**Kit** (`components/kit`): PageHeader, Panel, StatCard, ProgressRing, IdText, CopyButton, CodeBlock,
 SecretReveal, ConfirmDialog (the storefront's, with `typeToConfirm`), EmptyState, TestModeBanner,
 Kbd, ThemeToggle. Build pages from these first; add to the kit when a pattern repeats, and show it
 on `/design`.

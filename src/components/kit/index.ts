@@ -10,3 +10,4 @@ export * from "./secret-reveal";
 export * from "./stat-card";
 export * from "./test-mode-banner";
 export * from "./theme-toggle";
+export * from "./progress-ring";

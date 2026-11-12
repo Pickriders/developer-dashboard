@@ -1,12 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { crossSessionBoundary } from "@/lib/session/navigate";
 import { signOut } from "@/services/apiService";
 import { cn } from "@/lib/utils";
+
+/** Clears the session cookie, then a full load of sign-in drops everything cached for the session. */
+export async function signOutAndLeave() {
+  try {
+    await signOut();
+  } finally {
+    crossSessionBoundary("/auth/login?reason=signed_out");
+  }
+}
 
 /** Clears the session and everything cached for it, then lands on sign-in. */
 export function SignOutButton({
@@ -16,8 +23,6 @@ export function SignOutButton({
   className?: string;
   children?: React.ReactNode;
 }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const [pending, setPending] = React.useState(false);
 
   return (
@@ -26,11 +31,7 @@ export function SignOutButton({
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        try {
-          await signOut();
-        } finally {
-          crossSessionBoundary("/auth/login?reason=signed_out");
-        }
+        await signOutAndLeave();
       }}
       className={cn("focus-ring rounded-sm font-bold text-fg hover:underline disabled:opacity-60", className)}
     >

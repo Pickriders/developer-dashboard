@@ -28,3 +28,15 @@ export async function signUp(page: Page, person: ReturnType<typeof newPerson>, p
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
 }
+
+/** Ada: the mock's seeded owner, verified, alone in her own team ("Ada's team"). */
+export const ADA = { email: "ada@acme.test", password: "correct-horse-1" };
+
+export async function signIn(page: Page, who: { email: string; password: string } = ADA) {
+  await page.goto("/auth/login");
+  await page.getByLabel("Email").fill(who.email);
+  await page.getByLabel("Password", { exact: true }).fill(who.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).not.toHaveURL(/\/auth\//);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+}
