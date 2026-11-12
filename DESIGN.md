@@ -87,6 +87,17 @@ scale, with weight doing the work:
   button never changes size); content slides up 6px on arrival; a wrong code shakes. Everything
   decorative respects `prefers-reduced-motion`.
 
+## Logo and app icon
+
+- **Logo** (`components/brand/logo.tsx`): the Pickriders wordmark (from pickrider-admin), a
+  hairline, then `developers_` in Geist Mono with a teal cursor. The cursor is what marks the
+  developer console apart from the storefront and the apps. `inverted` for the brand gradient.
+- **App icon:** the helmet "C" from the wordmark followed by the same teal cursor (`C_`, a
+  prompt), white on the plum-to-teal gradient, with a faint inner ring so it holds on dark browser
+  tabs. `src/app/icon.svg` (modern browsers), `src/app/favicon.ico` (16, 32 and 48px) and
+  `src/app/apple-icon.png` (180px, full-bleed: iOS rounds the corners). Next.js links all three.
+  Change the SVG first, then regenerate the PNG and ICO from it.
+
 ## Components
 
 **Primitives** (`components/ui`, ported from the storefront): `Button` and `LinkButton` (primary,

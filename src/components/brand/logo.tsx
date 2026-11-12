@@ -16,12 +16,14 @@ function Wordmark({ className }: { className?: string }) {
 }
 
 /**
- * The Pickriders wordmark and the product name. Plum on light surfaces, near-white in dark mode;
- * `inverted` makes it white for the brand gradient.
+ * The Pickriders wordmark, then the product as a prompt: "developers_" in mono with the teal
+ * cursor from the app icon (src/app/icon.svg), so the developer console reads as its own thing
+ * next to the storefront and the apps. Plum on light surfaces, near-white in dark mode; `inverted`
+ * is for the brand gradient.
  */
 export function Logo({
   className,
-  product = "Developers",
+  product = "developers",
   inverted = false,
 }: {
   className?: string;
@@ -29,16 +31,24 @@ export function Logo({
   inverted?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", inverted ? "text-white" : "text-fg-heading", className)}>
+    <span
+      className={cn("inline-flex items-center gap-2.5", inverted ? "text-white" : "text-fg-heading", className)}
+      aria-label={product ? `Pickriders ${product}` : "Pickriders"}
+      role="img"
+    >
       <Wordmark className="h-[22px] w-auto fill-current stroke-current" />
       {product && (
         <span
+          aria-hidden
           className={cn(
-            "rounded-md px-1.5 py-0.5 text-xs font-bold uppercase tracking-[0.08em]",
-            inverted ? "bg-white/15 text-white" : "bg-brand-subtle text-brand-fg",
+            "inline-flex items-baseline border-l pl-2.5 font-mono text-[13px] font-semibold leading-none tracking-tight",
+            inverted ? "border-white/25 text-[#8fe3dd]" : "border-line-strong text-brand-fg",
           )}
         >
           {product}
+          <span
+            className={cn("ml-0.5 inline-block h-[3px] w-2 rounded-full", inverted ? "bg-[#8fe3dd]" : "bg-brand")}
+          />
         </span>
       )}
     </span>
