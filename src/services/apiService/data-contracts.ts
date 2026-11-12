@@ -6345,6 +6345,68 @@ export interface DeveloperMeResponseDto {
   teams: DeveloperTeamSummaryDto[];
 }
 
+export interface DeveloperSendEmailCodeRequestDto {
+  /**
+   * Corrects the address first. Only while the current one is unverified.
+   * @maxLength 254
+   * @example "ada@acme.com"
+   */
+  email?: string;
+}
+
+export interface DeveloperCodeSentResponseDto {
+  /** Where the code went: the email address or phone number. */
+  sentTo: string;
+  /** Seconds until the code stops working. */
+  expiresIn: number;
+  /** Seconds until another code can be sent. */
+  resendAfter: number;
+}
+
+export interface DeveloperVerifyCodeRequestDto {
+  /**
+   * The code from the email or SMS.
+   * @pattern /^\d{4,8}$/
+   * @example "4821"
+   */
+  code: string;
+}
+
+export interface DeveloperSendPhoneCodeRequestDto {
+  /**
+   * Corrects the number first. Only while the current one is unverified.
+   * @example "08031234567"
+   */
+  phone?: string;
+}
+
+export interface DeveloperForgotPasswordRequestDto {
+  /**
+   * @maxLength 254
+   * @example "ada@acme.com"
+   */
+  email: string;
+}
+
+export interface DeveloperResetPasswordRequestDto {
+  /**
+   * @maxLength 254
+   * @example "ada@acme.com"
+   */
+  email: string;
+  /**
+   * The code from the reset email.
+   * @pattern /^\d{4,8}$/
+   * @example "4821"
+   */
+  code: string;
+  /**
+   * @minLength 8
+   * @maxLength 128
+   */
+  password: string;
+}
+
 export interface CreateDeveloperTeamRequestDto {
   /**
    * @minLength 2
@@ -8343,6 +8405,18 @@ export type DeveloperSignupData = DeveloperSessionResponseDto;
 export type DeveloperLoginData = DeveloperSessionResponseDto;
 
 export type DeveloperMeData = DeveloperMeResponseDto;
+
+export type DeveloperSendEmailCodeData = DeveloperCodeSentResponseDto;
+
+export type DeveloperVerifyEmailData = DeveloperMeResponseDto;
+
+export type DeveloperSendPhoneCodeData = DeveloperCodeSentResponseDto;
+
+export type DeveloperVerifyPhoneData = DeveloperMeResponseDto;
+
+export type DeveloperForgotPasswordData = DeveloperCodeSentResponseDto;
+
+export type DeveloperResetPasswordData = DeveloperSessionResponseDto;
 
 export type DeveloperListTeamsData = DeveloperTeamSummaryDto[];
 

@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
+import { Urbanist } from "next/font/google";
 
 import { Providers } from "@/providers";
 import "./globals.css";
+
+/** Urbanist, the Pickriders storefront's typeface; Geist Mono stays for code and ids. */
+const urbanist = Urbanist({ subsets: ["latin"], display: "swap", variable: "--font-urbanist" });
 
 export const metadata: Metadata = {
   title: { default: "Pickriders Developers", template: "%s · Pickriders Developers" },
@@ -12,14 +15,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f7f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d1211" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${urbanist.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
       </body>

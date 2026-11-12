@@ -15,7 +15,6 @@ const SECTIONS = [
   ["forms", "Forms"],
   ["data", "Data"],
   ["feedback", "Overlays and feedback"],
-  ["navigation", "Navigation"],
 ] as const;
 
 /**
@@ -27,7 +26,7 @@ export default function DesignPage() {
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/80 backdrop-blur">
         <div className="mx-auto flex h-header max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="focus-ring rounded-md">
+          <Link href="/" prefetch={false} className="focus-ring rounded-lg">
             <Logo />
           </Link>
           <ThemeToggle />
@@ -40,7 +39,7 @@ export default function DesignPage() {
               <li key={id}>
                 <a
                   href={`#${id}`}
-                  className="focus-ring block rounded-md px-2 py-1.5 text-fg-muted transition-colors duration-fast hover:bg-surface-subtle hover:text-fg"
+                  className="focus-ring block rounded-lg px-3 py-2 font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
                 >
                   {label}
                 </a>
@@ -51,7 +50,7 @@ export default function DesignPage() {
         <main className="min-w-0 flex-1">
           <PageHeader
             title="Design system"
-            description="Calm, dense and exact: the parts every page of the developer dashboard is built from. Switch the theme to see both."
+            description="The Pickriders storefront look, for developers: every part the dashboard is built from. Switch the theme to see both."
           />
           <Showcase />
         </main>

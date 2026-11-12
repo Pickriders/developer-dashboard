@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { KeyRound, MoreHorizontal, Plus, RotateCw, Search, Trash2, Webhook } from "lucide-react";
+import { KeyRound, Mail, Plus, RotateCw, Trash2, Webhook } from "lucide-react";
 import { toast } from "sonner";
 
+import { CodeInput, Field, FormAlert, PasswordInput, PasswordMeter } from "@/components/auth";
 import {
   CodeBlock,
   ConfirmDialog,
@@ -17,32 +18,10 @@ import {
 } from "@/components/kit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input, Textarea } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { formatMoney } from "@/lib/dashboard/format";
 
 const SWATCHES: { group: string; tokens: { name: string; className: string; note?: string }[] }[] = [
@@ -50,26 +29,28 @@ const SWATCHES: { group: string; tokens: { name: string; className: string; note
     group: "Surfaces",
     tokens: [
       { name: "canvas", className: "bg-canvas", note: "page" },
-      { name: "surface", className: "bg-surface", note: "cards, tables" },
-      { name: "surface-raised", className: "bg-surface-raised", note: "menus, dialogs" },
+      { name: "surface", className: "bg-surface", note: "cards, inputs" },
       { name: "surface-subtle", className: "bg-surface-subtle", note: "hover, headers" },
-      { name: "surface-muted", className: "bg-surface-muted", note: "selected" },
+      { name: "surface-muted", className: "bg-surface-muted", note: "selected, skeletons" },
+      { name: "line", className: "bg-line", note: "card edges" },
     ],
   },
   {
-    group: "Text and lines",
+    group: "Text",
     tokens: [
-      { name: "fg", className: "bg-fg", note: "primary" },
+      { name: "fg-heading", className: "bg-fg-heading", note: "plum headings" },
+      { name: "fg", className: "bg-fg", note: "body" },
       { name: "fg-muted", className: "bg-fg-muted", note: "secondary" },
       { name: "fg-subtle", className: "bg-fg-subtle", note: "meta" },
-      { name: "line", className: "bg-line", note: "hairlines" },
-      { name: "line-strong", className: "bg-line-strong", note: "inputs" },
+      { name: "line-strong", className: "bg-line-strong", note: "input borders" },
     ],
   },
   {
     group: "Brand and status",
     tokens: [
-      { name: "brand", className: "bg-brand", note: "the one accent" },
+      { name: "brand", className: "bg-brand", note: "Pickriders teal" },
+      { name: "brand-solid", className: "bg-brand-solid", note: "primary buttons" },
+      { name: "brand-subtle", className: "bg-brand-subtle", note: "brand soft" },
       { name: "success", className: "bg-success" },
       { name: "warning", className: "bg-warning", note: "test mode" },
       { name: "danger", className: "bg-danger" },
@@ -78,417 +59,223 @@ const SWATCHES: { group: string; tokens: { name: string; className: string; note
   },
 ];
 
-const TYPE = [
-  { name: "4xl · 36/40 · 600", className: "text-4xl font-semibold", sample: "Deliveries, as an API." },
-  { name: "3xl · 28/36 · 600", className: "text-3xl font-semibold", sample: "₦1,250,000.00" },
-  { name: "2xl · 22/30 · 600", className: "text-2xl font-semibold", sample: "API keys" },
-  { name: "lg · 16/24 · 600", className: "text-lg font-semibold", sample: "Webhook endpoints" },
-  { name: "base · 14/22", className: "text-base text-fg-muted", sample: "Reading text: descriptions and help." },
-  { name: "sm · 13/20", className: "text-sm", sample: "Controls, tables and labels." },
-  { name: "xs · 12/16", className: "text-xs text-fg-subtle", sample: "Meta: 2 minutes ago · req_7Hq2…" },
-  { name: "mono · 12", className: "font-mono text-xs", sample: "ord_6560f0c2a1b2c3d4e5f60718" },
-];
-
-const KEYS = [
-  {
-    id: "key_6560f0c2a1b2c3d4e5f60718",
-    label: "Production server",
-    prefix: "sk_live_…h7Qa",
-    mode: "live",
-    status: "active",
-    used: "2 minutes ago",
-  },
-  {
-    id: "key_6560f0c2a1b2c3d4e5f60719",
-    label: "CI",
-    prefix: "sk_test_…p2Lx",
-    mode: "test",
-    status: "active",
-    used: "Yesterday",
-  },
-  {
-    id: "key_6560f0c2a1b2c3d4e5f60720",
-    label: "Old checkout",
-    prefix: "sk_live_…9dKe",
-    mode: "live",
-    status: "rolling",
-    used: "3 days ago",
-  },
-  {
-    id: "key_6560f0c2a1b2c3d4e5f60721",
-    label: "Laptop",
-    prefix: "sk_test_…Rr0m",
-    mode: "test",
-    status: "revoked",
-    used: "Never",
-  },
-] as const;
-
-const STATUS_BADGE = {
-  active: { variant: "success", label: "Active" },
-  rolling: { variant: "warning", label: "Expires in 23h" },
-  revoked: { variant: "neutral", label: "Revoked" },
-} as const;
-
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-24 space-y-4 border-t border-line py-10 first:border-t-0 first:pt-0">
-      <h2 className="text-lg font-semibold text-fg">{title}</h2>
+    <section id={id} className="scroll-mt-24 space-y-4 border-t border-line pt-10 first:border-0 first:pt-0">
+      <h2 className="text-xl font-extrabold tracking-tight text-fg-heading">{title}</h2>
       {children}
     </section>
   );
 }
 
 export function Showcase() {
-  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [modal, setModal] = React.useState(false);
+  const [confirm, setConfirm] = React.useState(false);
+  const [toggle, setToggle] = React.useState(true);
+  const [code, setCode] = React.useState("48");
+  const [password, setPassword] = React.useState("tiger-lamp-rain");
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-12">
       <Section id="colour" title="Colour">
-        <p className="max-w-2xl text-base text-fg-muted">
-          Neutral surfaces and one accent, Pickriders teal. Status colours appear in small doses (dots, badges, banners)
-          and always come with words.
-        </p>
-        <div className="grid gap-6 md:grid-cols-3">
-          {SWATCHES.map(({ group, tokens }) => (
-            <div key={group} className="space-y-2">
-              <p className="text-xs font-medium text-fg-subtle">{group}</p>
-              <ul className="overflow-hidden rounded-lg border border-line bg-surface">
-                {tokens.map((token) => (
-                  <li
-                    key={token.name}
-                    className="flex items-center gap-3 border-b border-line px-3 py-2 last:border-b-0"
-                  >
-                    <span className={`size-6 shrink-0 rounded-md border border-line ${token.className}`} />
-                    <code className="text-xs text-fg">{token.name}</code>
-                    {token.note && <span className="ml-auto text-xs text-fg-subtle">{token.note}</span>}
-                  </li>
-                ))}
-              </ul>
+        {SWATCHES.map(({ group, tokens }) => (
+          <div key={group} className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-fg-subtle">{group}</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              {tokens.map((t) => (
+                <div key={t.name} className="space-y-1.5">
+                  <div className={`h-14 rounded-xl border border-line ${t.className}`} />
+                  <p className="font-mono text-xs text-fg">{t.name}</p>
+                  {t.note && <p className="text-xs text-fg-subtle">{t.note}</p>}
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        ))}
+        <div className="h-24 rounded-2xl bg-gradient-to-br from-plum via-plum-mid to-[#3fa49f] p-5 text-white">
+          <p className="text-lg font-black">The brand gradient</p>
+          <p className="text-sm text-white/75">Plum to teal: the auth panel and nowhere else.</p>
         </div>
       </Section>
 
       <Section id="type" title="Typography">
-        <p className="max-w-2xl text-base text-fg-muted">
-          Geist for the interface, Geist Mono for anything a developer copies. Weights 400, 500 and 600; headings
-          tighten as they grow.
-        </p>
-        <div className="divide-y divide-line rounded-lg border border-line bg-surface">
-          {TYPE.map((row) => (
-            <div key={row.name} className="flex flex-col gap-1 px-5 py-3 sm:flex-row sm:items-baseline sm:gap-6">
-              <code className="w-40 shrink-0 text-2xs text-fg-subtle">{row.name}</code>
-              <span className={`min-w-0 truncate ${row.className}`}>{row.sample}</span>
-            </div>
-          ))}
+        <div className="space-y-3">
+          <p className="text-[2.5rem] font-black leading-tight tracking-tight text-fg-heading">
+            Deliveries, as an API.
+          </p>
+          <p className="text-[1.75rem] font-black tracking-tight text-fg-heading">Auth and empty-state titles</p>
+          <p className="text-2xl font-extrabold tracking-tight text-fg-heading">Page title</p>
+          <p className="text-lg font-bold text-fg-heading">Section and dialog title</p>
+          <p className="max-w-prose text-[15px] leading-6 text-fg-muted">
+            Reading text in Urbanist, the storefront&apos;s typeface. Ids and code use Geist Mono, like{" "}
+            <code className="text-sm text-fg">ord_8Hf2kQ</code>.
+          </p>
+          <p className="text-sm text-fg">Controls, tables and labels: 14px.</p>
+          <p className="text-xs text-fg-subtle">Meta and timestamps: 12px.</p>
         </div>
       </Section>
 
       <Section id="buttons" title="Buttons">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <Button>
             <Plus /> Create key
           </Button>
-          <Button variant="secondary">Export CSV</Button>
-          <Button variant="outline">Cancel</Button>
-          <Button variant="ghost">
-            <RotateCw /> Refresh
+          <Button variant="secondary">
+            <RotateCw /> Roll key
           </Button>
-          <Button variant="destructive">Revoke key</Button>
+          <Button variant="ghost">Cancel</Button>
+          <Button variant="danger">
+            <Trash2 /> Revoke
+          </Button>
           <Button variant="link">View docs</Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="lg">Large</Button>
-          <Button>Default</Button>
-          <Button size="sm">Small</Button>
-          <Button size="xs" variant="secondary">
-            Extra small
-          </Button>
-          <Button size="icon" variant="secondary" aria-label="Search">
-            <Search />
-          </Button>
           <Button loading>Saving</Button>
-          <Button variant="secondary" disabled>
-            Disabled
+          <Button disabled>Disabled</Button>
+          <Button size="sm" variant="secondary">
+            Small
           </Button>
         </div>
       </Section>
 
       <Section id="status" title="Status">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="success" dot>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="success" dot>
             Delivered
           </Badge>
-          <Badge variant="info" dot>
-            In transit
+          <Badge tone="warning" dot>
+            Test
           </Badge>
-          <Badge variant="brand" dot>
-            Searching
-          </Badge>
-          <Badge variant="warning" dot>
-            Test mode
-          </Badge>
-          <Badge variant="danger" dot>
+          <Badge tone="danger" dot>
             Failed
           </Badge>
-          <Badge variant="neutral" dot>
-            Cancelled
+          <Badge tone="info" dot>
+            In transit
           </Badge>
-          <Badge variant="outline">order.delivered</Badge>
-          <Badge variant="neutral">
-            <code>200</code>
-          </Badge>
-          <Badge variant="danger">
-            <code>402</code>
-          </Badge>
+          <Badge tone="brand">Live</Badge>
+          <Badge>Draft</Badge>
         </div>
-        <TestModeBanner className="rounded-md border" />
+        <TestModeBanner />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FormAlert title="That email and password don't match.">
+            Forgot it? <a href="#status">Reset your password</a>
+          </FormAlert>
+          <FormAlert tone="info" title="Your session expired.">
+            Sign in again to pick up where you left off.
+          </FormAlert>
+          <FormAlert tone="success" title="We sent a new code." />
+        </div>
       </Section>
 
       <Section id="forms" title="Forms">
-        <div className="grid max-w-3xl gap-5 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="url">Endpoint URL</Label>
-            <Input id="url" placeholder="https://api.acme.com/pickriders/webhooks" />
-            <p className="text-xs text-fg-subtle">Must be https and publicly reachable.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="amount">Top-up amount</Label>
-            <Input id="amount" defaultValue="500" aria-invalid aria-describedby="amount-error" />
-            <p id="amount-error" className="text-xs text-danger-fg">
-              The smallest top-up is ₦1,000.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Role</Label>
-            <Select defaultValue="developer">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="developer">Developer</SelectItem>
-                <SelectItem value="finance">Finance</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="disabled">Disabled</Label>
-            <Input id="disabled" disabled value="sk_live_… (locked until live access)" readOnly />
-          </div>
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="desc">Description</Label>
-            <Textarea id="desc" placeholder="What this endpoint is for, so your team knows." />
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Switch id="auto" defaultChecked />
-            <Label htmlFor="auto">Auto top-up</Label>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Checkbox id="events" defaultChecked />
-            <Label htmlFor="events">Send me failure emails</Label>
-          </div>
+        <div className="grid max-w-2xl gap-5 sm:grid-cols-2">
+          <Field id="d-email" label="Email" hint="We'll never share it.">
+            {(a11y) => <Input {...a11y} type="email" placeholder="ada@acme.com" />}
+          </Field>
+          <Field id="d-name" label="Team name" error="Enter a team name.">
+            {(a11y) => <Input {...a11y} />}
+          </Field>
+          <Field id="d-password" label="Password">
+            {(a11y) => (
+              <div className="space-y-2.5">
+                <PasswordInput {...a11y} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordMeter value={password} />
+              </div>
+            )}
+          </Field>
+          <Field id="d-code" label="Verification code">
+            {(a11y) => <CodeInput {...a11y} value={code} onChange={setCode} />}
+          </Field>
+          <Field id="d-notes" label="Use case" className="sm:col-span-2">
+            {(a11y) => <Textarea {...a11y} placeholder="What will you deliver?" />}
+          </Field>
+          <label className="flex items-center gap-3 text-sm font-semibold text-fg">
+            <ToggleSwitch checked={toggle} onChange={setToggle} ariaLabel="Email me when an endpoint fails" />
+            Email me when an endpoint fails
+          </label>
         </div>
       </Section>
 
       <Section id="data" title="Data">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Orders today" value="1,284" trend={{ value: "+12%", direction: "up" }} hint="vs yesterday" />
-          <StatCard
-            label="Delivery success"
-            value="98.6%"
-            trend={{ value: "−0.4%", direction: "down" }}
-            hint="last 7 days"
-          />
-          <StatCard label="Wallet balance" value={formatMoney(125_000_000)} hint="₦3,500 held for 2 orders" />
-          <StatCard
-            label="API error rate"
-            value="0.12%"
-            trend={{ value: "−0.05%", direction: "down", invert: true }}
-            hint="last 24h"
-          />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Wallet balance" value={formatMoney(12_450_000)} hint="Test mode" />
+          <StatCard label="Orders this week" value="128" />
+          <StatCard label="Webhook success" value="99.2%" />
         </div>
         <Panel
-          flush
           title="API keys"
-          description="Keys authenticate your server. Keep them secret; roll one if it leaks."
-          actions={
-            <Button size="sm">
-              <Plus /> Create key
-            </Button>
-          }
-          footer={
-            <>
-              <span>4 keys</span>
-              <span className="flex items-center gap-1.5">
-                Press <Kbd>⌘</Kbd>
-                <Kbd>K</Kbd> to search
-              </span>
-            </>
-          }
+          description="Secret keys for the Pickriders API."
+          actions={<Button size="sm">New key</Button>}
         >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last used</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {KEYS.map((key) => (
-                <TableRow key={key.id}>
-                  <TableCell>
-                    <div className="font-medium text-fg">{key.label}</div>
-                    <IdText value={key.id} />
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-xs text-fg-muted">{key.prefix}</code>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={key.mode === "live" ? "outline" : "warning"}>
-                      {key.mode === "live" ? "Live" : "Test"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_BADGE[key.status].variant} dot>
-                      {STATUS_BADGE[key.status].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-fg-subtle">{key.used}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${key.label}`}>
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem>
-                          <RotateCw /> Roll key
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-danger-fg focus:text-danger-fg"
-                          onSelect={() => setConfirmOpen(true)}
-                        >
-                          <Trash2 /> Revoke key
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <ul className="divide-y divide-line text-sm">
+            {[
+              ["Production server", "sk_test_example_not_a_real_key", "Created 12 Nov"],
+              ["CI", "sk_test_example_ci_key", "Created 3 Oct"],
+            ].map(([name, id, meta]) => (
+              <li key={id} className="flex items-center gap-4 px-5 py-3.5">
+                <span className="grid size-9 place-items-center rounded-xl bg-brand-subtle text-brand-fg">
+                  <KeyRound className="size-4" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-fg">{name}</span>
+                  <IdText value={id} />
+                </span>
+                <span className="text-xs text-fg-subtle">{meta}</span>
+              </li>
+            ))}
+          </ul>
         </Panel>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
+        <CodeBlock
+          label="Create an order"
+          code={`curl https://api.pickriders.com/developer/api/v1/orders \\\n  -H "Authorization: Bearer sk_test_…" \\\n  -d @order.json`}
+        />
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-11 w-full" />
         </div>
+        <Panel>
+          <EmptyState
+            icon={<Webhook />}
+            title="No webhook endpoints yet"
+            description="Add an endpoint to hear about every order status change."
+            action={<Button size="sm">Add endpoint</Button>}
+          />
+        </Panel>
       </Section>
 
       <Section id="feedback" title="Overlays and feedback">
-        <div className="flex flex-wrap items-center gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="secondary">
-                <KeyRound /> Show a new key
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Your new secret key</DialogTitle>
-                <DialogDescription>
-                  Store it in your server&apos;s secrets. Anyone with it can create orders on your account.
-                </DialogDescription>
-              </DialogHeader>
-              <SecretReveal secret="sk_test_51PqRsTuVwXyZ0123456789abcdefGHIJ" />
-              <DialogFooter>
-                <Button>I&apos;ve saved it</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Button variant="secondary" onClick={() => setConfirmOpen(true)}>
-            Confirm a destructive action
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="secondary" onClick={() => setModal(true)}>
+            Show a secret
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => toast.success("Webhook endpoint created", { description: "we_6560f0c2a1b2" })}
-          >
+          <Button variant="secondary" onClick={() => setConfirm(true)}>
+            Confirm a revoke
+          </Button>
+          <Button variant="secondary" onClick={() => toast.success("Key created.")}>
             Toast
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() =>
-              toast.error("Insufficient funds", { description: "insufficient_funds_error · req_7Hq2kLmN9pQr" })
-            }
-          >
-            Error toast
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Webhook help">
-                <Webhook />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Events are signed with your endpoint&apos;s secret</TooltipContent>
-          </Tooltip>
+          <span className="text-sm text-fg-muted">
+            Search <Kbd>⌘</Kbd> <Kbd>K</Kbd>
+          </span>
         </div>
+        <Modal open={modal} onClose={() => setModal(false)} title="Your new secret key">
+          <div className="space-y-4">
+            <p className="flex items-center gap-2 text-sm text-fg-muted">
+              <Mail className="size-4 text-brand" aria-hidden /> Store it somewhere safe, like your secrets manager.
+            </p>
+            <SecretReveal secret="sk_test_example_not_a_real_key" />
+            <Button fullWidth onClick={() => setModal(false)}>
+              I&apos;ve saved it
+            </Button>
+          </div>
+        </Modal>
         <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          title="Revoke “Production server”?"
-          description="Apps using this key stop working immediately. This can't be undone."
+          open={confirm}
+          onOpenChange={setConfirm}
+          title="Revoke this key?"
+          description="Apps using it stop working immediately. This can't be undone."
           confirmLabel="Revoke key"
-          onConfirm={() => new Promise((resolve) => setTimeout(resolve, 700))}
+          typeToConfirm="CI"
+          onConfirm={() => new Promise((r) => setTimeout(r, 800))}
         />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <CodeBlock
-            label="Create an order"
-            code={`curl https://api.pickriders.com/developer/api/v1/orders \\
-  -H "Authorization: Bearer sk_test_…" \\
-  -H "Idempotency-Key: 7c1e…" \\
-  -d '{"quote_id": "quo_6560f0c2a1b2c3d4e5f60718"}'`}
-          />
-          <Panel flush>
-            <EmptyState
-              icon={<Webhook />}
-              title="No webhook endpoints yet"
-              description="Add an endpoint to get order and wallet events as they happen, signed and retried for 3 days."
-              action={
-                <Button size="sm">
-                  <Plus /> Add endpoint
-                </Button>
-              }
-            />
-          </Panel>
-        </div>
-      </Section>
-
-      <Section id="navigation" title="Navigation">
-        <Tabs defaultValue="deliveries">
-          <TabsList>
-            <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-          <TabsContent value="deliveries" className="text-sm text-fg-muted">
-            Underlined tabs for sections of one page; the selected one is ink.
-          </TabsContent>
-          <TabsContent value="events" className="text-sm text-fg-muted">
-            Events tab.
-          </TabsContent>
-          <TabsContent value="settings" className="text-sm text-fg-muted">
-            Settings tab.
-          </TabsContent>
-        </Tabs>
       </Section>
     </div>
   );

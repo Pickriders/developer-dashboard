@@ -1,131 +1,117 @@
 # Design system
 
-The developer dashboard should feel like the best developer tools: calm, dense and exact. Someone
-pastes ids into it, compares amounts, reads logs at 2 a.m. and trusts it with money. The look gets
-out of the way of that.
+The developer dashboard looks and feels like the **Pickriders storefront dashboard**
+(`pickriders_storefront`): Pickriders teal and plum, Urbanist, roomy 44px controls, rounded-xl
+cards with a soft shadow, heavy headings, and the plum-to-teal brand panel on the auth pages. It
+adds what a developer console needs on top: Geist Mono for ids and code, dark mode, test-mode
+amber, and contrast checked against WCAG AA.
 
 See it live at **`/design`** (every token and component, in the current theme). Tokens live in
 `src/app/globals.css`, their Tailwind names in `tailwind.config.ts`, components in
-`src/components/ui` (shadcn primitives, restyled) and `src/components/kit` (our patterns).
+`src/components/ui` (primitives, ported from the storefront) and `src/components/kit` (our
+patterns). There is no shadcn/ui and no Radix: the components are our own, like the storefront's.
 
 ## Principles
 
-1. **Neutral first, one accent.** Every surface is grey. Pickriders teal (`brand`) is the only
-   accent: focus rings, the selected nav item, switches, links, charts. Never a page or card fill.
-2. **Colour means something.** Green, amber, red and blue are for status, in small doses: a dot, a
-   tinted badge, a slim banner. A colour always comes with a word ("Failed", not just red).
-3. **Amber means test mode.** Test data is never mistaken for live: a persistent amber banner and
-   amber "Test" badges. Nothing else uses amber as a background.
-4. **Hairlines, not shadows.** Cards and tables are flat, with a 1px `line`. Only what floats
-   (menus, popovers, dialogs, toasts) has a shadow.
-5. **Dense, not cramped.** 13px controls and table text, 32px controls, 40px rows, on a 4px grid.
-   Developers read dense tables well; don't pad them into "clean" emptiness.
-6. **Mono for what you copy.** Ids (`ord_…`), keys, request ids, event types, status codes and
-   code: Geist Mono, with a copy button where it helps. Numbers use tabular figures.
-7. **Ink is the primary action.** One ink button per view (near-black, near-white in dark).
-   Everything else is secondary, ghost or a link.
-8. **Light and dark are equals.** Every token has both values; the theme follows the system by
-   default. Text meets WCAG AA (4.5:1) on every surface it sits on, in both themes.
+1. **One family with the storefront.** A vendor who also integrates by API should feel at home:
+   same palette, type, shapes and motion. When in doubt, look at how the storefront does it.
+2. **Teal acts, plum speaks.** Primary actions are teal (`brand-solid`); headings are plum
+   (`fg-heading`). The plum-to-teal gradient is for the auth brand panel only.
+3. **Colour means something.** Green, amber, red and blue are for status, as soft pills and slim
+   banners, always with a word ("Failed", not just red).
+4. **Amber means test mode.** Test data is never mistaken for live: a persistent amber banner and
+   amber "Test" pills.
+5. **Roomy controls, calm surfaces.** 44px buttons and inputs (`min-h-11`), 16px text in inputs on
+   phones (no iOS zoom), cards with a hairline and `shadow-card` on the `canvas` page colour.
+6. **Mono for what you copy.** Ids (`ord_…`), keys, request ids, event types and code use Geist
+   Mono, with a copy button where it helps.
+7. **Light and dark are equals.** Every token has both values (dark from the storefront admin's
+   dark theme); the theme follows the system by default. Text meets WCAG AA (4.5:1).
 
 ## Colour tokens
 
-Written as RGB channels, so opacity modifiers work: `bg-brand/10`.
+Written as RGB channels, so opacity modifiers work: `bg-brand/10`. Values from the storefront's
+`.admin-root` tokens, adjusted where a text colour fell short of AA.
 
-| Token            | Light   | Dark    | Use                                   |
-| ---------------- | ------- | ------- | ------------------------------------- |
-| `canvas`         | #fafafa | #0a0a0a | The page behind everything            |
-| `surface`        | #ffffff | #111111 | Cards, tables, inputs, sidebar        |
-| `surface-raised` | #ffffff | #171717 | Menus, popovers, dialogs              |
-| `surface-subtle` | #f5f5f5 | #1a1a1a | Hover, table header, recessed areas   |
-| `surface-muted`  | #ededed | #232323 | Selected, pressed, skeletons          |
-| `line`           | #ebebeb | #242424 | Hairlines: card edges, dividers, rows |
-| `line-strong`    | #d6d6d6 | #363636 | Input borders, emphasised edges       |
-| `fg`             | #171717 | #ededed | Primary text, ink buttons             |
-| `fg-muted`       | #5c5c5c | #a1a1a1 | Secondary text, labels                |
-| `fg-subtle`      | #6b6b6b | #878787 | Meta, timestamps, placeholders        |
-| `brand`          | #3fa49f | #45b3ad | The accent (see principle 1)          |
-| `brand-fg`       | #1f6f6b | #6fd2cb | Links and brand text                  |
+| Token              | Light            | Dark    | Use                                                       |
+| ------------------ | ---------------- | ------- | --------------------------------------------------------- |
+| `canvas`           | #f4f7f7          | #0d1211 | The page behind everything                                |
+| `surface`          | #ffffff          | #141b1a | Cards, inputs, the auth form column                       |
+| `surface-raised`   | #ffffff          | #1a2322 | Modals, toasts                                            |
+| `surface-subtle`   | #f1f5f4          | #172120 | Hover, table header, read-only inputs                     |
+| `surface-muted`    | #e9efee          | #212c2b | Selected, skeletons, empty meter bars                     |
+| `line`             | #e3e9e8          | #212c2b | Card edges, dividers                                      |
+| `line-strong`      | #cbd5d3          | #2f3d3b | Input borders                                             |
+| `fg-heading`       | #1a1230          | #e9efee | Headings: Pickriders plum                                 |
+| `fg`               | #111716          | #e9efee | Body text                                                 |
+| `fg-muted`         | #5f6d6b          | #96a5a2 | Secondary text                                            |
+| `fg-subtle`        | #66736f          | #808f8c | Meta, placeholders                                        |
+| `brand`            | #3fa49f          | #55b9b3 | Accents: focus ring, icons, selected nav, charts          |
+| `brand-solid`      | #2a817c          | #55b9b3 | Primary button fill (white text light, ink dark)          |
+| `brand-fg`         | #286f6b          | #6fd2cb | Links and brand text                                      |
+| `brand-subtle`     | #e6f4f3          | #143331 | The storefront's brand-soft: icon tiles, tints            |
+| `plum`, `plum-mid` | #1a1230, #2e1030 | same    | The auth gradient (`from-plum via-plum-mid to-[#3fa49f]`) |
 
-Status tones (`success`, `warning`, `danger`, `info`) each have four tokens: the solid (dots,
-fills), `-fg` (text), `-subtle` (tinted background) and `-line` (its border). Use them together:
-`border-success-line bg-success-subtle text-success-fg`, which is what `<Badge variant="success">`
-does.
+The storefront fills buttons with `#3fa49f`, which carries white text at only 3:1, so primary
+buttons here use the deeper `brand-solid` (4.6:1) and keep `#3fa49f` for accents.
 
-shadcn's own names (`background`, `primary`, `muted`, `accent`, `destructive`, `border`,
-`input`, `ring`, `card`, `popover`) are mapped onto these, so primitives from the CLI follow the
-system. Note that shadcn's `accent` is a hover fill, not our brand accent.
+Status tones (`success`, `warning`, `danger`, `info`) each have the solid, `-fg` (text),
+`-subtle` (tint) and `-line` (border). A pill is `bg-success-subtle text-success-fg`, which is
+what `<Badge tone="success">` does.
 
 ## Type
 
-Geist Sans for the interface, Geist Mono for code and ids (`geist` package). Weights 400, 500 and
-600 only. Headings tighten as they grow.
+Urbanist (the storefront's face) for the interface, Geist Mono for code and ids. Tailwind's default
+scale, with weight doing the work:
 
-| Class       | Size / line       | Use                                   |
-| ----------- | ----------------- | ------------------------------------- |
-| `text-4xl`  | 36 / 40, −0.025em | Rare: empty-page hero                 |
-| `text-3xl`  | 28 / 36, −0.02em  | Headline numbers (StatCard)           |
-| `text-2xl`  | 22 / 30, −0.015em | Page titles (PageHeader)              |
-| `text-lg`   | 16 / 24           | Section and dialog titles             |
-| `text-base` | 14 / 22           | Reading text: descriptions, help      |
-| `text-sm`   | 13 / 20           | The default: controls, tables, labels |
-| `text-xs`   | 12 / 16           | Meta, badges, table headers, mono ids |
-| `text-2xs`  | 11 / 16           | Kbd, dense annotations                |
+| Use                        | Classes                                                    |
+| -------------------------- | ---------------------------------------------------------- |
+| Brand panel headline       | `text-[2.5rem] font-black tracking-tight`                  |
+| Auth and empty-state title | `text-[1.75rem] font-black tracking-tight text-fg-heading` |
+| Page title (PageHeader)    | `text-2xl font-extrabold tracking-tight text-fg-heading`   |
+| Section and dialog title   | `text-lg font-bold text-fg-heading`                        |
+| Reading text               | `text-[15px] leading-6 text-fg-muted`                      |
+| Controls, labels, tables   | `text-sm` (labels `font-semibold`)                         |
+| Meta                       | `text-xs text-fg-subtle`                                   |
 
-## Shape, space and depth
+## Shape, space and motion
 
-- **Radius:** 8px cards and dialogs (`rounded-lg`), 6px buttons and inputs (`rounded-md`), 4px
-  badges (`rounded-sm`). Nothing rounder on functional UI; pills only for avatars and dots.
-- **Spacing:** multiples of 4px. Panels pad 20px; page sections are 40px apart.
-- **Heights:** controls 32px (`h-8`), small 28px, large 40px; table rows 40px; header 56px;
-  sidebar 240px.
-- **Shadows:** `shadow-xs` (buttons, inputs), `shadow-popover` (menus, toasts, tooltips),
-  `shadow-dialog` (dialogs, sheets). Dark mode swaps the drop shadow for a faint white ring.
-- **Focus:** a 2px brand ring with a 2px gap (`focus-ring`); inputs get a brand border and a
-  soft 3px glow. Every interactive element shows focus.
-- **Motion:** 120ms for hover and colour, 200ms for overlays, `ease-out` (`cubic-bezier(0.16, 1,
-0.3, 1)`). No bounce, no motion that delays the next action.
+- **Radius:** buttons `rounded-xl` (12px), inputs `rounded-lg`, cards and panels `rounded-xl`,
+  modals `rounded-2xl` (a bottom sheet with `rounded-t-2xl` on phones), pills `rounded-full`.
+- **Heights:** buttons and inputs 44px (`min-h-11`), small buttons 36px, code boxes 64px.
+- **Shadows:** `shadow-card` (cards, panels), `shadow-button` (buttons, inputs), `shadow-pop`
+  (modals, toasts).
+- **Focus:** inputs get a brand border and a 4px `brand/15` glow; everything else the
+  `focus-ring` (2px brand ring with a gap).
+- **Motion:** buttons press to 97% on tap and show a spinner over the label while loading (the
+  button never changes size); content slides up 6px on arrival; a wrong code shakes. Everything
+  decorative respects `prefers-reduced-motion`.
 
 ## Components
 
-**Primitives** (`components/ui`, from `npx shadcn@2.3.0 add …`, then restyled): Button (ink,
-secondary, outline, ghost, destructive, link; xs/sm/default/lg/icon; `loading`), Badge (tones,
-`dot`), Input, Textarea, Select, Checkbox, Switch, Label, Tabs (underlined), Table, Dialog,
-AlertDialog, Sheet, DropdownMenu, Popover, Tooltip (ink), Skeleton (shimmer), Toaster.
+**Primitives** (`components/ui`, ported from the storefront): `Button` and `LinkButton` (primary,
+secondary, ghost, danger, link; sm, md, lg, icon; `loading`, `fullWidth`), `Input` and
+`Textarea`, `Badge` (tones, `dot`), `Card`, `Skeleton`, `ToggleSwitch`, `Modal` (native
+`<dialog>`: focus trap and Escape for free), `Toaster` (Sonner, restyled).
+
+**Auth** (`components/auth`): `AuthShell` (brand panel + form column), `AuthHeading`, `Field`
+(label, control, error or hint, wired for screen readers), `PasswordInput` (show/hide, Caps Lock),
+`PasswordMeter`, `CodeInput` (one real input drawn as boxes: paste, SMS autofill, shake),
+`ResendButton`, `FormAlert` / `ApiErrorAlert`, `SignOutButton`.
 
 **Kit** (`components/kit`): PageHeader, Panel, StatCard, IdText, CopyButton, CodeBlock,
-SecretReveal, ConfirmDialog, EmptyState, TestModeBanner, Kbd, ThemeToggle. Build pages from these
-first; add to the kit when a pattern repeats.
+SecretReveal, ConfirmDialog (the storefront's, with `typeToConfirm`), EmptyState, TestModeBanner,
+Kbd, ThemeToggle. Build pages from these first; add to the kit when a pattern repeats, and show it
+on `/design`.
 
-Adding a primitive: `npx shadcn@2.3.0 add <name>`, then bring it onto the tokens (surfaces,
-`line`, `focus-ring`, `shadow-popover` for floating things) and show it on `/design`.
+## Forms
+
+Errors show under their field, after a submit attempt or once the person has typed and moved on;
+never for a field they only passed through. The first invalid field takes focus on submit. API
+errors with a `param` go under that field; the rest go in an alert above the form, with the code
+and request id for server faults.
 
 ## Writing
 
-Name things by what they do ("Revoke key", not "Confirm"). Say what happens ("Apps using this
-key stop working immediately"). Show the API's error `code` and `request_id` so developers can
-search the docs and the request log. Sentence case everywhere.
-
-## Where this comes from
-
-Researched against the consoles developers already trust, keeping what they share and leaving
-their brands behind:
-
-- **Vercel (Geist):** a near-monochrome scale, one interactive accent, Geist and Geist Mono,
-  shadow-as-border hairlines, 6px controls, weights 400–600, status as small dots
-  ([Geist on shadcn](https://www.shadcn.io/design/vercel),
-  [extracted tokens](https://github.com/educlopez/design-bites/blob/main/design-mds/vercel.com/DESIGN.md)).
-- **Linear:** achromatic surfaces in an elevation ladder, a single accent never used as a fill,
-  tight negative tracking on headings, 8px buttons
-  ([how Linear redesigned its UI](https://linear.app/now/how-we-redesigned-the-linear-ui),
-  [tokens](https://github.com/voltagent/awesome-design-md/blob/main/design-md/linear.app/DESIGN.md)).
-- **Stripe:** neutral surfaces, one primary accent and semantic colour only for status; test
-  mode signalled so nobody charges a real card
-  ([dashboard breakdown](https://www.925studios.co/blog/stripe-dashboard-design-breakdown)).
-- **Radix Colors:** a scale where each step has a job (app backgrounds, component backgrounds,
-  borders, solids, text), which is how the surface and line tokens are assigned
-  ([understanding the scale](https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale)).
-- **Resend, Supabase, Raycast:** one headline number then a log-style table; three or four stat
-  cards at most; dark mode as a first-class theme
-  ([SaaS dashboard examples](https://www.925studios.co/blog/saas-dashboard-design-examples-2026)).
-- **Data tables for developers:** dense rows, horizontal rules only, sticky headers, a quiet
-  hover ([LogRocket](https://blog.logrocket.com/ux-design/data-table-design-best-practices/)).
+Name things by what they do ("Revoke key", not "Confirm"). Say what happens ("Apps using this key
+stop working immediately"). Sentence case everywhere.

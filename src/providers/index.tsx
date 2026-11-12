@@ -4,8 +4,10 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { toast } from "sonner";
+
+import { Toaster } from "@/components/ui/toaster";
+import { takeFlash } from "@/lib/session/navigate";
 
 /** Everything client-side the whole app shares: theme, server state, toasts and tooltips. */
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -23,11 +25,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider delayDuration={300}>
-          {children}
-          <Toaster position="bottom-right" />
-        </TooltipProvider>
+        {children}
+        <Toaster />
+        <Flash />
       </QueryClientProvider>
     </ThemeProvider>
   );
+}
+
+/** Shows the message a page left before a full reload (crossSessionBoundary), once. */
+function Flash() {
+  React.useEffect(() => {
+    const message = takeFlash();
+    if (message) toast.success(message);
+  }, []);
+  return null;
 }

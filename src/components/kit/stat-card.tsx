@@ -23,9 +23,9 @@ export function StatCard({
 }) {
   const good = trend && trend.direction !== "flat" && (trend.direction === "up") !== !!trend.invert;
   return (
-    <div className={cn("rounded-lg border border-line bg-surface p-4", className)}>
+    <div className={cn("rounded-xl border border-line bg-surface p-5 shadow-card", className)}>
       <p className="text-sm text-fg-muted">{label}</p>
-      <p className="mt-1.5 text-3xl font-semibold tabular-nums text-fg">{value}</p>
+      <p className="mt-1.5 text-3xl font-extrabold tracking-tight tabular-nums text-fg-heading">{value}</p>
       {(hint || trend) && (
         <p className="mt-1 flex items-center gap-1.5 text-xs text-fg-subtle">
           {trend && (

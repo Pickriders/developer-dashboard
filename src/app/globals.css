@@ -3,168 +3,143 @@
 @tailwind utilities;
 
 /*
- * Pickriders developer dashboard design system. Every colour is a token, as RGB channels so
- * Tailwind's opacity modifiers work (bg-brand/10). Rules and usage: DESIGN.md.
+ * Pickriders developer dashboard design system: the Pickriders storefront dashboard's palette
+ * (pickriders_storefront, .admin-root tokens), with every text colour checked for WCAG AA. Every
+ * colour is a token, as RGB channels so Tailwind's opacity modifiers work (bg-brand/10). Rules and
+ * usage: DESIGN.md.
  */
 @layer base {
   :root {
     /* Surfaces */
-    --canvas: 250 250 250; /* #fafafa — the page behind everything */
-    --surface: 255 255 255; /* #ffffff — cards, tables, inputs, the sidebar */
-    --surface-raised: 255 255 255; /* #ffffff — menus, popovers, dialogs: floats above surface */
-    --surface-subtle: 245 245 245; /* #f5f5f5 — hover fill, recessed areas, table header */
-    --surface-muted: 237 237 237; /* #ededed — pressed / selected fill, skeletons */
+    --canvas: 244 247 247; /* #f4f7f7 — the page behind everything */
+    --surface: 255 255 255; /* #ffffff — cards, tables, inputs, the auth form column */
+    --surface-raised: 255 255 255; /* #ffffff — menus, dialogs, toasts */
+    --surface-subtle: 241 245 244; /* #f1f5f4 — hover fill, recessed areas, table header */
+    --surface-muted: 233 239 238; /* #e9efee — pressed / selected fill, skeletons */
 
     /* Lines */
-    --line: 235 235 235; /* #ebebeb — hairlines: card edges, dividers, table rows */
-    --line-strong: 214 214 214; /* #d6d6d6 — input borders, emphasised edges */
+    --line: 227 233 232; /* #e3e9e8 — card edges, dividers, table rows */
+    --line-strong: 203 213 211; /* #cbd5d3 — input borders, emphasised edges */
 
     /* Text */
-    --fg: 23 23 23; /* #171717 — primary text, ink buttons */
-    --fg-muted: 92 92 92; /* #5c5c5c — secondary text, labels (≥ 6:1) */
-    --fg-subtle: 107 107 107; /* #6b6b6b — meta, timestamps, placeholders (≥ 4.5:1 up to surface-muted) */
-    --fg-inverse: 255 255 255; /* #ffffff — text on ink */
+    --fg: 17 23 22; /* #111716 — body text */
+    --fg-heading: 26 18 48; /* #1a1230 — Pickriders plum: page and auth headings */
+    --fg-muted: 95 109 107; /* #5f6d6b — secondary text, labels (≥ 4.9:1) */
+    --fg-subtle: 102 115 111; /* #66736f — meta, timestamps, placeholders (≥ 4.5:1 on canvas) */
+    --fg-inverse: 255 255 255;
 
-    /* Brand: Pickriders teal, the only accent */
-    --brand: 63 164 159; /* #3fa49f — focus ring, selected nav, switches, charts. Never a large fill */
-    --brand-fg: 31 111 107; /* #1f6f6b — links and brand text (≥ 4.5:1) */
-    --brand-subtle: 236 247 246; /* #ecf7f6 — tinted background behind brand-fg */
-    --brand-line: 191 227 224; /* #bfe3e0 — border on brand-subtle */
+    /* Brand: Pickriders teal */
+    --brand: 63 164 159; /* #3fa49f — accents: focus, icons, selected nav, charts, the gradient */
+    --brand-solid: 42 129 124; /* #2a817c — primary button fill (white text 4.6:1) */
+    --brand-solid-hover: 35 110 106; /* #236e6a */
+    --brand-ink: 255 255 255; /* text on brand-solid */
+    --brand-fg: 40 111 107; /* #286f6b — links and brand text */
+    --brand-subtle: 230 244 243; /* #e6f4f3 — brand-soft: tinted backgrounds, icon tiles */
+    --brand-line: 191 227 224; /* #bfe3e0 */
 
-    /* Status: small doses only (dots, badges, banners) */
-    --success: 47 158 107; /* #2f9e6b */
-    --success-fg: 24 121 78; /* #18794e */
-    --success-subtle: 235 248 240; /* #ebf8f0 */
-    --success-line: 182 223 198; /* #b6dfc6 */
-    --warning: 245 165 36; /* #f5a524 — test mode and anything provisional */
-    --warning-fg: 145 84 0; /* #915400 */
-    --warning-subtle: 255 246 227; /* #fff6e3 */
-    --warning-line: 242 213 149; /* #f2d595 */
-    --danger: 209 52 58; /* #d1343a — white text on it is 4.9:1 */
-    --danger-fg: 199 42 47; /* #c72a2f */
-    --danger-subtle: 253 238 238; /* #fdeeee */
-    --danger-line: 244 195 197; /* #f4c3c5 */
-    --info: 11 132 232; /* #0b84e8 */
-    --info-fg: 13 111 192; /* #0d6fc0 */
-    --info-subtle: 235 245 255; /* #ebf5ff */
-    --info-line: 182 216 247; /* #b6d8f7 */
+    /* Status */
+    --success: 31 157 97; /* #1f9d61 */
+    --success-fg: 21 122 74; /* #157a4a */
+    --success-subtle: 230 246 238; /* #e6f6ee */
+    --success-line: 181 227 203; /* #b5e3cb */
+    --warning: 201 138 18; /* #c98a12 — test mode */
+    --warning-fg: 138 93 8; /* #8a5d08 */
+    --warning-subtle: 251 243 224; /* #fbf3e0 */
+    --warning-line: 240 217 166; /* #f0d9a6 */
+    --danger: 201 58 58; /* #c93a3a — white text on it 4.7:1 */
+    --danger-fg: 184 50 50; /* #b83232 */
+    --danger-subtle: 252 234 234; /* #fceaea */
+    --danger-line: 243 194 194; /* #f3c2c2 */
+    --info: 59 111 214; /* #3b6fd6 */
+    --info-fg: 44 88 181; /* #2c58b5 */
+    --info-subtle: 232 239 252; /* #e8effc */
+    --info-line: 188 207 244; /* #bccff4 */
 
-    /* shadcn/ui's names, mapped onto the tokens above */
-    --background: var(--canvas);
-    --foreground: var(--fg);
-    --card: var(--surface);
-    --card-foreground: var(--fg);
-    --popover: var(--surface-raised);
-    --popover-foreground: var(--fg);
-    --primary: var(--fg);
-    --primary-foreground: var(--fg-inverse);
-    --secondary: var(--surface-subtle);
-    --secondary-foreground: var(--fg);
-    --muted: var(--surface-subtle);
-    --muted-foreground: var(--fg-muted);
-    --accent: var(--surface-subtle);
-    --accent-foreground: var(--fg);
-    --destructive: var(--danger);
-    --destructive-foreground: 255 255 255;
-    --border: var(--line);
-    --input: var(--line-strong);
-    --ring: var(--brand);
+    /* The brand panel on auth pages: plum to teal */
+    --plum: 26 18 48; /* #1a1230 */
+    --plum-mid: 46 16 48; /* #2e1030 */
 
-    --chart-1: var(--brand);
-    --chart-2: var(--info);
-    --chart-3: var(--success);
-    --chart-4: var(--warning);
-    --chart-5: var(--danger);
-
-    --radius: 0.5rem; /* cards 8px; controls 6px (md); chips 4px (sm) */
-
-    /* Elevation: only for what floats. Cards are flat with a hairline. */
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-    --shadow-popover: 0 1px 1px rgb(0 0 0 / 0.02), 0 4px 8px -4px rgb(0 0 0 / 0.04), 0 16px 24px -8px rgb(0 0 0 / 0.08);
-    --shadow-dialog: 0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.04), 0 24px 32px -8px rgb(0 0 0 / 0.1);
+    --shadow-card: 0 1px 2px rgb(17 23 22 / 0.04), 0 1px 3px rgb(17 23 22 / 0.06);
+    --shadow-pop: 0 12px 40px rgb(17 23 22 / 0.14);
+    --shadow-button: 0 1px 2px rgb(17 23 22 / 0.08);
 
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-    --header-height: 3.5rem;
-    --sidebar-width: 15rem;
+    --header-height: 4rem;
+    --sidebar-width: 15.5rem;
     color-scheme: light;
   }
 
   .dark {
-    /* Surfaces */
-    --canvas: 10 10 10; /* #0a0a0a */
-    --surface: 17 17 17; /* #111111 */
-    --surface-raised: 23 23 23; /* #171717 */
-    --surface-subtle: 26 26 26; /* #1a1a1a */
-    --surface-muted: 35 35 35; /* #232323 */
+    --canvas: 13 18 17; /* #0d1211 */
+    --surface: 20 27 26; /* #141b1a */
+    --surface-raised: 26 35 34; /* #1a2322 */
+    --surface-subtle: 23 33 32; /* #172120 */
+    --surface-muted: 33 44 43; /* #212c2b */
 
-    /* Lines */
-    --line: 36 36 36; /* #242424 */
-    --line-strong: 54 54 54; /* #363636 */
+    --line: 33 44 43; /* #212c2b */
+    --line-strong: 47 61 59; /* #2f3d3b */
 
-    /* Text */
-    --fg: 237 237 237; /* #ededed */
-    --fg-muted: 161 161 161; /* #a1a1a1 */
-    --fg-subtle: 135 135 135; /* #878787 */
-    --fg-inverse: 10 10 10; /* #0a0a0a */
+    --fg: 233 239 238; /* #e9efee */
+    --fg-heading: 233 239 238;
+    --fg-muted: 150 165 162; /* #96a5a2 */
+    --fg-subtle: 128 143 140; /* #808f8c */
+    --fg-inverse: 13 18 17;
 
-    /* Brand: Pickriders teal, the only accent */
-    --brand: 69 179 173; /* #45b3ad */
+    --brand: 85 185 179; /* #55b9b3 */
+    --brand-solid: 85 185 179; /* #55b9b3 — dark text on it, 8:1 */
+    --brand-solid-hover: 111 210 203; /* #6fd2cb */
+    --brand-ink: 7 19 18; /* #071312 */
     --brand-fg: 111 210 203; /* #6fd2cb */
-    --brand-subtle: 13 36 34; /* #0d2422 */
-    --brand-line: 28 69 66; /* #1c4542 */
+    --brand-subtle: 20 51 49; /* #143331 */
+    --brand-line: 31 74 71; /* #1f4a47 */
 
-    /* Status: small doses only (dots, badges, banners) */
-    --success: 48 164 108; /* #30a46c */
-    --success-fg: 61 214 140; /* #3dd68c */
-    --success-subtle: 15 36 26; /* #0f241a */
-    --success-line: 31 74 51; /* #1f4a33 */
-    --warning: 255 178 36; /* #ffb224 */
-    --warning-fg: 241 181 68; /* #f1b544 */
-    --warning-subtle: 42 31 8; /* #2a1f08 */
-    --warning-line: 90 66 16; /* #5a4210 */
-    --danger: 209 52 58; /* #d1343a */
-    --danger-fg: 255 143 143; /* #ff8f8f */
-    --danger-subtle: 44 18 20; /* #2c1214 */
-    --danger-line: 92 36 39; /* #5c2427 */
-    --info: 47 155 255; /* #2f9bff */
-    --info-fg: 112 184 255; /* #70b8ff */
-    --info-subtle: 13 29 51; /* #0d1d33 */
-    --info-line: 29 63 102; /* #1d3f66 */
+    --success: 63 194 127; /* #3fc27f */
+    --success-fg: 95 212 150; /* #5fd496 */
+    --success-subtle: 15 42 29; /* #0f2a1d */
+    --success-line: 29 74 51; /* #1d4a33 */
+    --warning: 224 164 46; /* #e0a42e */
+    --warning-fg: 235 181 79; /* #ebb54f */
+    --warning-subtle: 44 34 16; /* #2c2210 */
+    --warning-line: 90 68 21; /* #5a4415 */
+    --danger: 201 58 58; /* #c93a3a */
+    --danger-fg: 244 138 138; /* #f48a8a */
+    --danger-subtle: 51 23 23; /* #331717 */
+    --danger-line: 92 39 39; /* #5c2727 */
+    --info: 108 148 232; /* #6c94e8 */
+    --info-fg: 143 176 240; /* #8fb0f0 */
+    --info-subtle: 20 32 58; /* #14203a */
+    --info-line: 36 57 106; /* #24396a */
 
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-popover: 0 0 0 1px rgb(255 255 255 / 0.06), 0 16px 32px -8px rgb(0 0 0 / 0.6);
-    --shadow-dialog: 0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 48px -12px rgb(0 0 0 / 0.7);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.5);
+    --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.6);
+    --shadow-button: 0 1px 2px rgb(0 0 0 / 0.4);
     color-scheme: dark;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-line;
   }
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-background font-sans text-sm text-foreground antialiased;
-    font-feature-settings:
-      "ss01" on,
-      "cv11" on;
+    @apply bg-canvas font-sans text-sm text-fg antialiased;
   }
   ::selection {
-    @apply bg-brand/20;
+    @apply bg-brand/25;
   }
   :focus-visible {
     @apply outline-none;
   }
-  /* Ids, keys, amounts: what developers copy and compare. */
+  /* Ids, keys and code: what developers copy and compare. */
   code,
   kbd,
   samp,
   pre {
     @apply font-mono;
-    font-feature-settings: "zero" on;
   }
 }
 
@@ -172,8 +147,8 @@
   .text-balance {
     text-wrap: balance;
   }
-  /* The double ring: a gap in the surface colour, then the brand ring. */
+  /* The double ring: a gap in the page colour, then the brand ring. */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-canvas;
   }
 }

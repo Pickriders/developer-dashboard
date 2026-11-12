@@ -5,16 +5,19 @@ Developer API. They sign up, verify their email and phone, create API keys, mana
 endpoints, read request logs, create and track orders, fund their wallet, manage their team,
 and request live access. Served at `dashboard.pickriders.com`.
 
-**Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3, shadcn/ui
-(`new-york`, Lucide icons) restyled onto **our own design system** (**DESIGN.md**: tokens, Geist
-Sans and Geist Mono, light and dark), TanStack React Query, `next-themes`, Sonner (toasts). React
+**Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3 and **our own
+components in the Pickriders storefront's design** (**DESIGN.md**: tokens, Urbanist and Geist Mono,
+light and dark; no shadcn/ui, no Radix), Lucide icons, TanStack React Query, Formik and Yup (forms),
+`next-themes`, Sonner (toasts), Playwright (end-to-end). React
 Table, Recharts, Formik/Yup and `@vis.gl/react-google-maps` join as pages need them. The same
 framework as `pickrider-admin`, so patterns copy across; the look does not. Deployed on Vercel.
 
 **Path alias:** `@/*` → `src/*`.
 
-> Scaffolded in plan step 11.1 (`create-next-app@14.2.1`, `shadcn@2.3.0`). Folders marked
-> _(later)_ in §3 arrive with the pages that need them.
+> Scaffolded in plan step 11.1 (`create-next-app@14.2.1`). In 11.2 the shadcn primitives were
+> replaced by ports of `pickriders_storefront`'s components, at the product owner's request: the
+> dashboard should look like the storefront dashboard. Folders marked _(later)_ in §3 arrive with
+> the pages that need them.
 
 ---
 
@@ -64,10 +67,11 @@ src/
 ├── app/
 │   ├── (dashboard)/      (later) home (get-started checklist), orders, wallet, keys, webhooks,
 │   │                     logs, team, settings, usage — each with `_components/`
-│   ├── auth/             (later, 11.2) sign-up, login, verify email/phone, reset, invitation
-│   ├── api/session/      (later, 11.2) route handlers that set / clear the session cookie
+│   ├── auth/             login, signup, verify (email then phone), forgot-password, invite
+│   ├── api/backend/      the proxy to the API: session cookie → bearer token (lib/session/proxy.ts)
+│   ├── api/session/      DELETE signs out (clears the cookie)
 │   ├── design/           the design system, live: every token and component (DESIGN.md)
-│   ├── layout.tsx        Geist fonts, <Providers>
+│   ├── layout.tsx        Urbanist + Geist Mono, <Providers>
 │   └── globals.css       the design tokens (light and dark)
 ├── providers/            theme, React Query, toasts, tooltips
 ├── constant/             API_URL (NEXT_PUBLIC_API_URL)
@@ -83,14 +87,29 @@ src/
 ├── lib/mode.tsx          (later) test / live mode context
 ├── components/kit/       PageHeader, Panel, StatCard, IdText, CopyButton, CodeBlock, SecretReveal,
 │                         ConfirmDialog, EmptyState, TestModeBanner, Kbd, ThemeToggle
-├── components/ui/        shadcn primitives, restyled onto the tokens
+├── components/ui/        primitives ported from the storefront (Button, Input, Badge, Modal, …)
+├── components/auth/      AuthShell (brand panel), Field, PasswordInput, CodeInput, alerts
+├── lib/session/          cookie, proxy, guest/open paths, safeRedirect, crossSessionBoundary
 ├── components/brand/     the Logo
-└── middleware.ts         (later, 11.2) auth gate
+└── middleware.ts         the auth gate
 ```
 
-**Auth is global, in `src/middleware.ts`** — it reads the session cookie and redirects to
-`/auth/login?redirect=<original path>`. The session token lives in an **httpOnly** cookie set
-by a route handler, never in `localStorage`. Do not re-implement auth gating per page.
+**Auth is global, in `src/middleware.ts`.** Signed out, every page but the guest pages (login,
+signup, forgot-password) and the open ones (`/auth/invite`, `/design`) redirects to
+`/auth/login?redirect=<original path>`; signed in, the guest pages send you on. Do not
+re-implement auth gating per page.
+
+**The session token never reaches page code.** It lives in an **httpOnly**, `SameSite=Lax`
+cookie. The browser calls our own `/api/backend/<path>`, which forwards to `API_URL/<path>` with
+`Authorization: Bearer <cookie>` (`src/lib/session/proxy.ts`): dashboard routes only, writes only
+from this origin, and sign-in / sign-up / password-reset responses have their `accessToken` moved
+into the cookie and stripped from the body. A 401 clears the cookie.
+
+**Crossing the session boundary is a full page load** (`crossSessionBoundary` in
+`lib/session/navigate.ts`): signing in or out and joining a team. The client router caches pages it
+fetched on the other side of the boundary (e.g. `/` redirecting to sign-in) and would replay them.
+Pass a flash message to show a toast after the load. Never `router.refresh()` right after signing
+in: it re-requests the guest page, whose redirect races your navigation.
 
 ---
 
@@ -100,7 +119,7 @@ by a route handler, never in `localStorage`. Do not re-implement auth gating per
    Everything in `src/services/apiService/` except `index.ts` comes from `yarn generate-types`.
    The dashboard routes are in the generated `Developer` class (`Developer.ts`); `Api.ts` holds
    the rest of the internal API and is unused here. Only `apiService/index.ts` is hand-written
-   (session, `X-Team-Id`, 401 redirect). The dashboard calls the **dashboard routes**
+   (the `/api/backend` base URL, `X-Team-Id`, 401 redirect, `signOut`). The dashboard calls the **dashboard routes**
    (`/developer/api/v1/dashboard/*`), which are in backend-api's internal Swagger document, so
    generate from `/docs/api-json` like the other apps. **No hand-written axios or fetch calls.**
 2. **Every `api.ts` function gets a line in `src/lib/dashboard/api.test.ts`** pinning its
@@ -184,14 +203,15 @@ yarn test
 yarn build
 ```
 
-All four clean (Jest via `next/jest`, `src/**/*.test.ts(x)`), plus Playwright for the flows
+All four clean (Jest via `next/jest`, `src/**/*.test.ts(x)`), plus `yarn e2e` (Playwright, `e2e/`,
+against `e2e/mock-api.mjs`; CI runs it on a production build) for the flows
 named in the plan step. Review your own diff for what tooling can't catch: secret handling,
 team scoping, test-vs-live mode, money conversions, unconfirmed destructive actions, and anything
 off the design system (raw colours, a second accent, shadows on cards). Look at UI changes in
 both themes.
 
 Branch off `dev`; PR into `dev`. Commit only when asked. Never commit `.next/`, `out/`,
-`playwright-report/` or `tsconfig.tsbuildinfo`.
+`playwright-report/`, `test-results/` or `tsconfig.tsbuildinfo`.
 
 **Never add Claude, or any AI tool, as a commit author.** No `Co-Authored-By: Claude …` trailer and no "Generated with Claude Code" line, in commit messages or PR descriptions, even if your tooling suggests one. If you can't commit without it, don't commit: leave the commit to the user.
 

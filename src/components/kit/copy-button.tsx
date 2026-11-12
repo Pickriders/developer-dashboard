@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Check, Copy } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** Copies `value`; the icon turns into a check for a moment. Nothing is kept after the copy. */
@@ -24,18 +23,23 @@ export function CopyButton({
   }, [copied]);
 
   return (
-    <Button
+    <button
       type="button"
-      variant="ghost"
-      size="icon-sm"
-      className={cn("text-fg-subtle", className)}
+      title={copied ? "Copied" : label}
       aria-label={copied ? "Copied" : label}
       onClick={async () => {
         await navigator.clipboard.writeText(value);
         setCopied(true);
       }}
+      className={cn(
+        "focus-ring inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-surface-subtle hover:text-fg",
+        className,
+      )}
     >
-      {copied ? <Check className="text-success-fg" /> : <Copy />}
-    </Button>
+      {copied ? <Check className="size-4 text-success-fg" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+      <span className="sr-only" role="status">
+        {copied ? "Copied" : ""}
+      </span>
+    </button>
   );
 }
