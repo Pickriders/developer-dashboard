@@ -22,7 +22,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     <div
       role="radiogroup"
       aria-label="Theme"
-      className={cn("inline-flex rounded-md border border-line bg-surface-subtle p-0.5", className)}
+      className={cn("inline-flex rounded-lg border border-line bg-surface-subtle p-0.5", className)}
     >
       {OPTIONS.map(({ value, label, icon: Icon }) => {
         const active = mounted && theme === value;
@@ -35,8 +35,8 @@ export function ThemeToggle({ className }: { className?: string }) {
             aria-label={label}
             onClick={() => setTheme(value)}
             className={cn(
-              "focus-ring inline-flex size-6 items-center justify-center rounded-sm text-fg-subtle transition-colors duration-fast hover:text-fg",
-              active && "bg-surface text-fg shadow-xs",
+              "focus-ring inline-flex size-7 items-center justify-center rounded-md text-fg-subtle transition-colors duration-150 hover:text-fg",
+              active && "bg-surface text-fg shadow-button",
             )}
           >
             <Icon className="size-3.5" aria-hidden />

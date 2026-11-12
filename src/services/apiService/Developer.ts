@@ -38,6 +38,8 @@ import {
   DeveloperDashboardListWalletTransactionsData,
   DeveloperDashboardListWalletTransactionsParams,
   DeveloperDeclineInvitationData,
+  DeveloperForgotPasswordData,
+  DeveloperForgotPasswordRequestDto,
   DeveloperGetAccountData,
   DeveloperGetAutoTopUpData,
   DeveloperGetFundingAccountData,
@@ -61,10 +63,16 @@ import {
   DeveloperRemoveMemberData,
   DeveloperRequestLiveAccessData,
   DeveloperResendInvitationData,
+  DeveloperResetPasswordData,
+  DeveloperResetPasswordRequestDto,
   DeveloperRevokeApiKeyData,
   DeveloperRevokeInvitationData,
   DeveloperRollApiKeyData,
   DeveloperSaveAutoTopUpCardData,
+  DeveloperSendEmailCodeData,
+  DeveloperSendEmailCodeRequestDto,
+  DeveloperSendPhoneCodeData,
+  DeveloperSendPhoneCodeRequestDto,
   DeveloperSetLowBalanceAlertData,
   DeveloperSetUpFundingAccountData,
   DeveloperSignupData,
@@ -73,6 +81,9 @@ import {
   DeveloperUpdateAccountData,
   DeveloperUpdateIpAllowlistData,
   DeveloperUpdateMemberRoleData,
+  DeveloperVerifyCodeRequestDto,
+  DeveloperVerifyEmailData,
+  DeveloperVerifyPhoneData,
   LowBalanceAlertDto,
   RollDeveloperApiKeyRequestDto,
   SetUpFundingAccountRequestDto,
@@ -124,7 +135,7 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       ...params,
     });
   /**
-   * @description The signed-in developer and their teams, read fresh. Email and phone are verified through POST /api/v1/auth/verify/email and /verify/phone (codes from /api/v1/auth/resend-token); call this afterwards to refresh `emailVerified`, `phoneVerified` and each team's `canRequestLive`.
+   * @description The signed-in developer and their teams, read fresh.
    *
    * @tags developer-dashboard/auth
    * @name DeveloperMe
@@ -137,6 +148,126 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       path: `/developer/api/v1/dashboard/auth/me`,
       method: "GET",
       secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Emails a verification code to the signed-in developer (sign-up already sent the first). Pass `email` to correct an unverified address first. A new code replaces the last; 429 `code_recently_sent` during the cooldown (`resendAfter` seconds).
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperSendEmailCode
+   * @request POST:/developer/api/v1/dashboard/auth/verification/email/send
+   * @secure
+   * @response `200` `DeveloperSendEmailCodeData`
+   * @response `409` `any` EMAIL_TAKEN
+   * @response `429` `any` code_recently_sent
+   */
+  developerSendEmailCode = (data: DeveloperSendEmailCodeRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperSendEmailCodeData, any>({
+      path: `/developer/api/v1/dashboard/auth/verification/email/send`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Verifies the email with the emailed code. Returns the refreshed `me`.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperVerifyEmail
+   * @request POST:/developer/api/v1/dashboard/auth/verification/email
+   * @secure
+   * @response `200` `DeveloperVerifyEmailData`
+   * @response `400` `any` code_incorrect, code_expired or code_invalid, with param `code`
+   * @response `429` `any` too_many_attempts: ask for a new code
+   */
+  developerVerifyEmail = (data: DeveloperVerifyCodeRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperVerifyEmailData, any>({
+      path: `/developer/api/v1/dashboard/auth/verification/email`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Texts a verification code to the developer's phone. Pass `phone` to correct an unverified number first.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperSendPhoneCode
+   * @request POST:/developer/api/v1/dashboard/auth/verification/phone/send
+   * @secure
+   * @response `200` `DeveloperSendPhoneCodeData`
+   * @response `409` `any` PHONE_TAKEN
+   * @response `429` `any` code_recently_sent
+   */
+  developerSendPhoneCode = (data: DeveloperSendPhoneCodeRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperSendPhoneCodeData, any>({
+      path: `/developer/api/v1/dashboard/auth/verification/phone/send`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Verifies the phone with the texted code. Returns the refreshed `me`.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperVerifyPhone
+   * @request POST:/developer/api/v1/dashboard/auth/verification/phone
+   * @secure
+   * @response `200` `DeveloperVerifyPhoneData`
+   * @response `400` `any` code_incorrect, code_expired or code_invalid, with param `code`
+   * @response `429` `any` too_many_attempts: ask for a new code
+   */
+  developerVerifyPhone = (data: DeveloperVerifyCodeRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperVerifyPhoneData, any>({
+      path: `/developer/api/v1/dashboard/auth/verification/phone`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Emails a reset code. Answers the same whether or not the account exists. Works before the email is verified.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperForgotPassword
+   * @request POST:/developer/api/v1/dashboard/auth/password/forgot
+   * @response `200` `DeveloperForgotPasswordData`
+   */
+  developerForgotPassword = (data: DeveloperForgotPasswordRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperForgotPasswordData, any>({
+      path: `/developer/api/v1/dashboard/auth/password/forgot`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Sets a new password with the reset code and signs in. Also marks the email verified.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperResetPassword
+   * @request POST:/developer/api/v1/dashboard/auth/password/reset
+   * @response `200` `DeveloperResetPasswordData`
+   * @response `400` `any` code_incorrect, code_expired or code_invalid, with param `code`
+   * @response `429` `any` too_many_attempts: ask for a new code
+   */
+  developerResetPassword = (data: DeveloperResetPasswordRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperResetPasswordData, any>({
+      path: `/developer/api/v1/dashboard/auth/password/reset`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
       format: "json",
       ...params,
     });

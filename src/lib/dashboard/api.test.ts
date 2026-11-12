@@ -41,8 +41,82 @@ type Case = {
   data?: unknown;
 };
 
+const TOKEN = "inv_open_0000000000000000001";
+const SIGNUP = { firstname: "Ada", lastname: "Obi", email: "ada@acme.com", phone: "+2348031234567", password: "p" };
+
 const CASES: Case[] = [
   { name: "auth.me", call: () => api.auth.me(), method: "GET", path: `${D}/auth/me` },
+  { name: "auth.signup", call: () => api.auth.signup(SIGNUP), method: "POST", path: `${D}/auth/signup`, data: SIGNUP },
+  {
+    name: "auth.login",
+    call: () => api.auth.login({ email: "ada@acme.com", password: "p" }),
+    method: "POST",
+    path: `${D}/auth/login`,
+    data: { email: "ada@acme.com", password: "p" },
+  },
+  {
+    name: "auth.sendEmailCode",
+    call: () => api.auth.sendEmailCode("new@acme.com"),
+    method: "POST",
+    path: `${D}/auth/verification/email/send`,
+    data: { email: "new@acme.com" },
+  },
+  {
+    name: "auth.verifyEmail",
+    call: () => api.auth.verifyEmail("1234"),
+    method: "POST",
+    path: `${D}/auth/verification/email`,
+    data: { code: "1234" },
+  },
+  {
+    name: "auth.sendPhoneCode",
+    call: () => api.auth.sendPhoneCode(),
+    method: "POST",
+    path: `${D}/auth/verification/phone/send`,
+    data: {},
+  },
+  {
+    name: "auth.verifyPhone",
+    call: () => api.auth.verifyPhone("5678"),
+    method: "POST",
+    path: `${D}/auth/verification/phone`,
+    data: { code: "5678" },
+  },
+  {
+    name: "auth.forgotPassword",
+    call: () => api.auth.forgotPassword({ email: "ada@acme.com" }),
+    method: "POST",
+    path: `${D}/auth/password/forgot`,
+    data: { email: "ada@acme.com" },
+  },
+  {
+    name: "auth.resetPassword",
+    call: () => api.auth.resetPassword({ email: "ada@acme.com", code: "1234", password: "new-password" }),
+    method: "POST",
+    path: `${D}/auth/password/reset`,
+    data: { email: "ada@acme.com", code: "1234", password: "new-password" },
+  },
+  {
+    name: "invitations.preview",
+    call: () => api.invitations.preview(TOKEN),
+    method: "POST",
+    path: `${D}/invitations/preview`,
+    data: { token: TOKEN },
+  },
+  {
+    name: "invitations.accept",
+    call: () => api.invitations.accept(TOKEN),
+    method: "POST",
+    path: `${D}/invitations/accept`,
+    data: { token: TOKEN },
+  },
+  {
+    name: "invitations.decline",
+    call: () => api.invitations.decline(TOKEN),
+    method: "POST",
+    path: `${D}/invitations/decline`,
+    data: { token: TOKEN },
+  },
   { name: "teams.list", call: () => api.teams.list(), method: "GET", path: `${D}/teams` },
   { name: "teams.current", call: () => api.teams.current(), method: "GET", path: `${D}/teams/current` },
   { name: "account.get", call: () => api.account.get(), method: "GET", path: `${D}/account` },
@@ -69,6 +143,10 @@ describe("dashboard api routes", () => {
 });
 
 describe("apiService", () => {
+  it("calls our own /api/backend proxy, never the API directly", () => {
+    expect(apiService.instance.defaults.baseURL).toBe("/api/backend");
+  });
+
   it("sends the chosen team with every request, and nothing before one is chosen", async () => {
     await api.auth.me();
     expect(captured[0].headers["X-Team-Id"]).toBeUndefined();

@@ -35,6 +35,8 @@ import {
   DeveloperDashboardCreateFundingSessionData,
   DeveloperDashboardListWalletTransactionsData,
   DeveloperDeclineInvitationData,
+  DeveloperForgotPasswordData,
+  DeveloperForgotPasswordRequestDto,
   DeveloperGetAccountData,
   DeveloperGetAutoTopUpData,
   DeveloperGetFundingAccountData,
@@ -55,10 +57,16 @@ import {
   DeveloperRemoveMemberData,
   DeveloperRequestLiveAccessData,
   DeveloperResendInvitationData,
+  DeveloperResetPasswordData,
+  DeveloperResetPasswordRequestDto,
   DeveloperRevokeApiKeyData,
   DeveloperRevokeInvitationData,
   DeveloperRollApiKeyData,
   DeveloperSaveAutoTopUpCardData,
+  DeveloperSendEmailCodeData,
+  DeveloperSendEmailCodeRequestDto,
+  DeveloperSendPhoneCodeData,
+  DeveloperSendPhoneCodeRequestDto,
   DeveloperSetLowBalanceAlertData,
   DeveloperSetUpFundingAccountData,
   DeveloperSignupData,
@@ -67,6 +75,9 @@ import {
   DeveloperUpdateAccountData,
   DeveloperUpdateIpAllowlistData,
   DeveloperUpdateMemberRoleData,
+  DeveloperVerifyCodeRequestDto,
+  DeveloperVerifyEmailData,
+  DeveloperVerifyPhoneData,
   LowBalanceAlertDto,
   RollDeveloperApiKeyRequestDto,
   SetUpFundingAccountRequestDto,
@@ -113,7 +124,7 @@ export namespace Developer {
   }
 
   /**
-   * @description The signed-in developer and their teams, read fresh. Email and phone are verified through POST /api/v1/auth/verify/email and /verify/phone (codes from /api/v1/auth/resend-token); call this afterwards to refresh `emailVerified`, `phoneVerified` and each team's `canRequestLive`.
+   * @description The signed-in developer and their teams, read fresh.
    * @tags developer-dashboard/auth
    * @name DeveloperMe
    * @request GET:/developer/api/v1/dashboard/auth/me
@@ -126,6 +137,110 @@ export namespace Developer {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = DeveloperMeData;
+  }
+
+  /**
+   * @description Emails a verification code to the signed-in developer (sign-up already sent the first). Pass `email` to correct an unverified address first. A new code replaces the last; 429 `code_recently_sent` during the cooldown (`resendAfter` seconds).
+   * @tags developer-dashboard/auth
+   * @name DeveloperSendEmailCode
+   * @request POST:/developer/api/v1/dashboard/auth/verification/email/send
+   * @secure
+   * @response `200` `DeveloperSendEmailCodeData`
+   * @response `409` `any` EMAIL_TAKEN
+   * @response `429` `any` code_recently_sent
+   */
+  export namespace DeveloperSendEmailCode {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperSendEmailCodeRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperSendEmailCodeData;
+  }
+
+  /**
+   * @description Verifies the email with the emailed code. Returns the refreshed `me`.
+   * @tags developer-dashboard/auth
+   * @name DeveloperVerifyEmail
+   * @request POST:/developer/api/v1/dashboard/auth/verification/email
+   * @secure
+   * @response `200` `DeveloperVerifyEmailData`
+   * @response `400` `any` code_incorrect, code_expired or code_invalid, with param `code`
+   * @response `429` `any` too_many_attempts: ask for a new code
+   */
+  export namespace DeveloperVerifyEmail {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperVerifyCodeRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperVerifyEmailData;
+  }
+
+  /**
+   * @description Texts a verification code to the developer's phone. Pass `phone` to correct an unverified number first.
+   * @tags developer-dashboard/auth
+   * @name DeveloperSendPhoneCode
+   * @request POST:/developer/api/v1/dashboard/auth/verification/phone/send
+   * @secure
+   * @response `200` `DeveloperSendPhoneCodeData`
+   * @response `409` `any` PHONE_TAKEN
+   * @response `429` `any` code_recently_sent
+   */
+  export namespace DeveloperSendPhoneCode {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperSendPhoneCodeRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperSendPhoneCodeData;
+  }
+
+  /**
+   * @description Verifies the phone with the texted code. Returns the refreshed `me`.
+   * @tags developer-dashboard/auth
+   * @name DeveloperVerifyPhone
+   * @request POST:/developer/api/v1/dashboard/auth/verification/phone
+   * @secure
+   * @response `200` `DeveloperVerifyPhoneData`
+   * @response `400` `any` code_incorrect, code_expired or code_invalid, with param `code`
+   * @response `429` `any` too_many_attempts: ask for a new code
+   */
+  export namespace DeveloperVerifyPhone {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperVerifyCodeRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperVerifyPhoneData;
+  }
+
+  /**
+   * @description Emails a reset code. Answers the same whether or not the account exists. Works before the email is verified.
+   * @tags developer-dashboard/auth
+   * @name DeveloperForgotPassword
+   * @request POST:/developer/api/v1/dashboard/auth/password/forgot
+   * @response `200` `DeveloperForgotPasswordData`
+   */
+  export namespace DeveloperForgotPassword {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperForgotPasswordRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperForgotPasswordData;
+  }
+
+  /**
+   * @description Sets a new password with the reset code and signs in. Also marks the email verified.
+   * @tags developer-dashboard/auth
+   * @name DeveloperResetPassword
+   * @request POST:/developer/api/v1/dashboard/auth/password/reset
+   * @response `200` `DeveloperResetPasswordData`
+   * @response `400` `any` code_incorrect, code_expired or code_invalid, with param `code`
+   * @response `429` `any` too_many_attempts: ask for a new code
+   */
+  export namespace DeveloperResetPassword {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperResetPasswordRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperResetPasswordData;
   }
 
   /**

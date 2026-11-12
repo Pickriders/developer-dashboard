@@ -1,15 +1,7 @@
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 
-function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn(
-        "animate-shimmer rounded-md bg-[linear-gradient(90deg,rgb(var(--surface-muted))_0%,rgb(var(--surface-subtle))_50%,rgb(var(--surface-muted))_100%)] bg-[length:200%_100%]",
-        className,
-      )}
-      {...props}
-    />
-  );
+export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("animate-pulse rounded-lg bg-surface-muted", className)} aria-hidden {...props} />;
 }
-
-export { Skeleton };
