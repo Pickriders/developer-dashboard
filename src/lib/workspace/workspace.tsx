@@ -7,6 +7,7 @@ import { setTeamId, type DeveloperMeResponseDto, type DeveloperTeamSummaryDto } 
 
 export type Team = DeveloperTeamSummaryDto;
 export type Permission = Team["permissions"][number];
+export type Mode = "test" | "live";
 
 type Workspace = {
   me: DeveloperMeResponseDto;
@@ -15,18 +16,33 @@ type Workspace = {
   setTeam: (id: string) => void;
   /** Whether the user's role in this team allows it. Hide what it doesn't; the API is the real guard. */
   can: (permission: Permission) => boolean;
+  /**
+   * Test or live: every page shows this mode's data. Live only once Pickriders has approved the
+   * team; until then (and if live access is later suspended) it is test, whatever was chosen.
+   */
+  mode: Mode;
+  setMode: (mode: Mode) => void;
+  liveUnlocked: boolean;
 };
 
 const WorkspaceContext = React.createContext<Workspace | null>(null);
 
-/** Remembered per browser, so a refresh or a new tab opens the team you were in. Not a secret. */
+/** Remembered per browser, so a refresh or a new tab opens the team (and its mode) you were in. */
 const TEAM_KEY = "pr_dev_team";
+const modeKey = (teamId: string) => `pr_dev_mode:${teamId}`;
 
-const readTeam = () => {
+const read = (key: string) => {
   try {
-    return window.localStorage.getItem(TEAM_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
+  }
+};
+const write = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Private mode: the choice lasts until the tab closes.
   }
 };
 
@@ -44,11 +60,18 @@ export function WorkspaceProvider({
   children: React.ReactNode;
 }) {
   const me = useMe();
-  const [chosen, setChosen] = React.useState<string | null>(null);
-  React.useEffect(() => setChosen(readTeam()), []);
+  // Read straight away, not in an effect: nothing renders from them until `me` has loaded in the
+  // browser, so there is no server markup to disagree with, and no flash of the wrong team or mode.
+  const [chosen, setChosen] = React.useState<string | null>(() =>
+    typeof window === "undefined" ? null : read(TEAM_KEY),
+  );
+  const [modes, setModes] = React.useState<Record<string, Mode>>({});
 
   const teams = me.data?.teams ?? [];
   const team = teams.find((t) => t.id === chosen) ?? teams[0];
+  const liveUnlocked = team?.liveStatus === "APPROVED";
+  const chosenMode = team ? (modes[team.id] ?? (read(modeKey(team.id)) === "live" ? "live" : "test")) : "test";
+  const mode: Mode = liveUnlocked && chosenMode === "live" ? "live" : "test";
   // Set during render, not in an effect: the pages below fetch on their first render and must
   // already carry the team. setTeamId only stores the id, so running it again is harmless.
   if (team) setTeamId(team.id);
@@ -60,17 +83,20 @@ export function WorkspaceProvider({
             me: me.data,
             team,
             setTeam: (id) => {
-              try {
-                window.localStorage.setItem(TEAM_KEY, id);
-              } catch {
-                // Private mode: the choice lasts until the tab closes.
-              }
+              write(TEAM_KEY, id);
               setChosen(id);
             },
             can: (permission) => team.permissions.includes(permission),
+            mode,
+            liveUnlocked,
+            setMode: (next) => {
+              if (next === "live" && !liveUnlocked) return;
+              write(modeKey(team.id), next);
+              setModes((current) => ({ ...current, [team.id]: next }));
+            },
           }
         : null,
-    [me.data, team],
+    [me.data, team, mode, liveUnlocked],
   );
 
   if (!me.data) return <>{loading}</>;

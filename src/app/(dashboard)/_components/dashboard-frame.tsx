@@ -5,16 +5,27 @@ import { Users } from "lucide-react";
 
 import { SignOutButton } from "@/components/auth";
 import { EmptyState } from "@/components/kit/empty-state";
-import { DashboardShell } from "@/components/shell";
+import { TestModeBanner } from "@/components/kit/test-mode-banner";
+import { DashboardShell, ModeSwitch } from "@/components/shell";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WorkspaceProvider } from "@/lib/workspace";
+import { useWorkspace, WorkspaceProvider } from "@/lib/workspace";
 
 /** Every signed-in page: the workspace (who, which team) and the shell around the page. */
 export function DashboardFrame({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceProvider loading={<FrameSkeleton />} noTeam={<NoTeam />}>
-      <DashboardShell>{children}</DashboardShell>
+      <Shell>{children}</Shell>
     </WorkspaceProvider>
+  );
+}
+
+/** The shell in the current mode: the amber bar across the top whenever it's test. */
+function Shell({ children }: { children: React.ReactNode }) {
+  const { mode } = useWorkspace();
+  return (
+    <DashboardShell banner={mode === "test" ? <TestModeBanner /> : null} headerActions={<ModeSwitch />}>
+      {children}
+    </DashboardShell>
   );
 }
 
