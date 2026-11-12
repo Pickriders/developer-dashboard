@@ -108,7 +108,7 @@ secondary, ghost, danger, link; sm, md, lg, icon; `loading`, `fullWidth`), `Inpu
 **Also in `components/ui`:** `Menu` / `MenuItem` / `MenuLabel` / `MenuSeparator` (a dropdown: arrow
 keys, Escape, focus back to the trigger), `Avatar` (people: round, two initials; teams: square, one),
 `Segmented` (two to four exclusive choices, arrow keys move), `Popover` (a short explanation under its
-trigger).
+trigger), `Sheet` (one row up close: a right-hand panel from md, a bottom sheet on phones).
 
 **Shell** (`components/shell`): the storefront dashboard's frame. A white sidebar from `lg` (logo,
 team switcher, pages, the account menu at the foot), a slim sticky header (page actions, Docs), and
@@ -129,6 +129,14 @@ where to put it, the secret with a copy button, Done. Closing the dialog forgets
 last used), a row menu (Roll, Revoke), and a footer that says only a hash is kept. Rolling asks how long
 the old key keeps working (Stop now is red: for a leaked key). Revoking a live key asks for its name.
 On phones each row stacks into a small card.
+
+**Webhooks** (`/webhooks`): endpoints as rows (the URL in mono, a status pill: Enabled, Failing, Turned
+off), each opening its own page. The endpoint page puts the delivery log first (status pill, event type
+in mono, what the server answered and how fast) and the details beside it: a Sending events switch, the
+events it listens to, the masked secret. A failing endpoint gets an amber warning saying when it will be
+turned off; one we turned off says why and how to bring it back. A delivery opens in a `Sheet`: every
+attempt (code, time, duration, error, the response body folded), the exact JSON we sent, and Resend.
+Events are picked as All (including future ones) or by group, each with a one-line description.
 
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).

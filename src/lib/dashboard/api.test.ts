@@ -43,6 +43,9 @@ type Case = {
 
 const TOKEN = "inv_open_0000000000000000001";
 const KEY = "6560f0c2a1b2c3d4e5f60718";
+const WE = "we_6560f0c2a1b2c3d4e5f60718";
+const EVT = "evt_6560f0c2a1b2c3d4e5f60718";
+const HOOK = { url: "https://acme.test/hooks", enabled_events: ["order.delivered" as const], livemode: false };
 const SIGNUP = { firstname: "Ada", lastname: "Obi", email: "ada@acme.com", phone: "+2348031234567", password: "p" };
 
 const CASES: Case[] = [
@@ -157,6 +160,60 @@ const CASES: Case[] = [
     data: { expiresIn: "24h" },
   },
   { name: "keys.revoke", call: () => api.keys.revoke(KEY), method: "POST", path: `${D}/api-keys/${KEY}/revoke` },
+  {
+    name: "webhooks.list",
+    call: () => api.webhooks.list("test"),
+    method: "GET",
+    path: `${D}/webhook-endpoints`,
+    params: { livemode: "false", limit: 100 },
+  },
+  { name: "webhooks.get", call: () => api.webhooks.get(WE), method: "GET", path: `${D}/webhook-endpoints/${WE}` },
+  {
+    name: "webhooks.create",
+    call: () => api.webhooks.create(HOOK),
+    method: "POST",
+    path: `${D}/webhook-endpoints`,
+    data: HOOK,
+  },
+  {
+    name: "webhooks.update",
+    call: () => api.webhooks.update(WE, { disabled: true }),
+    method: "PATCH",
+    path: `${D}/webhook-endpoints/${WE}`,
+    data: { disabled: true },
+  },
+  {
+    name: "webhooks.remove",
+    call: () => api.webhooks.remove(WE),
+    method: "DELETE",
+    path: `${D}/webhook-endpoints/${WE}`,
+  },
+  {
+    name: "webhooks.rollSecret",
+    call: () => api.webhooks.rollSecret(WE),
+    method: "POST",
+    path: `${D}/webhook-endpoints/${WE}/roll-secret`,
+  },
+  {
+    name: "webhooks.deliveries",
+    call: () => api.webhooks.deliveries(WE, "whd_1"),
+    method: "GET",
+    path: `${D}/webhook-endpoints/${WE}/deliveries`,
+    params: { limit: 20, starting_after: "whd_1" },
+  },
+  {
+    name: "webhooks.test",
+    call: () => api.webhooks.test(WE),
+    method: "POST",
+    path: `${D}/webhook-endpoints/${WE}/test`,
+  },
+  {
+    name: "webhooks.resend",
+    call: () => api.webhooks.resend(WE, EVT),
+    method: "POST",
+    path: `${D}/webhook-endpoints/${WE}/resend`,
+    data: { event_id: EVT },
+  },
 ];
 
 describe("dashboard api routes", () => {

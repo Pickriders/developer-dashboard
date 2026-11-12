@@ -6,6 +6,8 @@ import type {
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
   CreateDeveloperApiKeyRequestDto,
+  DashboardCreateWebhookEndpointRequestDto,
+  UpdateWebhookEndpointRequestDto,
   RollDeveloperApiKeyRequestDto,
   UpdateDeveloperAccountRequestDto,
 } from "@/services/apiService";
@@ -58,4 +60,22 @@ export const keys = {
   roll: (id: string, expiresIn: RollDeveloperApiKeyRequestDto["expiresIn"]) =>
     apiService.developerRollApiKey(id, { expiresIn }),
   revoke: (id: string) => apiService.developerRevokeApiKey(id),
+};
+
+export const webhooks = {
+  list: (mode: "test" | "live") => apiService.dashboardListWebhookEndpoints({ livemode: livemode(mode), limit: 100 }),
+  get: (id: string) => apiService.dashboardRetrieveWebhookEndpoint(id),
+  create: (body: DashboardCreateWebhookEndpointRequestDto) => apiService.dashboardCreateWebhookEndpoint(body),
+  update: (id: string, body: UpdateWebhookEndpointRequestDto) => apiService.dashboardUpdateWebhookEndpoint(id, body),
+  remove: (id: string) => apiService.dashboardDeleteWebhookEndpoint(id),
+  rollSecret: (id: string) => apiService.dashboardRollWebhookSecret(id),
+  /** Newest first, a page at a time: pass the last id seen as `startingAfter`. */
+  deliveries: (id: string, startingAfter?: string) =>
+    apiService.dashboardListWebhookDeliveries({
+      endpointId: id,
+      limit: 20,
+      ...(startingAfter && { starting_after: startingAfter }),
+    }),
+  test: (id: string) => apiService.dashboardTestWebhookEndpoint(id),
+  resend: (id: string, eventId: string) => apiService.dashboardResendWebhookEvent(id, { event_id: eventId }),
 };
