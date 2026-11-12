@@ -1,5 +1,4 @@
 import type { Config } from "tailwindcss";
-import animate from "tailwindcss-animate";
 
 /** A token from globals.css, with Tailwind's opacity modifier (bg-brand/10). */
 const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
@@ -12,7 +11,7 @@ const tone = (name: string) => ({
   line: token(`${name}-line`),
 });
 
-/** The design system in DESIGN.md: neutral surfaces, one accent, hairlines, Geist. */
+/** The design system in DESIGN.md: the Pickriders storefront dashboard's look, in light and dark. */
 const config: Config = {
   darkMode: ["class"],
   content: ["./src/components/**/*.{ts,tsx}", "./src/app/**/*.{ts,tsx}", "./src/lib/**/*.{ts,tsx}"],
@@ -30,63 +29,34 @@ const config: Config = {
         line: { DEFAULT: token("line"), strong: token("line-strong") },
         fg: {
           DEFAULT: token("fg"),
+          heading: token("fg-heading"),
           muted: token("fg-muted"),
           subtle: token("fg-subtle"),
           inverse: token("fg-inverse"),
         },
-        brand: tone("brand"),
+        brand: {
+          ...tone("brand"),
+          solid: token("brand-solid"),
+          "solid-hover": token("brand-solid-hover"),
+          ink: token("brand-ink"),
+        },
         success: tone("success"),
         warning: tone("warning"),
         danger: tone("danger"),
         info: tone("info"),
-
-        // shadcn/ui's names (components/ui) resolve to the same tokens.
-        background: token("background"),
-        foreground: token("foreground"),
-        card: { DEFAULT: token("card"), foreground: token("card-foreground") },
-        popover: { DEFAULT: token("popover"), foreground: token("popover-foreground") },
-        primary: { DEFAULT: token("primary"), foreground: token("primary-foreground") },
-        secondary: { DEFAULT: token("secondary"), foreground: token("secondary-foreground") },
-        muted: { DEFAULT: token("muted"), foreground: token("muted-foreground") },
-        accent: { DEFAULT: token("accent"), foreground: token("accent-foreground") },
-        destructive: { DEFAULT: token("destructive"), foreground: token("destructive-foreground") },
-        border: token("border"),
-        input: token("input"),
-        ring: token("ring"),
-        chart: {
-          "1": token("chart-1"),
-          "2": token("chart-2"),
-          "3": token("chart-3"),
-          "4": token("chart-4"),
-          "5": token("chart-5"),
-        },
+        plum: { DEFAULT: token("plum"), mid: token("plum-mid") },
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-urbanist)", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
-      // A dense UI scale: 13px is the default control and table text, 14px reading text.
-      // Headings tighten as they grow; nothing above 600 weight.
       fontSize: {
         "2xs": ["0.6875rem", { lineHeight: "1rem" }], // 11
-        xs: ["0.75rem", { lineHeight: "1rem" }], // 12
-        sm: ["0.8125rem", { lineHeight: "1.25rem" }], // 13
-        base: ["0.875rem", { lineHeight: "1.375rem" }], // 14
-        lg: ["1rem", { lineHeight: "1.5rem", letterSpacing: "-0.005em" }], // 16
-        xl: ["1.125rem", { lineHeight: "1.625rem", letterSpacing: "-0.01em" }], // 18
-        "2xl": ["1.375rem", { lineHeight: "1.875rem", letterSpacing: "-0.015em" }], // 22
-        "3xl": ["1.75rem", { lineHeight: "2.25rem", letterSpacing: "-0.02em" }], // 28
-        "4xl": ["2.25rem", { lineHeight: "2.5rem", letterSpacing: "-0.025em" }], // 36
-      },
-      borderRadius: {
-        lg: "var(--radius)", // 8: cards, dialogs
-        md: "calc(var(--radius) - 2px)", // 6: buttons, inputs
-        sm: "calc(var(--radius) - 4px)", // 4: badges, chips
       },
       boxShadow: {
-        xs: "var(--shadow-xs)",
-        popover: "var(--shadow-popover)",
-        dialog: "var(--shadow-dialog)",
+        card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
+        button: "var(--shadow-button)",
       },
       spacing: {
         header: "var(--header-height)",
@@ -96,17 +66,35 @@ const config: Config = {
       transitionDuration: { fast: "120ms", base: "200ms" },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
-        "slide-up": { from: { opacity: "0", transform: "translateY(4px)" }, to: { opacity: "1", transform: "none" } },
+        "slide-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "none" } },
         shimmer: { from: { backgroundPosition: "200% 0" }, to: { backgroundPosition: "-200% 0" } },
+        shake: {
+          "0%, 100%": { transform: "none" },
+          "20%, 60%": { transform: "translateX(-4px)" },
+          "40%, 80%": { transform: "translateX(4px)" },
+        },
+        rise: { from: { opacity: "0", transform: "translateY(8px)" }, to: { opacity: "1", transform: "none" } },
+        draw: { from: { strokeDashoffset: "var(--path-length, 40)" }, to: { strokeDashoffset: "0" } },
+        blink: { "0%, 100%": { opacity: "1" }, "50%": { opacity: "0" } },
+        float: { "0%, 100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-6px)" } },
+        "pop-in": { from: { opacity: "0", transform: "scale(0.96)" }, to: { opacity: "1", transform: "none" } },
+        "slide-in-left": { from: { transform: "translateX(-100%)" }, to: { transform: "none" } },
       },
       animation: {
         "fade-in": "fade-in 200ms var(--ease-out)",
         "slide-up": "slide-up 200ms var(--ease-out)",
         shimmer: "shimmer 1.6s linear infinite",
+        shake: "shake 320ms var(--ease-out)",
+        rise: "rise 480ms var(--ease-out) both",
+        draw: "draw 520ms var(--ease-out) 120ms both",
+        blink: "blink 1s step-end infinite",
+        float: "float 6s ease-in-out infinite",
+        "pop-in": "pop-in 200ms var(--ease-out)",
+        "slide-in-left": "slide-in-left 260ms var(--ease-out)",
       },
     },
   },
-  plugins: [animate],
+  plugins: [],
 };
 
 export default config;

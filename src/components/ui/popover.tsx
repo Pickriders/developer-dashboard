@@ -1,33 +1,73 @@
 "use client";
 
 import * as React from "react";
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 import { cn } from "@/lib/utils";
 
-const Popover = PopoverPrimitive.Root;
+/**
+ * A panel under its trigger for a short explanation with an action or two (not a list of choices:
+ * that's Menu). Closes on Escape or a click outside, and gives focus back to the trigger.
+ */
+export function Popover({
+  open,
+  onOpenChange,
+  anchor,
+  label,
+  align = "end",
+  className,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** The trigger. Rendered as is; give it aria-expanded and aria-controls if it opens this. */
+  anchor: React.ReactNode;
+  label: string;
+  align?: "start" | "end";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const root = React.useRef<HTMLDivElement>(null);
+  const panel = React.useRef<HTMLDivElement>(null);
+  const opener = React.useRef<HTMLElement | null>(null);
 
-const PopoverTrigger = PopoverPrimitive.Trigger;
+  React.useEffect(() => {
+    if (!open) return;
+    opener.current = document.activeElement as HTMLElement | null;
+    const onPointer = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) onOpenChange(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      onOpenChange(false);
+      opener.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    panel.current?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onOpenChange]);
 
-const PopoverAnchor = PopoverPrimitive.Anchor;
-
-const PopoverContent = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
-    <PopoverPrimitive.Content
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 w-72 rounded-lg border border-line bg-popover p-4 text-popover-foreground shadow-popover outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-popover-content-transform-origin]",
-        className,
+  return (
+    <div ref={root} className="relative">
+      {anchor}
+      {open && (
+        <div
+          ref={panel}
+          role="dialog"
+          aria-label={label}
+          tabIndex={-1}
+          className={cn(
+            "absolute top-full z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] origin-top animate-pop-in rounded-2xl border border-line bg-surface-raised p-5 shadow-pop outline-none",
+            align === "end" ? "right-0" : "left-0",
+            className,
+          )}
+        >
+          {children}
+        </div>
       )}
-      {...props}
-    />
-  </PopoverPrimitive.Portal>
-));
-PopoverContent.displayName = PopoverPrimitive.Content.displayName;
-
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor };
+    </div>
+  );
+}

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export function SecretReveal({ secret, className }: { secret: string; className?: string }) {
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center gap-2 rounded-md border border-line-strong bg-surface-subtle py-1 pl-3 pr-1">
+      <div className="flex items-center gap-2 rounded-xl border border-line-strong bg-surface-subtle py-1.5 pl-3.5 pr-1.5">
         <code className="min-w-0 flex-1 select-all break-all text-sm text-fg">{secret}</code>
         <CopyButton value={secret} label="Copy secret" />
       </div>
