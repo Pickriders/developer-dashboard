@@ -5,16 +5,16 @@ Developer API. They sign up, verify their email and phone, create API keys, mana
 endpoints, read request logs, create and track orders, fund their wallet, manage their team,
 and request live access. Served at `dashboard.pickriders.com`.
 
-**Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS, shadcn/ui
-(`new-york` style, zinc base, Lucide icons), TanStack React Query + React Table, Recharts,
-Formik/Yup, `@vis.gl/react-google-maps`, `next-themes`, Sonner (toasts) — the same stack as
-`pickrider-admin`, so patterns and components copy across. Deployed on Vercel.
+**Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3, shadcn/ui
+(`new-york`, Lucide icons) restyled onto **our own design system** (**DESIGN.md**: tokens, Geist
+Sans and Geist Mono, light and dark), TanStack React Query, `next-themes`, Sonner (toasts). React
+Table, Recharts, Formik/Yup and `@vis.gl/react-google-maps` join as pages need them. The same
+framework as `pickrider-admin`, so patterns copy across; the look does not. Deployed on Vercel.
 
 **Path alias:** `@/*` → `src/*`.
 
-> The app itself is scaffolded in plan step 11.1. Until then this repo holds this file, the
-> README and the release workflow. Sections below describe the structure that step creates;
-> keep them true as it lands.
+> Scaffolded in plan step 11.1 (`create-next-app@14.2.1`, `shadcn@2.3.0`). Folders marked
+> _(later)_ in §3 arrive with the pages that need them.
 
 ---
 
@@ -26,8 +26,8 @@ only thing that talks to the database), `customer-app` and `rider-app` (Expo/Rea
 Pages Router + Sass) and `developer-docs` (the public API docs, Fumadocs). No monorepo, no
 workspace linking — each has its own `node_modules` and its own remote.
 
-**`pickrider-admin` is your near-twin.** Same framework, same UI kit approach, same three-layer
-data access. Copy its patterns; don't copy its assumptions — see §2.
+**`pickrider-admin` is your near-twin.** Same framework, same three-layer data access. Copy its
+patterns; don't copy its assumptions (§2) or its look (DESIGN.md).
 
 ---
 
@@ -57,31 +57,35 @@ That changes what "safe" means compared with the admin:
 
 ---
 
-## 3. Structure (from step 11.1)
+## 3. Structure
 
 ```
 src/
 ├── app/
-│   ├── (dashboard)/      home (get-started checklist), orders, wallet, keys, webhooks,
+│   ├── (dashboard)/      (later) home (get-started checklist), orders, wallet, keys, webhooks,
 │   │                     logs, team, settings, usage — each with `_components/`
-│   ├── auth/             sign-up, login, verify email/phone, reset, accept invitation
-│   ├── api/session/      route handlers that set / clear the httpOnly session cookie
-│   ├── layout.tsx
-│   └── globals.css
+│   ├── auth/             (later, 11.2) sign-up, login, verify email/phone, reset, invitation
+│   ├── api/session/      (later, 11.2) route handlers that set / clear the session cookie
+│   ├── design/           the design system, live: every token and component (DESIGN.md)
+│   ├── layout.tsx        Geist fonts, <Providers>
+│   └── globals.css       the design tokens (light and dark)
+├── providers/            theme, React Query, toasts, tooltips
+├── constant/             API_URL (NEXT_PUBLIC_API_URL)
 ├── services/apiService/  GENERATED swagger client + hand-written index.ts
 ├── lib/dashboard/
-│   ├── api.ts            typed namespaces (keys, webhooks, orders, wallet, team, logs, …),
+│   ├── api.ts            typed namespaces (auth, teams, account, … keys, webhooks, orders),
 │   │                     every function delegating to a generated apiService method
 │   ├── api.test.ts       route contract: verb + path + query + body per namespace function
-│   ├── hooks.ts          React Query hooks over api.ts (`useAction` = mutation + toast)
-│   ├── url-state.ts      useTableState / useTabParam
-│   └── format.ts         money / date / status helpers
-├── lib/team-access.ts    role → permission matrix (mirrors backend's team permissions), can()
-├── lib/mode.tsx          test / live mode context
-├── components/kit/       Panel, Button, Badge, DataTable, Drawer, ConfirmDialog, SecretReveal,
-│                         CodeBlock, StatCard, charts
-├── components/ui/        shadcn primitives
-└── middleware.ts         auth gate
+│   ├── format.ts         money (kobo ↔ naira) and display helpers
+│   ├── hooks.ts          (later) React Query hooks over api.ts (`useAction` = mutation + toast)
+│   └── url-state.ts      (later) useTableState / useTabParam
+├── lib/team-access.ts    (later) role → permission matrix (mirrors the backend's), can()
+├── lib/mode.tsx          (later) test / live mode context
+├── components/kit/       PageHeader, Panel, StatCard, IdText, CopyButton, CodeBlock, SecretReveal,
+│                         ConfirmDialog, EmptyState, TestModeBanner, Kbd, ThemeToggle
+├── components/ui/        shadcn primitives, restyled onto the tokens
+├── components/brand/     the Logo
+└── middleware.ts         (later, 11.2) auth gate
 ```
 
 **Auth is global, in `src/middleware.ts`** — it reads the session cookie and redirects to
@@ -93,9 +97,10 @@ by a route handler, never in `localStorage`. Do not re-implement auth gating per
 ## 4. Hard rules
 
 1. **Never edit the generated API client, and never bypass it.**
-   `src/services/apiService/{Api,ApiRoute,data-contracts,http-client}.ts` come from
-   `yarn generate-types`. Only `apiService/index.ts` is hand-written (session token,
-   `X-Team-Id`, 401 redirect). The dashboard calls the **dashboard routes**
+   Everything in `src/services/apiService/` except `index.ts` comes from `yarn generate-types`.
+   The dashboard routes are in the generated `Developer` class (`Developer.ts`); `Api.ts` holds
+   the rest of the internal API and is unused here. Only `apiService/index.ts` is hand-written
+   (session, `X-Team-Id`, 401 redirect). The dashboard calls the **dashboard routes**
    (`/developer/api/v1/dashboard/*`), which are in backend-api's internal Swagger document, so
    generate from `/docs/api-json` like the other apps. **No hand-written axios or fetch calls.**
 2. **Every `api.ts` function gets a line in `src/lib/dashboard/api.test.ts`** pinning its
@@ -107,8 +112,11 @@ by a route handler, never in `localStorage`. Do not re-implement auth gating per
    order prices all go through this.
 5. **Secrets never persist client-side** (§2). A code review that finds a key or `whsec_`
    value in state that outlives its dialog is a blocker.
-6. **Tailwind + the kit.** Reuse `src/components/kit/` (then `components/ui/`) before writing
-   anything bespoke. No Sass, no styled-components.
+6. **The design system, not ad-hoc styling.** Follow DESIGN.md. Colours come from the tokens
+   (`bg-surface`, `text-fg-muted`, `border-line`, `text-success-fg`), never raw Tailwind
+   palette classes (`bg-gray-100`, `text-red-600`) or hex. Reuse `src/components/kit/` (then
+   `components/ui/`) before writing anything bespoke; a new shared pattern goes into the kit and
+   onto `/design`. Teal is the only accent and never a fill. No Sass, no styled-components.
 7. **Never commit secrets** — `.env*` and credential files. `NEXT_PUBLIC_*` values ship to the
    browser and are not secret; nothing else belongs client-side.
 8. **Do not upgrade Next, React, or Tailwind** as a side effect of a task.
@@ -125,8 +133,8 @@ by a route handler, never in `localStorage`. Do not re-implement auth gating per
 ```ts
 // 1. src/lib/dashboard/api.ts — a namespace function per route, on the generated client
 export const keys = {
-  list: (mode: Mode) => apiService.dashboardListApiKeys({ livemode: mode === "live" }),
-  revoke: (id: string) => apiService.dashboardRevokeApiKey(id),
+  list: (mode: Mode) => apiService.developerListApiKeys({ livemode: mode === "live" ? "true" : "false" }),
+  revoke: (id: string) => apiService.developerRevokeApiKey(id),
 };
 // 2. src/lib/dashboard/api.test.ts — its route case
 { name: "keys.revoke", call: () => api.keys.revoke(ID), method: "POST", path: `${P}/developer/api/v1/dashboard/api-keys/${ID}/revoke` },
@@ -147,13 +155,15 @@ APIs needs `"use client"`; keep that boundary as low in the tree as you can.
 **Feedback** — Sonner toasts, `Skeleton` loading states, designed empty states that say how
 to create the first item. Errors show the API's message, `code` and `request_id`.
 
-**Formatting** — Prettier: `trailingComma: all`, print width 120. Run `yarn lint`.
+**Formatting** — Prettier: `trailingComma: all`, print width 120 (`yarn format`). CI runs
+`prettier --check`. The pre-commit hook (husky + lint-staged) lints, formats and runs related tests.
 
 ---
 
-## 6. Running (from step 11.1)
+## 6. Running
 
 ```bash
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL: the dev API
 yarn dev      # http://localhost:3007 — runs generate-types first
 yarn build
 ```
@@ -168,14 +178,17 @@ blocking in the foreground. Point it only at the dev API unless the user says ot
 ## 7. Definition of done
 
 ```bash
-npx tsc --noEmit
+yarn typecheck
 yarn lint
 yarn test
+yarn build
 ```
 
-All three clean (Jest via `next/jest`, `src/**/*.test.ts(x)`), plus Playwright for the flows
+All four clean (Jest via `next/jest`, `src/**/*.test.ts(x)`), plus Playwright for the flows
 named in the plan step. Review your own diff for what tooling can't catch: secret handling,
-team scoping, test-vs-live mode, money conversions and unconfirmed destructive actions.
+team scoping, test-vs-live mode, money conversions, unconfirmed destructive actions, and anything
+off the design system (raw colours, a second accent, shadows on cards). Look at UI changes in
+both themes.
 
 Branch off `dev`; PR into `dev`. Commit only when asked. Never commit `.next/`, `out/`,
 `playwright-report/` or `tsconfig.tsbuildinfo`.
@@ -192,8 +205,10 @@ preview; `main` deploys production).
 - **`release-pr.yml`** — when a PR merges into `dev` it opens or refreshes
   **`release: main ← dev`**, never a duplicate. Only merged PRs promote. Run it by hand from the
   Actions tab (`workflow_dispatch`) to refresh it.
-- **`ci.yml`** (added with the scaffold in step 11.1) — `npx tsc --noEmit`, lint and
-  `yarn test` on every push and every pull request, the same as pickrider-admin.
+- **`ci.yml`** — type-check, lint, `prettier --check`, `yarn test` and `yarn build` on every push
+  and every pull request. The build uses the public dev `NEXT_PUBLIC_API_URL`; no secrets.
+- **Vercel** builds a preview for every branch and PR and deploys `main` to production. The
+  project needs `NEXT_PUBLIC_API_URL` per environment.
 
 **`.github/scripts/release-notes.sh`** builds the release PR description from **squash-merged**
 PRs (single-parent commits whose subject ends `(#123)`); merge commits and direct pushes are
@@ -213,6 +228,6 @@ bash .github/scripts/release-notes.sh dev main https://github.com/Pickriders/dev
 ## 9. Keeping this file current
 
 When an engineer corrects your approach, or you find a convention that isn't written down,
-update this file. The corrected approach becomes the standard. Project-local skills belong in
-`.claude/skills/`; start by copying `sync-api-types`, `new-admin-page` (as `new-dashboard-page`)
-and `ship-check` from pickrider-admin when the app is scaffolded.
+update this file (and DESIGN.md for anything visual). The corrected approach becomes the standard.
+Project-local skills belong in `.claude/skills/`: `sync-api-types`, `new-dashboard-page` and
+`ship-check`.
