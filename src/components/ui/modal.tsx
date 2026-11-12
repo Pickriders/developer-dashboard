@@ -45,7 +45,7 @@ export function Modal({
         if (e.target === e.currentTarget) onClose();
       }}
       className={cn(
-        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-visible bg-transparent p-0 text-fg backdrop:bg-plum/50 backdrop:backdrop-blur-[2px] sm:m-auto",
+        "m-0 mt-auto max-h-[90dvh] sm:max-h-[calc(100dvh-4rem)] w-full max-w-none overflow-visible bg-transparent p-0 text-fg backdrop:bg-plum/50 backdrop:backdrop-blur-[2px] sm:m-auto",
         compact ? "sm:max-w-sm" : "sm:max-w-lg",
       )}
     >
@@ -64,7 +64,7 @@ export function Modal({
               </button>
             </div>
           )}
-          <div className="max-h-[75dvh] overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="max-h-[80dvh] overflow-y-auto sm:max-h-[calc(100dvh-9rem)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             {children}
           </div>
         </div>

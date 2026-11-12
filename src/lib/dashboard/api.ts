@@ -5,6 +5,8 @@ import type {
   DeveloperResetPasswordRequestDto,
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
+  CreateDeveloperApiKeyRequestDto,
+  RollDeveloperApiKeyRequestDto,
   UpdateDeveloperAccountRequestDto,
 } from "@/services/apiService";
 
@@ -45,4 +47,15 @@ export const account = {
   update: (body: UpdateDeveloperAccountRequestDto) => apiService.developerUpdateAccount(body),
   onboarding: () => apiService.developerGetOnboarding(),
   requestLiveAccess: () => apiService.developerRequestLiveAccess(),
+};
+
+/** "true" | "false": how the API takes a mode in a query string. */
+const livemode = (mode: "test" | "live") => (mode === "live" ? "true" : "false");
+
+export const keys = {
+  list: (mode: "test" | "live") => apiService.developerListApiKeys({ livemode: livemode(mode) }),
+  create: (body: CreateDeveloperApiKeyRequestDto) => apiService.developerCreateApiKey(body),
+  roll: (id: string, expiresIn: RollDeveloperApiKeyRequestDto["expiresIn"]) =>
+    apiService.developerRollApiKey(id, { expiresIn }),
+  revoke: (id: string) => apiService.developerRevokeApiKey(id),
 };

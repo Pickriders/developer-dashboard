@@ -106,7 +106,9 @@ secondary, ghost, danger, link; sm, md, lg, icon; `loading`, `fullWidth`), `Inpu
 `<dialog>`: focus trap and Escape for free), `Toaster` (Sonner, restyled).
 
 **Also in `components/ui`:** `Menu` / `MenuItem` / `MenuLabel` / `MenuSeparator` (a dropdown: arrow
-keys, Escape, focus back to the trigger), `Avatar` (people: round, two initials; teams: square, one).
+keys, Escape, focus back to the trigger), `Avatar` (people: round, two initials; teams: square, one),
+`Segmented` (two to four exclusive choices, arrow keys move), `Popover` (a short explanation under its
+trigger).
 
 **Shell** (`components/shell`): the storefront dashboard's frame. A white sidebar from `lg` (logo,
 team switcher, pages, the account menu at the foot), a slim sticky header (page actions, Docs), and
@@ -118,6 +120,15 @@ banner (a `TEST MODE` pill and one line) above everything. Live stays locked, wi
 the team is approved; pressing it opens a panel with the three steps to live and the one action that
 fits (verify, request, wait, or fix what the review asked). Switching to live says so in a toast:
 real money and real riders from here on.
+
+**Secrets** appear once, in the dialog that made them, through the kit's `NewSecret`: a success tile,
+where to put it, the secret with a copy button, Done. Closing the dialog forgets it (mutations use
+`gcTime: 0` and `reset()`).
+
+**API keys** (`/keys`): one table per mode (name and who made it, the prefix in mono, access in words,
+last used), a row menu (Roll, Revoke), and a footer that says only a hash is kept. Rolling asks how long
+the old key keeps working (Stop now is red: for a leaked key). Revoking a live key asks for its name.
+On phones each row stacks into a small card.
 
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).

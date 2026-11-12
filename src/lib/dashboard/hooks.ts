@@ -2,9 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { account, auth, invitations } from "./api";
+import { account, auth, invitations, keys } from "./api";
 import { type ApiError, toApiError } from "./errors";
-import type { TeamInvitationPreviewDto, UpdateDeveloperAccountRequestDto } from "@/services/apiService";
+import type {
+  CreateDeveloperApiKeyRequestDto,
+  RollDeveloperApiKeyRequestDto,
+  TeamInvitationPreviewDto,
+  UpdateDeveloperAccountRequestDto,
+} from "@/services/apiService";
+
+type Mode = "test" | "live";
 
 /** The signed-in developer and their teams. `retry: false`: a 401 means signed out, not flaky. */
 export const useMe = (options: { enabled?: boolean } = {}) =>
@@ -31,6 +38,7 @@ export const useApiMutation = <TArgs, TResult>(fn: (args: TArgs) => Promise<TRes
 export const teamKeys = {
   account: (teamId: string) => ["team", teamId, "account"] as const,
   onboarding: (teamId: string) => ["team", teamId, "onboarding"] as const,
+  keys: (teamId: string, mode: Mode) => ["team", teamId, mode, "keys"] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -55,3 +63,40 @@ export const useRequestLiveAccess = (teamId: string) => {
     return result;
   });
 };
+
+export const useApiKeys = (teamId: string, mode: Mode) =>
+  useQuery({ queryKey: teamKeys.keys(teamId, mode), queryFn: () => keys.list(mode) });
+
+/**
+ * Key changes. Each refreshes the list (and the checklist's "test key" step). The results carry
+ * the secret, shown once: `gcTime: 0` drops it from React Query as soon as the dialog lets go, and
+ * the dialogs call `reset()` when they close (CLAUDE.md §2).
+ */
+const useKeyMutation = <TArgs, TResult>(teamId: string, mode: Mode, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    gcTime: 0,
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: teamKeys.keys(teamId, mode) }),
+        queryClient.invalidateQueries({ queryKey: teamKeys.onboarding(teamId) }),
+      ]),
+  });
+};
+
+export const useCreateKey = (teamId: string, mode: Mode) =>
+  useKeyMutation(teamId, mode, (body: Omit<CreateDeveloperApiKeyRequestDto, "livemode">) =>
+    keys.create({ ...body, livemode: mode === "live" }),
+  );
+
+export const useRollKey = (teamId: string, mode: Mode) =>
+  useKeyMutation(
+    teamId,
+    mode,
+    ({ id, expiresIn }: { id: string; expiresIn: RollDeveloperApiKeyRequestDto["expiresIn"] }) =>
+      keys.roll(id, expiresIn),
+  );
+
+export const useRevokeKey = (teamId: string, mode: Mode) =>
+  useKeyMutation(teamId, mode, (id: string) => keys.revoke(id));
