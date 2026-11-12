@@ -9,8 +9,12 @@
 //   POST /__test/team?email=&liveStatus=&reason=   # set the live status of that person's own team
 //   POST /__test/order?email=                      # a test order arrives for that person's own team
 //   POST /__test/join?email=&name=&role=           # add them to a new team, owned by someone unverified
+//   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
+//
+// Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
+// (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
 import { createServer } from "node:http";
-import { randomInt, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
 
 const PORT = Number(process.env.MOCK_API_PORT ?? 4010);
 const D = "/developer/api/v1/dashboard";
@@ -444,6 +448,96 @@ const routes = {
     );
     return [200, issueKey(t, user, { label: old.label, livemode: old.livemode, scopes: old.scopes })];
   },
+  "GET /webhook-endpoints": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "webhooks.read");
+    const live = url.searchParams.get("livemode");
+    return [
+      200,
+      t.endpoints
+        .filter((e) => live === null || e.livemode === (live === "true"))
+        .map(presentEndpoint)
+        .reverse(),
+    ];
+  },
+  "POST /webhook-endpoints": (req, body) => {
+    const { team: t } = requireTeam(req, "webhooks.write");
+    checkUrl(body.url);
+    if (!Array.isArray(body.enabled_events) || !body.enabled_events.length)
+      throw new ApiError(400, "parameter_invalid", "enabled_events should not be empty", "enabled_events");
+    if (body.livemode && t.liveStatus !== "APPROVED")
+      throw new ApiError(403, "live_access_required", "Live endpoints need approved live access.");
+    const endpoint = {
+      id: `we_${newId()}`,
+      url: body.url.trim(),
+      description: body.description?.trim() || null,
+      enabled_events: body.enabled_events,
+      status: "enabled",
+      disabled_reason: null,
+      failing_since: null,
+      livemode: !!body.livemode,
+      previous_secret_expires_at: null,
+      created: new Date().toISOString(),
+      secret: newSecret(),
+      previousSecret: null,
+      deliveries: [],
+    };
+    t.endpoints.push(endpoint);
+    return [201, { ...presentEndpoint(endpoint), secret: endpoint.secret }];
+  },
+  "GET /webhook-endpoints/:id": (req, body, { id }) => [200, presentEndpoint(findEndpoint(req, id, "webhooks.read"))],
+  "PATCH /webhook-endpoints/:id": (req, body, { id }) => {
+    const endpoint = findEndpoint(req, id, "webhooks.write");
+    if (body.url !== undefined) endpoint.url = checkUrl(body.url);
+    if (body.description !== undefined) endpoint.description = body.description.trim() || null;
+    if (body.enabled_events !== undefined) endpoint.enabled_events = body.enabled_events;
+    if (body.disabled === true) Object.assign(endpoint, { status: "disabled", disabled_reason: "manual" });
+    if (body.disabled === false)
+      Object.assign(endpoint, { status: "enabled", disabled_reason: null, failing_since: null });
+    return [200, presentEndpoint(endpoint)];
+  },
+  "DELETE /webhook-endpoints/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "webhooks.write");
+    findEndpoint(req, id, "webhooks.write");
+    t.endpoints = t.endpoints.filter((e) => e.id !== id);
+    return [200, { object: "webhook_endpoint", id, deleted: true }];
+  },
+  "POST /webhook-endpoints/:id/roll-secret": (req, body, { id }) => {
+    const endpoint = findEndpoint(req, id, "webhooks.write");
+    Object.assign(endpoint, {
+      previousSecret: endpoint.secret,
+      previous_secret_expires_at: new Date(Date.now() + 864e5).toISOString(),
+      secret: newSecret(),
+    });
+    return [200, { ...presentEndpoint(endpoint), secret: endpoint.secret }];
+  },
+  "GET /webhook-endpoints/:id/deliveries": (req, body, { id }, url) => {
+    const endpoint = findEndpoint(req, id, "webhooks.read");
+    const newest = [...endpoint.deliveries].reverse();
+    const after = url.searchParams.get("starting_after");
+    const from = after ? newest.findIndex((d) => d.id === after) + 1 : 0;
+    return [200, newest.slice(from, from + Number(url.searchParams.get("limit") ?? 20)).map(presentDelivery)];
+  },
+  "POST /webhook-endpoints/:id/test": async (req, body, { id }) => {
+    const endpoint = findEndpoint(req, id, "webhooks.write");
+    if (endpoint.status !== "enabled")
+      throw new ApiError(400, "endpoint_disabled", "This endpoint is turned off. Turn it on to send it events.");
+    const ping = makeEvent(endpoint.livemode, "ping", {
+      object: "ping",
+      message: "A test event from Pickriders. Your endpoint received and can check it.",
+      webhook_endpoint: endpoint.id,
+    });
+    return [200, presentDelivery(await deliver(endpoint, ping))];
+  },
+  "POST /webhook-endpoints/:id/resend": async (req, body, { id }) => {
+    const endpoint = findEndpoint(req, id, "webhooks.write");
+    const original = endpoint.deliveries.find((d) => d.event.id === body.event_id && d.event.type !== "ping");
+    if (!original) throw new ApiError(404, "event_not_found", "No event with that id for this endpoint.", "event_id");
+    const sent = await deliver(endpoint, original.event);
+    return [
+      200,
+      { object: "event_resend", event_id: body.event_id, deliveries: [{ id: sent.id, webhook_endpoint: endpoint.id }] },
+    ];
+  },
   "POST /api-keys/:id/revoke": (req, body, { id }) => {
     const { team: t } = requireTeam(req, "keys.write");
     const key = t.keys.find((k) => k.id === id);
@@ -453,6 +547,97 @@ const routes = {
     return [200, presentKey(key)];
   },
 };
+
+const newSecret = () => `whsec_${randomBytes(24).toString("base64url")}`;
+const presentEndpoint = ({ secret, previousSecret, deliveries, ...endpoint }) => ({
+  object: "webhook_endpoint",
+  ...endpoint,
+});
+function checkUrl(raw) {
+  try {
+    const url = new URL(String(raw ?? "").trim());
+    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+    return url.toString();
+  } catch {
+    throw new ApiError(400, "url_invalid", "Use a full https URL on the public internet.", "url");
+  }
+}
+function findEndpoint(req, id, permission) {
+  const { team: t } = requireTeam(req, permission);
+  const endpoint = t.endpoints.find((e) => e.id === id);
+  if (!endpoint) throw new ApiError(404, "resource_missing", "No webhook endpoint with that id.", "id");
+  return endpoint;
+}
+const makeEvent = (livemode, type, object) => ({
+  object: "event",
+  id: `evt_${newId()}`,
+  type,
+  created: new Date().toISOString(),
+  livemode,
+  data: { object },
+});
+const presentDelivery = ({ event, ...d }) => ({ ...d, request_body: JSON.stringify(event) });
+
+/** POSTs the event to the endpoint now, signed with its secret(s), and records the attempt. */
+async function deliver(endpoint, event) {
+  const delivery = {
+    object: "webhook_delivery",
+    id: `whd_${newId()}`,
+    endpoint_id: endpoint.id,
+    event_id: event.id,
+    event_type: event.type,
+    status: "delivering",
+    attempt_count: 0,
+    next_attempt_at: null,
+    delivered_at: null,
+    created: new Date().toISOString(),
+    attempts: [],
+    event,
+  };
+  endpoint.deliveries.push(delivery);
+
+  const body = JSON.stringify(event);
+  const t = Math.floor(Date.now() / 1000);
+  const secrets = [endpoint.secret];
+  if (endpoint.previousSecret && new Date(endpoint.previous_secret_expires_at) > new Date())
+    secrets.push(endpoint.previousSecret);
+  const signature = [
+    `t=${t}`,
+    ...secrets.map((s) => `v1=${createHmac("sha256", s).update(`${t}.${body}`).digest("hex")}`),
+  ].join(",");
+
+  const started = Date.now();
+  const attempt = { at: new Date().toISOString(), status_code: null, duration_ms: 0, response_body: null, error: null };
+  try {
+    const res = await fetch(endpoint.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "pickriders-signature": signature,
+        "user-agent": "Pickriders-Webhooks/1.0",
+      },
+      body,
+      signal: AbortSignal.timeout(5000),
+    });
+    attempt.status_code = res.status;
+    attempt.response_body = (await res.text()).slice(0, 2048) || null;
+    if (!res.ok) attempt.error = `The endpoint answered ${res.status}.`;
+  } catch (error) {
+    attempt.error = error.name === "TimeoutError" ? "No answer within 5 seconds." : "Couldn't connect to the endpoint.";
+  }
+  attempt.duration_ms = Date.now() - started;
+  delivery.attempts.push(attempt);
+  delivery.attempt_count = 1;
+
+  const ok = attempt.status_code !== null && attempt.status_code < 300;
+  if (ok) Object.assign(delivery, { status: "succeeded", delivered_at: new Date().toISOString() });
+  // A ping isn't retried; anything else waits for its next try (the mock never makes it).
+  else if (event.type === "ping") delivery.status = "failed";
+  else Object.assign(delivery, { status: "pending", next_attempt_at: new Date(Date.now() + 60_000).toISOString() });
+
+  if (event.type !== "ping") endpoint.failing_since = ok ? null : (endpoint.failing_since ?? attempt.at);
+  return delivery;
+}
 
 const usable = (k) => k.status === "ACTIVE" || (k.status === "EXPIRING" && new Date(k.expiresAt) > new Date());
 const presentKey = ({ secret, ...key }) => key;
@@ -504,6 +689,19 @@ createServer(async (req, res) => {
 
   if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), send(204, null));
   if (url.pathname === "/__test/code") return send(200, { code: lastSent.get(url.searchParams.get("to")) ?? null });
+  if (url.pathname === "/__test/event") {
+    const user = users.get(url.searchParams.get("email"));
+    const own = user && teams.get(user.memberships.find((m) => m.role === "TEAM_OWNER")?.teamId);
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const type = url.searchParams.get("type") ?? "order.delivered";
+    const event = makeEvent(false, type, { object: "order", id: `ord_${newId()}`, status: type.split(".").pop() });
+    const listening = own.endpoints.filter(
+      (e) =>
+        !e.livemode && e.status === "enabled" && (e.enabled_events.includes("*") || e.enabled_events.includes(type)),
+    );
+    for (const endpoint of listening) await deliver(endpoint, event);
+    return send(200, { event_id: event.id, delivered_to: listening.length });
+  }
   if (url.pathname === "/__test/join") {
     const user = users.get(url.searchParams.get("email"));
     const owner = makeUser({

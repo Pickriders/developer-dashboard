@@ -24,6 +24,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
+import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { formatMoney } from "@/lib/dashboard/format";
@@ -272,6 +273,7 @@ export function Showcase() {
       </Section>
 
       <Section id="feedback" title="Overlays and feedback">
+        <SheetDemo />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" onClick={() => setModal(true)}>
             Show a secret
@@ -308,6 +310,20 @@ export function Showcase() {
         />
       </Section>
     </div>
+  );
+}
+
+function SheetDemo() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Open a sheet
+      </Button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="order.delivered" subtitle="One row, up close">
+        <p className="text-sm text-fg-muted">A right-hand panel from md, a bottom sheet on phones.</p>
+      </Sheet>
+    </>
   );
 }
 
