@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, Check, ChevronDown, Clock, Rocket, TriangleAlert } from "lucide-react";
 
 import { LiveAccessDialog } from "./live-access-dialog";
@@ -27,6 +28,7 @@ export function Home() {
   const account = useAccount(team.id);
   const onboarding = useOnboarding(team.id);
   const [asking, setAsking] = React.useState(false);
+  useOpenFromLink(React.useCallback(() => setAsking(true), []));
 
   const greeting = useGreeting(me.user.firstname);
 
@@ -58,9 +60,11 @@ export function Home() {
         <p className="text-base text-fg-muted">
           {live
             ? "Everything's set up. Here's your team at a glance."
-            : list.next?.state === "waiting"
-              ? "Your live access request is with us. Keep building in test mode."
-              : "A few steps take you from here to live deliveries."}
+            : account.data.liveStatus === "APPROVED"
+              ? "You're approved for live. Finish the rest of setup whenever you're ready."
+              : list.next?.state === "waiting"
+                ? "Your live access request is with us. Keep building in test mode."
+                : "A few steps take you from here to live deliveries."}
         </p>
       </header>
 
@@ -78,6 +82,19 @@ export function Home() {
       <LiveAccessDialog open={asking} onClose={() => setAsking(false)} account={account.data} />
     </>
   );
+}
+
+/** `/?request=live` (from the live lock in the header) opens the request dialog, once. */
+function useOpenFromLink(open: () => void) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const asked = params.get("request") === "live";
+  React.useEffect(() => {
+    if (!asked) return;
+    open();
+    router.replace(pathname, { scroll: false });
+  }, [asked, open, router, pathname]);
 }
 
 function useGreeting(firstname: string) {
@@ -181,7 +198,9 @@ function SetupGuide({
               ? "Every step is done."
               : list.next?.state === "waiting"
                 ? "Nothing to do but wait for the review."
-                : `${left} ${left === 1 ? "step" : "steps"} to live deliveries`}
+                : account.liveStatus === "APPROVED"
+                  ? `${left} ${left === 1 ? "step" : "steps"} left`
+                  : `${left} ${left === 1 ? "step" : "steps"} to live deliveries`}
           </p>
         </div>
       </div>

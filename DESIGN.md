@@ -113,6 +113,12 @@ team switcher, pages, the account menu at the foot), a slim sticky header (page 
 the same sidebar as a drawer below `lg`. The selected page is a `brand-subtle` pill with `brand-fg`
 text. Pages sit in a 72rem column and slide up 6px on arrival.
 
+**Test and live:** a Test | Live switch on the header's right, on every page. Test mode puts the amber
+banner (a `TEST MODE` pill and one line) above everything. Live stays locked, with a lock icon, until
+the team is approved; pressing it opens a panel with the three steps to live and the one action that
+fits (verify, request, wait, or fix what the review asked). Switching to live says so in a toast:
+real money and real riders from here on.
+
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).
 A refused or suspended live request opens first. Copy for every step lives in one place

@@ -84,7 +84,6 @@ src/
 │   ├── format.ts         money (kobo ↔ naira) and display helpers
 │   ├── hooks.ts          (later) React Query hooks over api.ts (`useAction` = mutation + toast)
 │   └── url-state.ts      (later) useTableState / useTabParam
-├── lib/mode.tsx          (later) test / live mode context
 ├── components/kit/       PageHeader, Panel, StatCard, IdText, CopyButton, CodeBlock, SecretReveal,
 │                         ConfirmDialog, EmptyState, TestModeBanner, Kbd, ThemeToggle
 ├── components/ui/        primitives ported from the storefront (Button, Input, Badge, Modal, …)
@@ -94,7 +93,8 @@ src/
 ├── components/shell/     DashboardShell (sidebar, header, phone drawer), TeamSwitcher, AccountMenu,
 │                         NAV (a page joins the sidebar in the step that builds it)
 ├── lib/workspace/        WorkspaceProvider / useWorkspace: the signed-in user, the selected team
-│                         (sets X-Team-Id before any page fetches), can(permission)
+│                         (sets X-Team-Id before any page fetches), can(permission), and the
+│                         test/live `mode` (per team; live only once approved)
 └── middleware.ts         the auth gate
 ```
 
@@ -166,7 +166,8 @@ export const useApiKeys = (mode: Mode) => useQuery({ queryKey: ["keys", mode], q
 ```
 
 Team data hooks take the team id and key their queries under `["team", teamId, …]` (`teamKeys`), so
-switching team never shows the other team's data. Pages read the team, the user and permissions from
+switching team never shows the other team's data. Data that differs by mode (keys, webhooks, orders,
+logs, wallet) also takes `mode` and puts it in the key, and sends it as `livemode`. Pages read the team, the user and permissions from
 `useWorkspace()`, never from `useMe()` directly.
 
 Mutations use `useAction(fn, { success, invalidate })` — it toasts and invalidates. Never call
