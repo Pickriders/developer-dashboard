@@ -1,0 +1,53 @@
+name: CI
+
+# Every branch and every pull request: pushes verify feature work before a PR exists (and the
+# automated release PR, whose GITHUB_TOKEN-opened PR fires no pull_request events); the PR run is
+# the one that gates a merge. Vercel builds a preview for every branch and PR on its own.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Type-check, lint, test and build
+    runs-on: ubuntu-latest
+    env:
+      # Public, and only read at build time: the dev API's origin.
+      NEXT_PUBLIC_API_URL: https://pickriders-api-dev.onrender.com
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # The committed generated client is what's checked: a backend route this app calls that was
+      # renamed or removed fails the type-check, and api.test.ts pins verb and path.
+      - name: Type-check
+        run: yarn typecheck
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Format
+        run: npx prettier --check .
+
+      - name: Test
+        run: yarn test --ci
+
+      - name: Build
+        run: yarn build

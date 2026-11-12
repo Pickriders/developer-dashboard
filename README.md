@@ -13,12 +13,21 @@ in [`developer-docs`](https://github.com/Pickriders/developer-docs).
 
 ## Stack
 
-Next.js 14 (App Router), TypeScript, Tailwind CSS and shadcn/ui, TanStack Query, with an API
-client generated from backend-api's Swagger document. Hosted on Vercel. The same stack as
-`pickrider-admin`; see [CLAUDE.md](./CLAUDE.md) for the conventions.
+Next.js 14 (App Router), TypeScript, Tailwind CSS and shadcn/ui on our own design system
+(Geist, light and dark; see [DESIGN.md](./DESIGN.md) and `/design` in the running app), TanStack
+Query, with an API client generated from backend-api's Swagger document. Hosted on Vercel. See
+[CLAUDE.md](./CLAUDE.md) for the conventions.
 
-The app is scaffolded in plan step 11.1; until then this repo holds the docs and the release
-workflow.
+## Running
+
+```bash
+yarn install
+cp .env.example .env.local   # points at the dev API
+yarn dev                     # http://localhost:3007 (regenerates the API client first)
+```
+
+`yarn dev:offline` skips the client regeneration. `yarn typecheck`, `yarn lint`, `yarn test` and
+`yarn build` are what CI runs.
 
 ## Branches and releases
 
