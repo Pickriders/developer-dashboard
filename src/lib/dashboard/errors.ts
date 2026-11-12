@@ -48,5 +48,5 @@ export function toApiError(error: unknown): ApiError {
 }
 
 /** Field-level errors (`param` set) belong under their input; the rest go in the form's alert. */
-export const fieldOf = (error: ApiError, fields: readonly string[]) =>
-  error.param && fields.includes(error.param) ? error.param : null;
+export const fieldOf = <Name extends string>(error: ApiError, fields: readonly Name[]): Name | null =>
+  error.param && (fields as readonly string[]).includes(error.param) ? (error.param as Name) : null;

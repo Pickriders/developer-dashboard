@@ -99,6 +99,23 @@ test("offers to sign in when the email already has an account", async ({ page })
   );
 });
 
+test("keeps a taken phone number's error until the number changes", async ({ page }) => {
+  // Ada's number, from the mock's seed.
+  await signUp(page, { ...newPerson(), phone: "8031234567" });
+
+  const phoneError = page.locator("#phone-error");
+  await expect(phoneError).toHaveText(/already uses this phone number/);
+  await expect(page.getByLabel(/Phone number/)).toBeFocused();
+
+  // Moving on (Formik re-validates on blur and change) must not hide what the API said.
+  await page.keyboard.press("Tab");
+  await page.getByLabel("First name").fill("Chidinma");
+  await expect(phoneError).toHaveText(/already uses this phone number/);
+
+  await page.getByLabel(/Phone number/).fill("8039876543");
+  await expect(phoneError).toHaveCount(0);
+});
+
 test("resets a forgotten password and signs in", async ({ page, request }) => {
   const person = newPerson();
   await signUp(page, person);

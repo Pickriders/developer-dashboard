@@ -19,6 +19,7 @@ import {
   PasswordInput,
   PasswordMeter,
   useFocusFirstError,
+  useServerErrors,
   visibleError,
 } from "@/components/auth";
 import { Button } from "@/components/ui/button";
@@ -59,8 +60,7 @@ export function SignupForm() {
   const invited = invitation.data ?? null;
   const signup = useApiMutation(auth.signup);
   const [failure, setFailure] = React.useState<ApiError | null>(null);
-  /** The email the API said is taken, so the error can offer to sign in instead. */
-  const [takenEmail, setTakenEmail] = React.useState<string | null>(null);
+  const serverErrors = useServerErrors<FieldName>();
 
   const form = useFormik({
     initialValues: { firstname: "", lastname: "", email: "", phone: "", password: "" },
@@ -84,7 +84,9 @@ export function SignupForm() {
         const error = e as ApiError;
         const field = fieldOf(error, FIELDS);
         if (!field) return setFailure(error);
-        if (error.code === "email_taken") setTakenEmail(values.email.trim());
+        const value = values[field].trim();
+        serverErrors.set(field, value, error.code === "email_taken" ? <EmailTaken email={value} /> : error.message);
+        // Also in Formik's errors, so focus moves to the field.
         helpers.setFieldError(field, error.message);
       }
     },
@@ -97,11 +99,8 @@ export function SignupForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invited]);
 
-  const error = (name: FieldName): React.ReactNode => {
-    if (name === "email" && takenEmail && takenEmail === form.values.email.trim())
-      return <EmailTaken email={takenEmail} />;
-    return visibleError(form, name);
-  };
+  const error = (name: FieldName): React.ReactNode =>
+    serverErrors.get(name, form.values[name].trim()) ?? visibleError(form, name);
   const loginHref = `/auth/login${invitationToken ? `?invitation=${invitationToken}` : ""}`;
 
   return (

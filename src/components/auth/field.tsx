@@ -99,3 +99,23 @@ export function Field({
     </div>
   );
 }
+
+/**
+ * Errors the API returned about a field, kept apart from Formik's errors: Formik re-validates on
+ * every blur and change and would wipe them the moment focus moves. Each shows until the value it
+ * was about changes.
+ */
+export function useServerErrors<Name extends string>() {
+  const [errors, setErrors] = React.useState<Partial<Record<Name, { value: string; message: React.ReactNode }>>>({});
+  return React.useMemo(
+    () => ({
+      set: (name: Name, value: string, message: React.ReactNode) =>
+        setErrors((current) => ({ ...current, [name]: { value, message } })),
+      get: (name: Name, value: string): React.ReactNode => {
+        const error = errors[name];
+        return error && error.value === value ? error.message : null;
+      },
+    }),
+    [errors],
+  );
+}

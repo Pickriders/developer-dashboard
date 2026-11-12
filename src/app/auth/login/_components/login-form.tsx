@@ -17,6 +17,7 @@ import {
   FormAlert,
   PasswordInput,
   useFocusFirstError,
+  useServerErrors,
   visibleError,
 } from "@/components/auth";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { crossSessionBoundary } from "@/lib/session/navigate";
 import { safeRedirect } from "@/lib/session/paths";
 
 const FIELDS = ["email", "password"] as const;
+type FieldName = (typeof FIELDS)[number];
 
 const schema = yup.object({
   email: yup.string().trim().required("Enter your email.").email("Enter a valid email, like ada@acme.com."),
@@ -43,6 +45,7 @@ export function LoginForm() {
   const login = useApiMutation(auth.login);
   const [failure, setFailure] = React.useState<ApiError | null>(null);
   const passwordRef = React.useRef<HTMLInputElement>(null);
+  const serverErrors = useServerErrors<FieldName>();
 
   const form = useFormik({
     initialValues: { email: params.get("email") ?? "", password: "" },
@@ -60,7 +63,11 @@ export function LoginForm() {
       } catch (e) {
         const error = e as ApiError;
         const field = fieldOf(error, FIELDS);
-        if (field) return helpers.setFieldError(field, error.message);
+        if (field) {
+          serverErrors.set(field, values[field].trim(), error.message);
+          // Also in Formik's errors, so focus moves to the field.
+          return helpers.setFieldError(field, error.message);
+        }
         setFailure(error);
         // Keep what they typed, selected: one keystroke replaces it, and a near-miss can be fixed.
         if (error.code === "invalid_credentials") passwordRef.current?.select();
@@ -69,7 +76,7 @@ export function LoginForm() {
   });
   useFocusFirstError(form, FIELDS);
 
-  const error = (name: (typeof FIELDS)[number]) => visibleError(form, name);
+  const error = (name: FieldName) => serverErrors.get(name, form.values[name].trim()) ?? visibleError(form, name);
   const carry = new URLSearchParams();
   for (const key of ["redirect", "invitation"]) if (params.get(key)) carry.set(key, params.get(key) as string);
   const forgotHref = `/auth/forgot-password${form.values.email ? `?email=${encodeURIComponent(form.values.email.trim())}` : ""}`;
