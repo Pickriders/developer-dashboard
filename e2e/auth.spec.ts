@@ -29,8 +29,11 @@ test("signs up, verifies email and phone, and lands verified", async ({ page, re
   await expect(page.getByRole("heading", { name: "You're verified" })).toBeVisible();
   await page.getByRole("button", { name: "Continue to dashboard" }).click();
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("heading", { name: "Welcome, Chidi" })).toBeVisible();
-  await expect(page.getByText("Verified", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /, Chidi$/ })).toBeVisible();
+  // Both verification steps tick themselves; the next step is the test key.
+  await expect(page.locator('[data-step="verify_email"]')).toHaveAttribute("data-state", "done");
+  await expect(page.locator('[data-step="verify_phone"]')).toHaveAttribute("data-state", "done");
+  await expect(page.locator('[data-step="test_key"]')).toHaveAttribute("aria-current", "step");
 });
 
 test("keeps the session token out of reach of page scripts", async ({ page }) => {
@@ -162,7 +165,7 @@ test("joins a team from an invitation", async ({ page, request }) => {
 
   // The invitation proved the email, so there is no verify step.
   await expect(page).toHaveURL("/");
-  await expect(page.getByText("signed in to Acme Logistics")).toBeVisible();
+  await expect(page.getByLabel("Your team").getByText("Acme Logistics")).toBeVisible();
 });
 
 test("explains a used invitation", async ({ page, request }) => {

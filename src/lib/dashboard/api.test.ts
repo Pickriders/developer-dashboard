@@ -120,6 +120,20 @@ const CASES: Case[] = [
   { name: "teams.list", call: () => api.teams.list(), method: "GET", path: `${D}/teams` },
   { name: "teams.current", call: () => api.teams.current(), method: "GET", path: `${D}/teams/current` },
   { name: "account.get", call: () => api.account.get(), method: "GET", path: `${D}/account` },
+  {
+    name: "account.update",
+    call: () => api.account.update({ useCase: "Same-day deliveries" }),
+    method: "PATCH",
+    path: `${D}/account`,
+    data: { useCase: "Same-day deliveries" },
+  },
+  { name: "account.onboarding", call: () => api.account.onboarding(), method: "GET", path: `${D}/account/onboarding` },
+  {
+    name: "account.requestLiveAccess",
+    call: () => api.account.requestLiveAccess(),
+    method: "POST",
+    path: `${D}/account/live-access`,
+  },
 ];
 
 describe("dashboard api routes", () => {

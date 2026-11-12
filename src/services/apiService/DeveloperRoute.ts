@@ -42,6 +42,7 @@ import {
   DeveloperGetFundingAccountData,
   DeveloperGetIpAllowlistData,
   DeveloperGetLowBalanceAlertData,
+  DeveloperGetOnboardingData,
   DeveloperGetWalletData,
   DeveloperLeaveTeamData,
   DeveloperListApiKeysData,
@@ -593,6 +594,25 @@ export namespace Developer {
       "X-Team-Id": string;
     };
     export type ResponseBody = DeveloperUpdateAccountData;
+  }
+
+  /**
+   * @description The get-started steps done outside the account: a test key, a test order, a webhook endpoint. With GET dashboard/account (verification, live status), everything the checklist shows.
+   * @tags developer-dashboard/account
+   * @name DeveloperGetOnboarding
+   * @request GET:/developer/api/v1/dashboard/account/onboarding
+   * @secure
+   * @response `200` `DeveloperGetOnboardingData`
+   */
+  export namespace DeveloperGetOnboarding {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DeveloperGetOnboardingData;
   }
 
   /**

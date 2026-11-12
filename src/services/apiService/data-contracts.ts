@@ -6559,6 +6559,15 @@ export interface DeveloperAccountDto {
   liveSuspensionReason: string | null;
 }
 
+export interface DeveloperOnboardingDto {
+  /** The team has created a test API key (sk_test_), even if it was revoked since. */
+  testKeyCreated: boolean;
+  /** The team has created a test-mode order. */
+  testOrderCreated: boolean;
+  /** The team has a webhook endpoint. */
+  webhookEndpointAdded: boolean;
+}
+
 export interface UpdateDeveloperAccountRequestDto {
   /**
    * The display name.
@@ -8472,6 +8481,8 @@ export type DeveloperListAuditLogsData = TeamAuditLogListDto;
 export type DeveloperGetAccountData = DeveloperAccountDto;
 
 export type DeveloperUpdateAccountData = DeveloperAccountDto;
+
+export type DeveloperGetOnboardingData = DeveloperOnboardingDto;
 
 export type DeveloperRequestLiveAccessData = DeveloperAccountDto;
 

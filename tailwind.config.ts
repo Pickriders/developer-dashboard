@@ -78,6 +78,7 @@ const config: Config = {
         blink: { "0%, 100%": { opacity: "1" }, "50%": { opacity: "0" } },
         float: { "0%, 100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-6px)" } },
         "pop-in": { from: { opacity: "0", transform: "scale(0.96)" }, to: { opacity: "1", transform: "none" } },
+        "slide-in-left": { from: { transform: "translateX(-100%)" }, to: { transform: "none" } },
       },
       animation: {
         "fade-in": "fade-in 200ms var(--ease-out)",
@@ -89,6 +90,7 @@ const config: Config = {
         blink: "blink 1s step-end infinite",
         float: "float 6s ease-in-out infinite",
         "pop-in": "pop-in 200ms var(--ease-out)",
+        "slide-in-left": "slide-in-left 260ms var(--ease-out)",
       },
     },
   },

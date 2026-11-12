@@ -5,6 +5,7 @@ import type {
   DeveloperResetPasswordRequestDto,
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
+  UpdateDeveloperAccountRequestDto,
 } from "@/services/apiService";
 
 /**
@@ -41,4 +42,7 @@ export const teams = {
 
 export const account = {
   get: () => apiService.developerGetAccount(),
+  update: (body: UpdateDeveloperAccountRequestDto) => apiService.developerUpdateAccount(body),
+  onboarding: () => apiService.developerGetOnboarding(),
+  requestLiveAccess: () => apiService.developerRequestLiveAccess(),
 };

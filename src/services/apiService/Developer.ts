@@ -45,6 +45,7 @@ import {
   DeveloperGetFundingAccountData,
   DeveloperGetIpAllowlistData,
   DeveloperGetLowBalanceAlertData,
+  DeveloperGetOnboardingData,
   DeveloperGetWalletData,
   DeveloperGetWalletParams,
   DeveloperLeaveTeamData,
@@ -586,6 +587,23 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       body: data,
       secure: true,
       type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description The get-started steps done outside the account: a test key, a test order, a webhook endpoint. With GET dashboard/account (verification, live status), everything the checklist shows.
+   *
+   * @tags developer-dashboard/account
+   * @name DeveloperGetOnboarding
+   * @request GET:/developer/api/v1/dashboard/account/onboarding
+   * @secure
+   * @response `200` `DeveloperGetOnboardingData`
+   */
+  developerGetOnboarding = (params: RequestParams = {}) =>
+    this.request<DeveloperGetOnboardingData, any>({
+      path: `/developer/api/v1/dashboard/account/onboarding`,
+      method: "GET",
+      secure: true,
       format: "json",
       ...params,
     });
