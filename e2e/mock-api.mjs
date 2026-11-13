@@ -10,6 +10,7 @@
 //   POST /__test/order?email=                      # a test order arrives for that person's own team
 //   POST /__test/join?email=&name=&role=           # add them to a new team, owned by someone unverified
 //   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
+//   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
 // (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
@@ -103,6 +104,7 @@ function makeTeam(name, owner) {
     testOrders: 0,
     keys: [],
     endpoints: [],
+    logs: [],
   };
   teams.set(t.id, t);
   return t;
@@ -125,22 +127,16 @@ const ALL = [
   "billing.read",
   "logs.read",
 ];
+const READS = ALL.filter((p) => p.endsWith(".read"));
+const DEVELOPER = [...READS, "keys.write", "webhooks.write", "orders.write"];
+/** Every role reads everything; writes as backend-api's team-permissions.ts grants them. */
 const PERMISSIONS = {
   TEAM_OWNER: ALL,
   TEAM_ADMIN: ALL.filter((p) => p !== "team.transfer"),
-  TEAM_DEVELOPER: [
-    "team.read",
-    "keys.read",
-    "keys.write",
-    "webhooks.read",
-    "webhooks.write",
-    "orders.read",
-    "orders.write",
-    "wallet.read",
-    "logs.read",
-  ],
-  TEAM_FINANCE: ["team.read", "orders.read", "wallet.read", "wallet.fund", "billing.read"],
-  TEAM_VIEWER: ["team.read", "keys.read", "webhooks.read", "orders.read", "wallet.read", "logs.read"],
+  TEAM_DEVELOPER: DEVELOPER,
+  TEAM_MEMBER: DEVELOPER,
+  TEAM_FINANCE: [...READS, "wallet.fund"],
+  TEAM_VIEWER: READS,
 };
 const canRequestLive = (t) => t.owner.emailVerified && t.owner.phoneVerified;
 
@@ -448,6 +444,48 @@ const routes = {
     );
     return [200, issueKey(t, user, { label: old.label, livemode: old.livemode, scopes: old.scopes })];
   },
+  "GET /request-logs": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "logs.read");
+    const q = Object.fromEntries(url.searchParams);
+    const status = {
+      succeeded: (s) => s < 400,
+      failed: (s) => s >= 400,
+      "2xx": (s) => s < 300,
+      "4xx": (s) => s >= 400 && s < 500,
+      "5xx": (s) => s >= 500,
+    }[q.status];
+    let rows = [...t.logs]
+      .reverse()
+      .filter(
+        (l) =>
+          (q.request_id
+            ? l.requestId === q.request_id
+            : q.livemode === undefined || l.livemode === (q.livemode === "true")) &&
+          (!status || status(l.status)) &&
+          (!q.method || l.method === q.method) &&
+          (!q.path || l.path.toLowerCase().includes(q.path.toLowerCase())) &&
+          (!q.key || l.key?.id === q.key) &&
+          (!q.created_gte || l.createdAt >= q.created_gte),
+      );
+    const from = q.starting_after ? rows.findIndex((l) => l.id === q.starting_after) + 1 : 0;
+    const limit = Number(q.limit ?? 20);
+    const page = rows.slice(from, from + limit);
+    return [
+      200,
+      {
+        object: "list",
+        data: page.map(({ query, ip, userAgent, requestBody, responseBody, ...row }) => row),
+        has_more: rows.length > from + limit,
+        url: `${D}/request-logs`,
+      },
+    ];
+  },
+  "GET /request-logs/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "logs.read");
+    const log = t.logs.find((l) => l.id === id);
+    if (!log) throw new ApiError(404, "log_not_found", "No request with that id in this team.");
+    return [200, log];
+  },
   "GET /webhook-endpoints": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "webhooks.read");
     const live = url.searchParams.get("livemode");
@@ -701,6 +739,78 @@ createServer(async (req, res) => {
     );
     for (const endpoint of listening) await deliver(endpoint, event);
     return send(200, { event_id: event.id, delivered_to: listening.length });
+  }
+  if (url.pathname === "/__test/requests") {
+    const user = users.get(url.searchParams.get("email"));
+    const own = user && teams.get(user.memberships.find((m) => m.role === "TEAM_OWNER")?.teamId);
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const key = own.keys.find((k) => !k.livemode) ?? null;
+    const n = Number(url.searchParams.get("n") ?? 5);
+    const kinds = [
+      {
+        method: "POST",
+        path: "/developer/api/v1/quotes",
+        status: 200,
+        body: { type: "single", service_area: "NG-LA" },
+        res: { object: "quote", id: "quo_1", recommended_price: 350000 },
+      },
+      {
+        method: "POST",
+        path: "/developer/api/v1/orders",
+        status: 201,
+        body: { quote_id: "quo_1", reference: "shop-42", contact: { phone: "[redacted]" } },
+        res: { object: "order", id: "ord_1", status: "searching" },
+      },
+      { method: "GET", path: "/developer/api/v1/orders/ord_1", status: 200, res: { object: "order", id: "ord_1" } },
+      {
+        method: "POST",
+        path: "/developer/api/v1/orders",
+        status: 402,
+        body: { quote_id: "quo_2" },
+        res: {
+          error: {
+            type: "insufficient_funds_error",
+            code: "insufficient_funds",
+            message: "Your wallet can't cover this order.",
+          },
+        },
+        errorType: "insufficient_funds_error",
+        errorCode: "insufficient_funds",
+      },
+      {
+        method: "GET",
+        path: "/developer/api/v1/wallet",
+        status: 500,
+        res: { error: { type: "api_error", code: "internal_error" } },
+        errorType: "api_error",
+        errorCode: "internal_error",
+      },
+    ];
+    const made = [];
+    for (let i = 0; i < n; i++) {
+      const kind = kinds[i % kinds.length];
+      const log = {
+        id: newId(),
+        requestId: `req_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        method: kind.method,
+        path: kind.path,
+        status: kind.status,
+        durationMs: 40 + ((i * 37) % 300),
+        livemode: false,
+        key: key ? { id: key.id, label: key.label, prefix: key.prefix } : null,
+        errorType: kind.errorType ?? null,
+        errorCode: kind.errorCode ?? null,
+        createdAt: new Date(Date.now() - (n - i) * 60_000).toISOString(),
+        query: null,
+        ip: "102.89.34.10",
+        userAgent: "pickriders-node/1.0.0",
+        requestBody: kind.body ?? null,
+        responseBody: kind.res,
+      };
+      own.logs.push(log);
+      made.push(log.requestId);
+    }
+    return send(200, { requestIds: made });
   }
   if (url.pathname === "/__test/join") {
     const user = users.get(url.searchParams.get("email"));

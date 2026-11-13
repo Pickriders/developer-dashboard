@@ -155,6 +155,13 @@ turned off; one we turned off says why and how to bring it back. A delivery open
 attempt (code, time, duration, error, the response body folded), the exact JSON we sent, and Resend.
 Events are picked as All (including future ones) or by group, each with a one-line description.
 
+**Request logs** (`/logs`): one search box (a `req_…` id finds that request in either mode; anything
+else narrows by path) and filter pills (outcome, method, key, time) that tint when set. All filters and
+the open request live in the URL. Rows: the status as a coloured mono pill (2xx green, 4xx amber, 5xx
+red), method, path without the API prefix, the error code under it, key, duration, when. The newest page
+auto-refreshes every 10 s. A request opens in a `Sheet`: the error with a link to its doc, the request
+id, key, mode, IP, user agent, and the redacted request and response bodies.
+
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).
 A refused or suspended live request opens first. Copy for every step lives in one place

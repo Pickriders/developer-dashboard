@@ -1,4 +1,4 @@
-import { House, KeyRound, Webhook, type LucideIcon } from "lucide-react";
+import { House, KeyRound, ScrollText, Webhook, type LucideIcon } from "lucide-react";
 
 import type { Permission } from "@/lib/workspace";
 
@@ -38,6 +38,14 @@ export const NAV: NavGroup[] = [
         permission: "webhooks.read",
         key: "w",
         keywords: "endpoints events deliveries",
+      },
+      {
+        href: "/logs",
+        label: "Request logs",
+        icon: ScrollText,
+        permission: "logs.read",
+        key: "l",
+        keywords: "requests api calls errors request id req_",
       },
     ],
   },
