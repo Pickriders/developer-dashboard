@@ -2,7 +2,18 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { account, auth, invitations, keys, type LogFilters, logs, type OrderFilters, orders, webhooks } from "./api";
+import {
+  account,
+  auth,
+  invitations,
+  keys,
+  type LogFilters,
+  logs,
+  type OrderFilters,
+  orders,
+  wallet,
+  webhooks,
+} from "./api";
 import { type ApiError, toApiError } from "./errors";
 import type {
   CreateDeveloperApiKeyRequestDto,
@@ -50,6 +61,13 @@ export const teamKeys = {
   orders: (teamId: string, mode: Mode, filters?: OrderFilters) =>
     filters ? (["team", teamId, mode, "orders", filters] as const) : (["team", teamId, mode, "orders"] as const),
   order: (teamId: string, mode: Mode, id: string) => ["team", teamId, mode, "order", id] as const,
+  wallet: (teamId: string, mode: Mode) => ["team", teamId, mode, "wallet"] as const,
+  transactions: (teamId: string, mode: Mode, type?: string) =>
+    type
+      ? (["team", teamId, mode, "wallet", "transactions", type] as const)
+      : (["team", teamId, mode, "wallet", "transactions"] as const),
+  /** The live wallet's settings: transfer account, auto top-up, low-balance alert. */
+  walletSetting: (teamId: string, name: string) => ["team", teamId, "live", "wallet", name] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -263,3 +281,65 @@ export const useCancelOrder = (teamId: string, mode: Mode, id: string) =>
 
 export const useAdvanceOrder = (teamId: string, id: string) =>
   useOrderMutation(teamId, "test", (to?: Parameters<typeof orders.advance>[1]) => orders.advance(id, to));
+
+export const useWallet = (teamId: string, mode: Mode) =>
+  useQuery<Awaited<ReturnType<typeof wallet.get>>, ApiError>({
+    queryKey: teamKeys.wallet(teamId, mode),
+    queryFn: () => wallet.get(mode).catch((e) => Promise.reject(toApiError(e))),
+    retry: (count, error) => error.status !== 404 && count < 1,
+  });
+
+export const useTransactions = (teamId: string, mode: Mode, type?: "credit" | "debit") =>
+  useInfiniteQuery({
+    queryKey: [...teamKeys.transactions(teamId, mode), type ?? "all"],
+    queryFn: ({ pageParam }) => wallet.transactions(mode, type, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
+    placeholderData: (previous) => previous,
+  });
+
+/** A live-wallet setting; a 404 (not set up yet) comes back as null rather than an error. */
+const useLiveSetting = <T>(teamId: string, name: string, fetch: () => Promise<T>, enabled: boolean) =>
+  useQuery<T | null, ApiError>({
+    queryKey: teamKeys.walletSetting(teamId, name),
+    queryFn: () =>
+      fetch().catch((e) => {
+        const error = toApiError(e);
+        return error.status === 404 ? null : Promise.reject(error);
+      }),
+    enabled,
+  });
+
+export const useFundingAccount = (teamId: string, enabled: boolean) =>
+  useLiveSetting(teamId, "funding-account", wallet.fundingAccount, enabled);
+export const useAutoTopUp = (teamId: string, enabled: boolean) =>
+  useLiveSetting(teamId, "auto-top-up", wallet.autoTopUp, enabled);
+export const useLowBalanceAlert = (teamId: string, enabled: boolean) =>
+  useLiveSetting(teamId, "low-balance-alert", wallet.lowBalanceAlert, enabled);
+
+/** A wallet change: refreshes the balance, its transactions and the live settings. */
+const useWalletMutation = <TArgs, TResult>(teamId: string, mode: Mode, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["team", teamId, mode, "wallet"] }),
+  });
+};
+
+export const useAddTestFunds = (teamId: string) =>
+  useWalletMutation(teamId, "test", (amount: number) => wallet.addTestFunds(amount));
+export const useCardCheckout = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.cardCheckout>[0]) => wallet.cardCheckout(body));
+export const useSetLowBalanceAlert = (teamId: string) =>
+  useWalletMutation(teamId, "live", (threshold: number | null) => wallet.setLowBalanceAlert(threshold));
+export const useSetUpFundingAccount = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.setUpFundingAccount>[0]) =>
+    wallet.setUpFundingAccount(body),
+  );
+export const useConfigureAutoTopUp = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.configureAutoTopUp>[0]) =>
+    wallet.configureAutoTopUp(body),
+  );
+export const useSaveCard = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.saveCard>[0]) => wallet.saveCard(body));
+export const useRemoveCard = (teamId: string) => useWalletMutation(teamId, "live", () => wallet.removeCard());

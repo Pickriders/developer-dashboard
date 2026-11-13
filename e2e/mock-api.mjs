@@ -107,8 +107,25 @@ function makeTeam(name, owner) {
     logs: [],
     orders: [],
     quotes: [],
+    wallets: {
+      test: { available: 100_000_000, held: 0, transactions: [] },
+      live: { available: 0, held: 0, transactions: [] },
+    },
+    fundingAccount: null,
+    autoTopUp: {
+      enabled: false,
+      threshold: null,
+      amount: null,
+      card: null,
+      last_charge_at: null,
+      consecutive_failures: 0,
+      last_failure_reason: null,
+      disabled_reason: null,
+    },
+    lowBalance: null,
   };
   teams.set(t.id, t);
+  record(t, false, "credit", "test_funding", 100_000_000, "Opening play money");
   return t;
 }
 
@@ -587,6 +604,121 @@ const routes = {
     return [200, presentKey(key)];
   },
 
+  "GET /wallet": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "wallet.read");
+    const live = url.searchParams.get("livemode") === "true";
+    if (live && t.liveStatus !== "APPROVED")
+      throw new ApiError(404, "live_wallet_not_open", "The live wallet opens when Pickriders approves live access.");
+    return [200, walletOf(t, live)];
+  },
+  "GET /wallet/transactions": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "wallet.read");
+    const q = Object.fromEntries(url.searchParams);
+    const rows = [...t.wallets[q.livemode === "true" ? "live" : "test"].transactions]
+      .reverse()
+      .filter((r) => !q.type || r.type === q.type);
+    const from = q.starting_after ? rows.findIndex((r) => r.id === q.starting_after) + 1 : 0;
+    const limit = Number(q.limit ?? 20);
+    return [
+      200,
+      {
+        object: "list",
+        data: rows.slice(from, from + limit),
+        has_more: rows.length > from + limit,
+        url: `${D}/wallet/transactions`,
+      },
+    ];
+  },
+  "POST /wallet/test-funds": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    const amount = Number(body.amount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000_000)
+      throw new ApiError(400, "parameter_invalid", "amount can be at most 1000000000 kobo per top-up", "amount");
+    t.wallets.test.available += amount;
+    record(t, false, "credit", "test_funding", amount, "Test top-up");
+    return [200, walletOf(t, false)];
+  },
+  "POST /wallet/funding-sessions": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    if (t.liveStatus !== "APPROVED")
+      throw new ApiError(403, "live_access_required", "Card top-ups fund the live wallet.");
+    // Stands in for Paystack: the payment succeeds and the checkout sends the payer straight back.
+    t.wallets.live.available += Number(body.amount);
+    record(t, true, "credit", "wallet_funding", Number(body.amount), "Card top-up");
+    return [
+      200,
+      {
+        object: "funding_session",
+        reference: `ref_${newId()}`,
+        url: body.success_url,
+        amount: body.amount,
+        currency: "NGN",
+        livemode: true,
+        created: new Date().toISOString(),
+      },
+    ];
+  },
+  "GET /wallet/low-balance-alert": (req) => [200, { threshold: requireTeam(req, "wallet.read").team.lowBalance }],
+  "PUT /wallet/low-balance-alert": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    t.lowBalance = body.threshold ?? null;
+    return [200, { threshold: t.lowBalance }];
+  },
+  "GET /wallet/funding-account": (req) => {
+    const { team: t } = requireTeam(req, "wallet.read");
+    if (!t.fundingAccount) throw new ApiError(404, "funding_account_not_set_up", "No transfer account yet.");
+    return [200, t.fundingAccount];
+  },
+  "POST /wallet/funding-account": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    if (!/^\d{11}$/.test(body.bvn ?? "")) throw new ApiError(400, "parameter_invalid", "bvn must be 11 digits", "bvn");
+    // Paystack checks the BVN in the background; the mock has it done at once.
+    t.fundingAccount = {
+      object: "funding_account",
+      status: "active",
+      bank_name: "Wema Bank",
+      account_number: "9930012345",
+      account_name: `PICKRIDERS/${t.name.toUpperCase()}`,
+      bvn_last4: body.bvn.slice(-4),
+      failure_reason: null,
+    };
+    return [201, t.fundingAccount];
+  },
+  "GET /wallet/auto-top-up": (req) => [200, requireTeam(req, "wallet.read").team.autoTopUp],
+  "PUT /wallet/auto-top-up": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    if (body.enabled && !t.autoTopUp.card) throw new ApiError(400, "card_required", "Save a card first.");
+    Object.assign(t.autoTopUp, {
+      enabled: !!body.enabled,
+      threshold: body.threshold,
+      amount: body.amount,
+      disabled_reason: null,
+    });
+    return [200, t.autoTopUp];
+  },
+  "POST /wallet/auto-top-up/card": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    t.autoTopUp.card = { brand: "Visa", last4: "4081", exp_month: "12", exp_year: "2030", bank: "Test Bank" };
+    t.wallets.live.available += Number(body.amount);
+    record(t, true, "credit", "wallet_funding", Number(body.amount), "Card top-up");
+    return [
+      200,
+      {
+        object: "funding_session",
+        reference: `ref_${newId()}`,
+        url: body.success_url,
+        amount: body.amount,
+        currency: "NGN",
+        livemode: true,
+        created: new Date().toISOString(),
+      },
+    ];
+  },
+  "DELETE /wallet/auto-top-up/card": (req) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    Object.assign(t.autoTopUp, { card: null, enabled: false });
+    return [200, t.autoTopUp];
+  },
   "GET /service-areas": (req) => {
     requireTeam(req, "orders.read");
     return [200, { object: "list", data: [AREA] }];
@@ -656,6 +788,12 @@ const routes = {
       created: now,
       updated: now,
     };
+    const w = t.wallets[live ? "live" : "test"];
+    if (w.available < order.pricing.amount)
+      throw new ApiError(402, "insufficient_funds", "Your wallet can't cover this order. Add money and try again.");
+    w.available -= order.pricing.amount;
+    w.held += order.pricing.amount;
+    record(t, live, "debit", "order_hold", order.pricing.amount, `Held for order #${order.number}`, order.id);
     t.orders.push(order);
     if (!live) t.testOrders++;
     return [201, order];
@@ -721,6 +859,18 @@ const routes = {
     if (["delivered", "cancelled", "failed"].includes(order.status))
       throw new ApiError(409, "order_not_cancellable", "This order can't be cancelled any more.");
     const charged = order.rider ? order.pricing.service_charge : 0;
+    const w = t_of(req).wallets[order.livemode ? "live" : "test"];
+    w.held -= order.pricing.amount;
+    w.available += order.pricing.amount - charged;
+    record(
+      t_of(req),
+      order.livemode,
+      "credit",
+      "order_refund",
+      order.pricing.amount - charged,
+      `Refund for order #${order.number}`,
+      order.id,
+    );
     Object.assign(order, {
       status: "cancelled",
       updated: new Date().toISOString(),
@@ -834,9 +984,38 @@ function step(order) {
   else if (stop.status === "en_route") Object.assign(stop, { status: "arrived", arrived_at: now });
   else Object.assign(stop, { status: "completed", completed_at: now });
   if (order.stops[0].status === "completed" && order.status === "picking_up") order.status = "in_transit";
-  if (order.stops.every((s) => s.status === "completed"))
+  if (order.stops.every((s) => s.status === "completed")) {
     Object.assign(order, { status: "delivered", delivered_at: now });
+    const owner = [...teams.values()].find((t) => t.orders.includes(order));
+    owner.wallets.test.held -= order.pricing.amount;
+  }
 }
+const t_of = (req) => teams.get(req.headers["x-team-id"]);
+/** A wallet transaction, as the ledger shows it. */
+function record(t, live, type, purpose, amount, description, order = null) {
+  const w = t.wallets[live ? "live" : "test"];
+  w.transactions.push({
+    object: "transaction",
+    id: `txn_${newId()}`,
+    type,
+    purpose,
+    status: "success",
+    amount,
+    currency: "NGN",
+    balance_after: w.available + w.held,
+    description,
+    order,
+    livemode: live,
+    created: new Date().toISOString(),
+  });
+}
+const walletOf = (t, live) => ({
+  object: "wallet",
+  currency: "NGN",
+  available: t.wallets[live ? "live" : "test"].available,
+  held: t.wallets[live ? "live" : "test"].held,
+  livemode: live,
+});
 
 const newSecret = () => `whsec_${randomBytes(24).toString("base64url")}`;
 const presentEndpoint = ({ secret, previousSecret, deliveries, ...endpoint }) => ({

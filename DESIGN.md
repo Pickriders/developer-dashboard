@@ -171,6 +171,14 @@ the price holds, beside a live preview of the route. An order's page has the map
 route drawn to scale without a key), a timeline built from the order, the stops with contacts and
 drop-off codes, the rider, the price, and Advance (one step, or Deliver it now) in test mode.
 
+**Wallet** (`/wallet`): the balance as the page's hero (available, big; held, under it), with one action:
+**Add play money** in test mode (presets, up to ₦10,000,000 at a time) or **Top up by card** in live mode
+(Paystack's checkout, then back with a toast). Live mode adds three cards: Bank transfer (set up once
+with a BVN, then the account details with copy buttons), Auto top-up (a saved card, when and by how
+much, a switch, the last charge and failures) and the Low-balance alert. Test mode says those are for
+the live wallet. Transactions list money in and out (+ green, − plain) with their order, filter in or
+out, and export as CSV (naira, money out negative, formulas neutralised).
+
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).
 A refused or suspended live request opens first. Copy for every step lives in one place

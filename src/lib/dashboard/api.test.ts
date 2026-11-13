@@ -52,6 +52,15 @@ const STOP = {
   contact: { name: "Bola", phone: "+2348031234567" },
 };
 const ORDER = { type: "single" as const, service_area: "NG-LA", stops: [STOP, STOP] };
+const CHECKOUT = { amount: 5_000_000, success_url: "https://dash.test/wallet?funded=1" };
+// Paystack's documented test BVN and a test account, as in backend-api's own specs.
+const ACCOUNT = {
+  bvn: "22212345678",
+  account_number: "0123456789",
+  bank_code: "058",
+  first_name: "Ada",
+  last_name: "Obi",
+};
 const HOOK = { url: "https://acme.test/hooks", enabled_events: ["order.delivered" as const], livemode: false };
 const SIGNUP = { firstname: "Ada", lastname: "Obi", email: "ada@acme.com", phone: "+2348031234567", password: "p" };
 
@@ -267,6 +276,81 @@ const CASES: Case[] = [
     data: { to: "delivered" },
   },
   { name: "orders.serviceAreas", call: () => api.orders.serviceAreas(), method: "GET", path: `${D}/service-areas` },
+  {
+    name: "wallet.get",
+    call: () => api.wallet.get("live"),
+    method: "GET",
+    path: `${D}/wallet`,
+    params: { livemode: "true" },
+  },
+  {
+    name: "wallet.transactions",
+    call: () => api.wallet.transactions("test", "debit", "txn_1"),
+    method: "GET",
+    path: `${D}/wallet/transactions`,
+    params: { livemode: "false", limit: 20, type: "debit", starting_after: "txn_1" },
+  },
+  {
+    name: "wallet.addTestFunds",
+    call: () => api.wallet.addTestFunds(5_000_000),
+    method: "POST",
+    path: `${D}/wallet/test-funds`,
+    data: { amount: 5_000_000 },
+  },
+  {
+    name: "wallet.cardCheckout",
+    call: () => api.wallet.cardCheckout(CHECKOUT),
+    method: "POST",
+    path: `${D}/wallet/funding-sessions`,
+    data: CHECKOUT,
+  },
+  {
+    name: "wallet.lowBalanceAlert",
+    call: () => api.wallet.lowBalanceAlert(),
+    method: "GET",
+    path: `${D}/wallet/low-balance-alert`,
+  },
+  {
+    name: "wallet.setLowBalanceAlert",
+    call: () => api.wallet.setLowBalanceAlert(null),
+    method: "PUT",
+    path: `${D}/wallet/low-balance-alert`,
+    data: { threshold: null },
+  },
+  {
+    name: "wallet.fundingAccount",
+    call: () => api.wallet.fundingAccount(),
+    method: "GET",
+    path: `${D}/wallet/funding-account`,
+  },
+  {
+    name: "wallet.setUpFundingAccount",
+    call: () => api.wallet.setUpFundingAccount(ACCOUNT),
+    method: "POST",
+    path: `${D}/wallet/funding-account`,
+    data: ACCOUNT,
+  },
+  { name: "wallet.autoTopUp", call: () => api.wallet.autoTopUp(), method: "GET", path: `${D}/wallet/auto-top-up` },
+  {
+    name: "wallet.configureAutoTopUp",
+    call: () => api.wallet.configureAutoTopUp({ enabled: true, threshold: 2_000_000, amount: 10_000_000 }),
+    method: "PUT",
+    path: `${D}/wallet/auto-top-up`,
+    data: { enabled: true, threshold: 2_000_000, amount: 10_000_000 },
+  },
+  {
+    name: "wallet.saveCard",
+    call: () => api.wallet.saveCard(CHECKOUT),
+    method: "POST",
+    path: `${D}/wallet/auto-top-up/card`,
+    data: CHECKOUT,
+  },
+  {
+    name: "wallet.removeCard",
+    call: () => api.wallet.removeCard(),
+    method: "DELETE",
+    path: `${D}/wallet/auto-top-up/card`,
+  },
   {
     name: "logs.list",
     call: () => api.logs.list("test", { status: "failed", path: "/orders" }, "log_1"),

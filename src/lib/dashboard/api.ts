@@ -6,6 +6,10 @@ import type {
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
   AdvanceOrderRequestDto,
+  ConfigureAutoTopUpRequestDto,
+  CreateFundingSessionRequestDto,
+  PublicWalletTransactionDto,
+  SetUpFundingAccountRequestDto,
   CreateDeveloperApiKeyRequestDto,
   CreateOrderRequestDto,
   CreateQuoteRequestDto,
@@ -137,4 +141,31 @@ export type ServiceArea = {
   state_name: string;
   currency: string;
   minimum_price: number;
+};
+
+export type TransactionList = { object: "list"; data: PublicWalletTransactionDto[]; has_more: boolean; url: string };
+
+export const wallet = {
+  get: (mode: "test" | "live") => apiService.developerGetWallet({ livemode: livemode(mode) }),
+  /** Newest first, `limit` a page (20 by default); `type` narrows to money in or out. */
+  transactions: (mode: "test" | "live", type?: "credit" | "debit", startingAfter?: string, limit = 20) =>
+    apiService.developerDashboardListWalletTransactions({
+      livemode: livemode(mode),
+      limit,
+      ...(type && { type }),
+      ...(startingAfter && { starting_after: startingAfter }),
+    }) as unknown as Promise<TransactionList>,
+  /** Test wallet only: play money. */
+  addTestFunds: (amount: number) => apiService.developerAddTestFunds({ amount }),
+  /** Live wallet: a Paystack checkout to top up by card. */
+  cardCheckout: (body: CreateFundingSessionRequestDto) => apiService.developerDashboardCreateFundingSession(body),
+  lowBalanceAlert: () => apiService.developerGetLowBalanceAlert(),
+  setLowBalanceAlert: (threshold: number | null) => apiService.developerSetLowBalanceAlert({ threshold }),
+  fundingAccount: () => apiService.developerGetFundingAccount(),
+  setUpFundingAccount: (body: SetUpFundingAccountRequestDto) => apiService.developerSetUpFundingAccount(body),
+  autoTopUp: () => apiService.developerGetAutoTopUp(),
+  configureAutoTopUp: (body: ConfigureAutoTopUpRequestDto) => apiService.developerConfigureAutoTopUp(body),
+  /** A Paystack checkout that charges `amount` and keeps the card for auto top-up. */
+  saveCard: (body: CreateFundingSessionRequestDto) => apiService.developerSaveAutoTopUpCard(body),
+  removeCard: () => apiService.developerRemoveAutoTopUpCard(),
 };
