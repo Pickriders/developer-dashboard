@@ -2,7 +2,19 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { account, auth, invitations, keys, webhooks } from "./api";
+import {
+  account,
+  auth,
+  invitations,
+  keys,
+  type LogFilters,
+  logs,
+  type OrderFilters,
+  orders,
+  team,
+  wallet,
+  webhooks,
+} from "./api";
 import { type ApiError, toApiError } from "./errors";
 import type {
   CreateDeveloperApiKeyRequestDto,
@@ -45,6 +57,20 @@ export const teamKeys = {
   /** One endpoint and its deliveries: the id is mode-specific already. */
   webhook: (teamId: string, id: string) => ["team", teamId, "webhook", id] as const,
   deliveries: (teamId: string, id: string) => ["team", teamId, "webhook", id, "deliveries"] as const,
+  logs: (teamId: string, mode: Mode, filters: LogFilters) => ["team", teamId, mode, "logs", filters] as const,
+  log: (teamId: string, id: string) => ["team", teamId, "log", id] as const,
+  orders: (teamId: string, mode: Mode, filters?: OrderFilters) =>
+    filters ? (["team", teamId, mode, "orders", filters] as const) : (["team", teamId, mode, "orders"] as const),
+  order: (teamId: string, mode: Mode, id: string) => ["team", teamId, mode, "order", id] as const,
+  wallet: (teamId: string, mode: Mode) => ["team", teamId, mode, "wallet"] as const,
+  transactions: (teamId: string, mode: Mode, type?: string) =>
+    type
+      ? (["team", teamId, mode, "wallet", "transactions", type] as const)
+      : (["team", teamId, mode, "wallet", "transactions"] as const),
+  members: (teamId: string) => ["team", teamId, "members"] as const,
+  invitations: (teamId: string) => ["team", teamId, "invitations"] as const,
+  /** The live wallet's settings: transfer account, auto top-up, low-balance alert. */
+  walletSetting: (teamId: string, name: string) => ["team", teamId, "live", "wallet", name] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -176,3 +202,180 @@ export const useTestEndpoint = (teamId: string, mode: Mode, id: string) =>
 
 export const useResendEvent = (teamId: string, mode: Mode, id: string) =>
   useWebhookMutation(teamId, mode, (eventId: string) => webhooks.resend(id, eventId));
+
+/** The request log, newest first, 25 a page. While `live`, the newest page refreshes every 10 s. */
+export const useRequestLogs = (teamId: string, mode: Mode, filters: LogFilters, { live = false } = {}) =>
+  useInfiniteQuery({
+    queryKey: teamKeys.logs(teamId, mode, filters),
+    queryFn: ({ pageParam }) => logs.list(mode, filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
+    refetchInterval: live ? 10_000 : false,
+    placeholderData: (previous) => previous,
+  });
+
+export const useRequestLog = (teamId: string, id: string | null) =>
+  useQuery({ queryKey: teamKeys.log(teamId, id ?? ""), queryFn: () => logs.get(id as string), enabled: !!id });
+
+/** Statuses an order no longer leaves: no need to keep asking about it. */
+export const DONE_STATUSES = ["delivered", "cancelled", "failed"] as const;
+const moving = (status?: string) => !!status && !(DONE_STATUSES as readonly string[]).includes(status);
+
+/** Orders, newest first, 20 a page. Refreshes every 10 s so statuses move without a reload. */
+export const useOrders = (teamId: string, mode: Mode, filters: OrderFilters) =>
+  useInfiniteQuery({
+    queryKey: teamKeys.orders(teamId, mode, filters),
+    queryFn: ({ pageParam }) => orders.list(mode, filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
+    refetchInterval: 10_000,
+    placeholderData: (previous) => previous,
+  });
+
+/** One order, every 5 s while it is still moving. */
+export const useOrder = (teamId: string, mode: Mode, id: string) =>
+  useQuery<Awaited<ReturnType<typeof orders.get>>, ApiError>({
+    queryKey: teamKeys.order(teamId, mode, id),
+    queryFn: () => orders.get(mode, id).catch((e) => Promise.reject(toApiError(e))),
+    refetchInterval: (query) => (moving(query.state.data?.status) ? 5_000 : false),
+    retry: (count, error) => error.status !== 404 && count < 1,
+  });
+
+/** Where the rider is, every 5 s while the order is moving. */
+export const useOrderTracking = (teamId: string, mode: Mode, id: string, status?: string) =>
+  useQuery({
+    queryKey: [...teamKeys.order(teamId, mode, id), "tracking"],
+    queryFn: () => orders.tracking(mode, id),
+    refetchInterval: moving(status) ? 5_000 : false,
+    enabled: !!status,
+  });
+
+export const useServiceAreas = () =>
+  useQuery({ queryKey: ["service-areas"], queryFn: () => orders.serviceAreas(), staleTime: 60 * 60_000 });
+
+/** An order change: refreshes the order, the list and the checklist (a first test order ticks it). */
+const useOrderMutation = <TArgs, TResult>(teamId: string, mode: Mode, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: (result) => {
+      const order = result as { object?: string; id?: string };
+      if (order?.object === "order" && order.id)
+        queryClient.setQueryData(teamKeys.order(teamId, mode, order.id), result);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: teamKeys.orders(teamId, mode) }),
+        queryClient.invalidateQueries({ queryKey: teamKeys.onboarding(teamId) }),
+        order?.id
+          ? queryClient.invalidateQueries({ queryKey: [...teamKeys.order(teamId, mode, order.id), "tracking"] })
+          : null,
+      ]);
+    },
+  });
+};
+
+export const useQuoteOrder = (mode: Mode) =>
+  useApiMutation((body: Parameters<typeof orders.quote>[1]) => orders.quote(mode, body));
+
+export const useCreateOrder = (teamId: string, mode: Mode) =>
+  useOrderMutation(teamId, mode, (body: Parameters<typeof orders.create>[1]) => orders.create(mode, body));
+
+export const useCancelOrder = (teamId: string, mode: Mode, id: string) =>
+  useOrderMutation(teamId, mode, (reason?: string) => orders.cancel(mode, id, reason));
+
+export const useAdvanceOrder = (teamId: string, id: string) =>
+  useOrderMutation(teamId, "test", (to?: Parameters<typeof orders.advance>[1]) => orders.advance(id, to));
+
+export const useWallet = (teamId: string, mode: Mode) =>
+  useQuery<Awaited<ReturnType<typeof wallet.get>>, ApiError>({
+    queryKey: teamKeys.wallet(teamId, mode),
+    queryFn: () => wallet.get(mode).catch((e) => Promise.reject(toApiError(e))),
+    retry: (count, error) => error.status !== 404 && count < 1,
+  });
+
+export const useTransactions = (teamId: string, mode: Mode, type?: "credit" | "debit") =>
+  useInfiniteQuery({
+    queryKey: [...teamKeys.transactions(teamId, mode), type ?? "all"],
+    queryFn: ({ pageParam }) => wallet.transactions(mode, type, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
+    placeholderData: (previous) => previous,
+  });
+
+/** A live-wallet setting; a 404 (not set up yet) comes back as null rather than an error. */
+const useLiveSetting = <T>(teamId: string, name: string, fetch: () => Promise<T>, enabled: boolean) =>
+  useQuery<T | null, ApiError>({
+    queryKey: teamKeys.walletSetting(teamId, name),
+    queryFn: () =>
+      fetch().catch((e) => {
+        const error = toApiError(e);
+        return error.status === 404 ? null : Promise.reject(error);
+      }),
+    enabled,
+  });
+
+export const useFundingAccount = (teamId: string, enabled: boolean) =>
+  useLiveSetting(teamId, "funding-account", wallet.fundingAccount, enabled);
+export const useAutoTopUp = (teamId: string, enabled: boolean) =>
+  useLiveSetting(teamId, "auto-top-up", wallet.autoTopUp, enabled);
+export const useLowBalanceAlert = (teamId: string, enabled: boolean) =>
+  useLiveSetting(teamId, "low-balance-alert", wallet.lowBalanceAlert, enabled);
+
+/** A wallet change: refreshes the balance, its transactions and the live settings. */
+const useWalletMutation = <TArgs, TResult>(teamId: string, mode: Mode, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["team", teamId, mode, "wallet"] }),
+  });
+};
+
+export const useAddTestFunds = (teamId: string) =>
+  useWalletMutation(teamId, "test", (amount: number) => wallet.addTestFunds(amount));
+export const useCardCheckout = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.cardCheckout>[0]) => wallet.cardCheckout(body));
+export const useSetLowBalanceAlert = (teamId: string) =>
+  useWalletMutation(teamId, "live", (threshold: number | null) => wallet.setLowBalanceAlert(threshold));
+export const useSetUpFundingAccount = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.setUpFundingAccount>[0]) =>
+    wallet.setUpFundingAccount(body),
+  );
+export const useConfigureAutoTopUp = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.configureAutoTopUp>[0]) =>
+    wallet.configureAutoTopUp(body),
+  );
+export const useSaveCard = (teamId: string) =>
+  useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.saveCard>[0]) => wallet.saveCard(body));
+export const useRemoveCard = (teamId: string) => useWalletMutation(teamId, "live", () => wallet.removeCard());
+
+export const useMembers = (teamId: string) =>
+  useQuery({ queryKey: teamKeys.members(teamId), queryFn: () => team.members() });
+
+export const useInvitations = (teamId: string, enabled: boolean) =>
+  useQuery({ queryKey: teamKeys.invitations(teamId), queryFn: () => team.invitations(), enabled });
+
+/** A team change: refreshes members, invitations and `me` (roles and teams can move). */
+const useTeamMutation = <TArgs, TResult>(teamId: string, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: teamKeys.members(teamId) }),
+        queryClient.invalidateQueries({ queryKey: teamKeys.invitations(teamId) }),
+        queryClient.invalidateQueries({ queryKey: ["me"] }),
+      ]),
+  });
+};
+
+export const useSetRole = (teamId: string) =>
+  useTeamMutation(teamId, ({ userId, role }: { userId: string; role: Parameters<typeof team.setRole>[1] }) =>
+    team.setRole(userId, role),
+  );
+export const useRemoveMember = (teamId: string) => useTeamMutation(teamId, (userId: string) => team.remove(userId));
+export const useLeaveTeam = (teamId: string) => useTeamMutation(teamId, () => team.leave());
+export const useTransferOwnership = (teamId: string) =>
+  useTeamMutation(teamId, (userId: string) => team.transfer(userId));
+export const useInvite = (teamId: string) =>
+  useTeamMutation(teamId, (body: Parameters<typeof team.invite>[0]) => team.invite(body));
+export const useResendInvitation = (teamId: string) => useTeamMutation(teamId, (id: string) => team.resend(id));
+export const useRevokeInvitation = (teamId: string) => useTeamMutation(teamId, (id: string) => team.revoke(id));

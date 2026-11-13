@@ -16,7 +16,8 @@ patterns). There is no shadcn/ui and no Radix: the components are our own, like 
 1. **One family with the storefront.** A vendor who also integrates by API should feel at home:
    same palette, type, shapes and motion. When in doubt, look at how the storefront does it.
 2. **Teal acts, plum speaks.** Primary actions are teal (`brand-solid`); headings are plum
-   (`fg-heading`). The plum-to-teal gradient is for the auth brand panel only.
+   (`fg-heading`) and frames the product: the sidebar is deep plum. The plum-to-teal gradient is for
+   the auth brand panel; the sidebar borrows only its soft teal light.
 3. **Colour means something.** Green, amber, red and blue are for status, as soft pills and slim
    banners, always with a word ("Failed", not just red).
 4. **Amber means test mode.** Test data is never mistaken for live: a persistent amber banner and
@@ -33,24 +34,25 @@ patterns). There is no shadcn/ui and no Radix: the components are our own, like 
 Written as RGB channels, so opacity modifiers work: `bg-brand/10`. Values from the storefront's
 `.admin-root` tokens, adjusted where a text colour fell short of AA.
 
-| Token              | Light            | Dark    | Use                                                       |
-| ------------------ | ---------------- | ------- | --------------------------------------------------------- |
-| `canvas`           | #f4f7f7          | #0d1211 | The page behind everything                                |
-| `surface`          | #ffffff          | #141b1a | Cards, inputs, the auth form column                       |
-| `surface-raised`   | #ffffff          | #1a2322 | Modals, toasts                                            |
-| `surface-subtle`   | #f1f5f4          | #172120 | Hover, table header, read-only inputs                     |
-| `surface-muted`    | #e9efee          | #212c2b | Selected, skeletons, empty meter bars                     |
-| `line`             | #e3e9e8          | #212c2b | Card edges, dividers                                      |
-| `line-strong`      | #cbd5d3          | #2f3d3b | Input borders                                             |
-| `fg-heading`       | #1a1230          | #e9efee | Headings: Pickriders plum                                 |
-| `fg`               | #111716          | #e9efee | Body text                                                 |
-| `fg-muted`         | #5f6d6b          | #96a5a2 | Secondary text                                            |
-| `fg-subtle`        | #66736f          | #808f8c | Meta, placeholders                                        |
-| `brand`            | #3fa49f          | #55b9b3 | Accents: focus ring, icons, selected nav, charts          |
-| `brand-solid`      | #2a817c          | #55b9b3 | Primary button fill (white text light, ink dark)          |
-| `brand-fg`         | #286f6b          | #6fd2cb | Links and brand text                                      |
-| `brand-subtle`     | #e6f4f3          | #143331 | The storefront's brand-soft: icon tiles, tints            |
-| `plum`, `plum-mid` | #1a1230, #2e1030 | same    | The auth gradient (`from-plum via-plum-mid to-[#3fa49f]`) |
+| Token              | Light            | Dark    | Use                                                                          |
+| ------------------ | ---------------- | ------- | ---------------------------------------------------------------------------- |
+| `canvas`           | #f4f7f7          | #0d1211 | The page behind everything                                                   |
+| `surface`          | #ffffff          | #141b1a | Cards, inputs, the auth form column                                          |
+| `surface-raised`   | #ffffff          | #1a2322 | Modals, toasts                                                               |
+| `surface-subtle`   | #f1f5f4          | #172120 | Hover, table header, read-only inputs                                        |
+| `surface-muted`    | #e9efee          | #212c2b | Selected, skeletons, empty meter bars                                        |
+| `line`             | #e3e9e8          | #212c2b | Card edges, dividers                                                         |
+| `line-strong`      | #cbd5d3          | #2f3d3b | Input borders                                                                |
+| `fg-heading`       | #1a1230          | #e9efee | Headings: Pickriders plum                                                    |
+| `fg`               | #111716          | #e9efee | Body text                                                                    |
+| `fg-muted`         | #5f6d6b          | #96a5a2 | Secondary text                                                               |
+| `fg-subtle`        | #66736f          | #808f8c | Meta, placeholders                                                           |
+| `brand`            | #3fa49f          | #55b9b3 | Accents: focus ring, icons, selected nav, charts                             |
+| `brand-solid`      | #2a817c          | #55b9b3 | Primary button fill (white text light, ink dark)                             |
+| `brand-fg`         | #286f6b          | #6fd2cb | Links and brand text                                                         |
+| `brand-subtle`     | #e6f4f3          | #143331 | The storefront's brand-soft: icon tiles, tints                               |
+| `plum`, `plum-mid` | #1a1230, #2e1030 | same    | The auth gradient (`from-plum via-plum-mid to-[#3fa49f]`)                    |
+| `nav`              | #170f2a          | #110b20 | The sidebar; text on it is `nav-fg`, `nav-muted`, `nav-subtle`, `nav-accent` |
 
 The storefront fills buttons with `#3fa49f`, which carries white text at only 3:1, so primary
 buttons here use the deeper `brand-solid` (4.6:1) and keep `#3fa49f` for accents.
@@ -106,14 +108,30 @@ secondary, ghost, danger, link; sm, md, lg, icon; `loading`, `fullWidth`), `Inpu
 `<dialog>`: focus trap and Escape for free), `Toaster` (Sonner, restyled).
 
 **Also in `components/ui`:** `Menu` / `MenuItem` / `MenuLabel` / `MenuSeparator` (a dropdown: arrow
-keys, Escape, focus back to the trigger), `Avatar` (people: round, two initials; teams: square, one),
+keys, Escape, focus back to the trigger; portalled and placed against the viewport, flipping up near the
+bottom, so a card's clipped edge never cuts it off), `Avatar` (people: round, two initials; teams: square, one),
 `Segmented` (two to four exclusive choices, arrow keys move), `Popover` (a short explanation under its
 trigger), `Sheet` (one row up close: a right-hand panel from md, a bottom sheet on phones).
 
-**Shell** (`components/shell`): the storefront dashboard's frame. A white sidebar from `lg` (logo,
-team switcher, pages, the account menu at the foot), a slim sticky header (page actions, Docs), and
-the same sidebar as a drawer below `lg`. The selected page is a `brand-subtle` pill with `brand-fg`
-text. Pages sit in a 72rem column and slide up 6px on arrival.
+**Shell** (`components/shell`): the frame every signed-in page sits in.
+
+- **The sidebar is deep Pickriders plum** (`nav` tokens, the same in both themes, every text colour
+  AA on it), with the sign-in panel's soft teal light in the top corner. From the top: the inverted
+  logo; the team card (its first letter on the brand gradient, live status as a dot and a word, the
+  role; a menu when you're in several teams); **Search or jump to… ⌘K**; the pages in groups
+  (Overview, Build); setup progress while there are steps left; you.
+- **The highlight slides.** The selected page is a soft pill with a lit teal edge that moves to the
+  page you open. Hovering a page shows its shortcut (`G` `K`).
+- **It folds to a rail** of icons (the round handle on its edge, or `[`), remembered per browser.
+  Folded, each icon shows its name beside it on hover or focus.
+- **The header** says where you are (team › page › deeper page) and holds the page's tools: the
+  Test | Live switch and Docs. It gains a hairline and blur once the page scrolls under it.
+- **Phones and tablets** get a tab bar along the bottom (the pages, then More, which opens the full
+  sidebar as a drawer) and a search button in the header.
+- **The command palette** (⌘K or Ctrl K, `/`, or the search buttons): pages, the common actions
+  (create a test or live key, add an endpoint, ask for live, switch mode), other teams, theme, docs,
+  sign out. Type to filter (names that match every word first), arrows to move, Enter to go.
+- **Shortcuts:** `G` then `H`, `K` or `W` jumps to a page; `[` folds the sidebar; never while typing.
 
 **Test and live:** a Test | Live switch on the header's right, on every page. Test mode puts the amber
 banner (a `TEST MODE` pill and one line) above everything. Live stays locked, with a lock icon, until
@@ -137,6 +155,37 @@ events it listens to, the masked secret. A failing endpoint gets an amber warnin
 turned off; one we turned off says why and how to bring it back. A delivery opens in a `Sheet`: every
 attempt (code, time, duration, error, the response body folded), the exact JSON we sent, and Resend.
 Events are picked as All (including future ones) or by group, each with a one-line description.
+
+**Request logs** (`/logs`): one search box (a `req_…` id finds that request in either mode; anything
+else narrows by path) and filter pills (outcome, method, key, time) that tint when set. All filters and
+the open request live in the URL. Rows: the status as a coloured mono pill (2xx green, 4xx amber, 5xx
+red), method, path without the API prefix, the error code under it, key, duration, when. The newest page
+auto-refreshes every 10 s. A request opens in a `Sheet`: the error with a link to its doc, the request
+id, key, mode, IP, user agent, and the redacted request and response bodies.
+
+**Orders** (`/orders`): rows show your reference (or the order number), the status pill, the route as
+pickup → first drop-off (+N), the price and when. Creating one is two moves on one page: the stops (a
+service area, then a pickup and up to ten drop-offs, each with an address, a contact and optional
+instructions; Google Places search when a Maps key is set, coordinates otherwise; **Use a sample** in
+test mode), then **Get price**, which shows the total, its breakdown, distance, time and a countdown while
+the price holds, beside a live preview of the route. An order's page has the map (Google Maps, or the
+route drawn to scale without a key), a timeline built from the order, the stops with contacts and
+drop-off codes, the rider, the price, and Advance (one step, or Deliver it now) in test mode.
+
+**Wallet** (`/wallet`): the balance as the page's hero (available, big; held, under it), with one action:
+**Add play money** in test mode (presets, up to ₦10,000,000 at a time) or **Top up by card** in live mode
+(Paystack's checkout, then back with a toast). Live mode adds three cards: Bank transfer (set up once
+with a BVN, then the account details with copy buttons), Auto top-up (a saved card, when and by how
+much, a switch, the last charge and failures) and the Low-balance alert. Test mode says those are for
+the live wallet. Transactions list money in and out (+ green, − plain) with their order, filter in or
+out, and export as CSV (naira, money out negative, formulas neutralised).
+
+**Team** (`/team`): members (avatar, name with a _You_ tag, email and when they joined or were last
+active, the role as a pill, the owner with a crown) and pending invitations (role, who invited, when
+sent, _Expired_; Resend, Revoke). A member's row menu changes their role, makes them owner (the owner
+only; type the team's name) or removes them, and only appears where the role allows: you never manage
+yourself, the owner, or someone above you. Anyone but the owner can **Leave team**. Inviting is one
+email and one role, each role explained in a line.
 
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).

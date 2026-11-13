@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.64.2",
+    "@vis.gl/react-google-maps": "^1.5.1",
     "axios": "^1.6.8",
     "clsx": "^2.1.1",
     "formik": "^2.4.6",

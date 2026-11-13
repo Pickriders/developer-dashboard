@@ -5,7 +5,18 @@ import type {
   DeveloperResetPasswordRequestDto,
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
+  AdvanceOrderRequestDto,
+  CreateTeamInvitationRequestDto,
+  ConfigureAutoTopUpRequestDto,
+  CreateFundingSessionRequestDto,
+  PublicWalletTransactionDto,
+  SetUpFundingAccountRequestDto,
   CreateDeveloperApiKeyRequestDto,
+  CreateOrderRequestDto,
+  CreateQuoteRequestDto,
+  DashboardListOrdersParams,
+  PublicOrderDto,
+  DeveloperListRequestLogsParams,
   DashboardCreateWebhookEndpointRequestDto,
   UpdateWebhookEndpointRequestDto,
   RollDeveloperApiKeyRequestDto,
@@ -78,4 +89,98 @@ export const webhooks = {
     }),
   test: (id: string) => apiService.dashboardTestWebhookEndpoint(id),
   resend: (id: string, eventId: string) => apiService.dashboardResendWebhookEvent(id, { event_id: eventId }),
+};
+
+export type LogFilters = Omit<
+  DeveloperListRequestLogsParams,
+  "livemode" | "limit" | "starting_after" | "ending_before"
+>;
+
+export const logs = {
+  /** Newest first, 25 a page; `startingAfter` is the last id seen. A request id ignores the mode. */
+  list: (mode: "test" | "live", filters: LogFilters, startingAfter?: string) =>
+    apiService.developerListRequestLogs({
+      livemode: livemode(mode),
+      limit: 25,
+      ...filters,
+      ...(startingAfter && { starting_after: startingAfter }),
+    }),
+  get: (id: string) => apiService.developerGetRequestLog(id),
+};
+
+/** What GET dashboard/orders really returns (the generated type says a bare array). */
+export type OrderList = { object: "list"; data: PublicOrderDto[]; has_more: boolean; url: string };
+export type OrderFilters = Pick<DashboardListOrdersParams, "status" | "reference" | "type">;
+
+export const orders = {
+  list: (mode: "test" | "live", filters: OrderFilters, startingAfter?: string) =>
+    apiService.dashboardListOrders({
+      livemode: livemode(mode),
+      limit: 20,
+      ...filters,
+      ...(startingAfter && { starting_after: startingAfter }),
+    }) as unknown as Promise<OrderList>,
+  get: (mode: "test" | "live", id: string) => apiService.dashboardRetrieveOrder({ id, livemode: livemode(mode) }),
+  tracking: (mode: "test" | "live", id: string) => apiService.dashboardTrackOrder({ id, livemode: livemode(mode) }),
+  quote: (mode: "test" | "live", body: CreateQuoteRequestDto) =>
+    apiService.dashboardCreateQuote({ livemode: livemode(mode) }, body),
+  create: (mode: "test" | "live", body: CreateOrderRequestDto) =>
+    apiService.dashboardCreateOrder({ livemode: livemode(mode) }, body),
+  cancel: (mode: "test" | "live", id: string, reason?: string) =>
+    apiService.dashboardCancelOrder({ id, livemode: livemode(mode) }, reason ? { reason } : {}),
+  /** Test mode only: one step as the test rider would, or straight to `to`. */
+  advance: (id: string, to?: AdvanceOrderRequestDto["to"]) =>
+    apiService.dashboardAdvanceTestOrder(id, to ? { to } : {}),
+  serviceAreas: () =>
+    apiService.dashboardListServiceAreas() as unknown as Promise<{ object: "list"; data: ServiceArea[] }>,
+};
+
+export type ServiceArea = {
+  object: "service_area";
+  id: string;
+  country_name: string;
+  state_name: string;
+  currency: string;
+  minimum_price: number;
+};
+
+export type TransactionList = { object: "list"; data: PublicWalletTransactionDto[]; has_more: boolean; url: string };
+
+export const wallet = {
+  get: (mode: "test" | "live") => apiService.developerGetWallet({ livemode: livemode(mode) }),
+  /** Newest first, `limit` a page (20 by default); `type` narrows to money in or out. */
+  transactions: (mode: "test" | "live", type?: "credit" | "debit", startingAfter?: string, limit = 20) =>
+    apiService.developerDashboardListWalletTransactions({
+      livemode: livemode(mode),
+      limit,
+      ...(type && { type }),
+      ...(startingAfter && { starting_after: startingAfter }),
+    }) as unknown as Promise<TransactionList>,
+  /** Test wallet only: play money. */
+  addTestFunds: (amount: number) => apiService.developerAddTestFunds({ amount }),
+  /** Live wallet: a Paystack checkout to top up by card. */
+  cardCheckout: (body: CreateFundingSessionRequestDto) => apiService.developerDashboardCreateFundingSession(body),
+  lowBalanceAlert: () => apiService.developerGetLowBalanceAlert(),
+  setLowBalanceAlert: (threshold: number | null) => apiService.developerSetLowBalanceAlert({ threshold }),
+  fundingAccount: () => apiService.developerGetFundingAccount(),
+  setUpFundingAccount: (body: SetUpFundingAccountRequestDto) => apiService.developerSetUpFundingAccount(body),
+  autoTopUp: () => apiService.developerGetAutoTopUp(),
+  configureAutoTopUp: (body: ConfigureAutoTopUpRequestDto) => apiService.developerConfigureAutoTopUp(body),
+  /** A Paystack checkout that charges `amount` and keeps the card for auto top-up. */
+  saveCard: (body: CreateFundingSessionRequestDto) => apiService.developerSaveAutoTopUpCard(body),
+  removeCard: () => apiService.developerRemoveAutoTopUpCard(),
+};
+
+export type InvitableRole = CreateTeamInvitationRequestDto["role"];
+
+export const team = {
+  members: () => apiService.developerListMembers(),
+  setRole: (userId: string, role: InvitableRole) => apiService.developerUpdateMemberRole(userId, { role }),
+  remove: (userId: string) => apiService.developerRemoveMember(userId),
+  leave: () => apiService.developerLeaveTeam(),
+  transfer: (userId: string) => apiService.developerTransferOwnership({ userId }),
+  invitations: () => apiService.developerListInvitations(),
+  invite: (body: CreateTeamInvitationRequestDto) => apiService.developerCreateInvitation(body),
+  resend: (id: string) => apiService.developerResendInvitation(id),
+  revoke: (id: string) => apiService.developerRevokeInvitation(id),
 };

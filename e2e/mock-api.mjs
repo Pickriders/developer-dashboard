@@ -9,7 +9,9 @@
 //   POST /__test/team?email=&liveStatus=&reason=   # set the live status of that person's own team
 //   POST /__test/order?email=                      # a test order arrives for that person's own team
 //   POST /__test/join?email=&name=&role=           # add them to a new team, owned by someone unverified
+//   POST /__test/member?owner=&email=&name=&role=  # a new person in the owner's own team
 //   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
+//   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
 // (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
@@ -103,8 +105,29 @@ function makeTeam(name, owner) {
     testOrders: 0,
     keys: [],
     endpoints: [],
+    logs: [],
+    orders: [],
+    quotes: [],
+    wallets: {
+      test: { available: 100_000_000, held: 0, transactions: [] },
+      live: { available: 0, held: 0, transactions: [] },
+    },
+    fundingAccount: null,
+    autoTopUp: {
+      enabled: false,
+      threshold: null,
+      amount: null,
+      card: null,
+      last_charge_at: null,
+      consecutive_failures: 0,
+      last_failure_reason: null,
+      disabled_reason: null,
+    },
+    lowBalance: null,
+    invitations: [],
   };
   teams.set(t.id, t);
+  record(t, false, "credit", "test_funding", 100_000_000, "Opening play money");
   return t;
 }
 
@@ -125,22 +148,16 @@ const ALL = [
   "billing.read",
   "logs.read",
 ];
+const READS = ALL.filter((p) => p.endsWith(".read"));
+const DEVELOPER = [...READS, "keys.write", "webhooks.write", "orders.write"];
+/** Every role reads everything; writes as backend-api's team-permissions.ts grants them. */
 const PERMISSIONS = {
   TEAM_OWNER: ALL,
   TEAM_ADMIN: ALL.filter((p) => p !== "team.transfer"),
-  TEAM_DEVELOPER: [
-    "team.read",
-    "keys.read",
-    "keys.write",
-    "webhooks.read",
-    "webhooks.write",
-    "orders.read",
-    "orders.write",
-    "wallet.read",
-    "logs.read",
-  ],
-  TEAM_FINANCE: ["team.read", "orders.read", "wallet.read", "wallet.fund", "billing.read"],
-  TEAM_VIEWER: ["team.read", "keys.read", "webhooks.read", "orders.read", "wallet.read", "logs.read"],
+  TEAM_DEVELOPER: DEVELOPER,
+  TEAM_MEMBER: DEVELOPER,
+  TEAM_FINANCE: [...READS, "wallet.fund"],
+  TEAM_VIEWER: READS,
 };
 const canRequestLive = (t) => t.owner.emailVerified && t.owner.phoneVerified;
 
@@ -448,6 +465,48 @@ const routes = {
     );
     return [200, issueKey(t, user, { label: old.label, livemode: old.livemode, scopes: old.scopes })];
   },
+  "GET /request-logs": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "logs.read");
+    const q = Object.fromEntries(url.searchParams);
+    const status = {
+      succeeded: (s) => s < 400,
+      failed: (s) => s >= 400,
+      "2xx": (s) => s < 300,
+      "4xx": (s) => s >= 400 && s < 500,
+      "5xx": (s) => s >= 500,
+    }[q.status];
+    let rows = [...t.logs]
+      .reverse()
+      .filter(
+        (l) =>
+          (q.request_id
+            ? l.requestId === q.request_id
+            : q.livemode === undefined || l.livemode === (q.livemode === "true")) &&
+          (!status || status(l.status)) &&
+          (!q.method || l.method === q.method) &&
+          (!q.path || l.path.toLowerCase().includes(q.path.toLowerCase())) &&
+          (!q.key || l.key?.id === q.key) &&
+          (!q.created_gte || l.createdAt >= q.created_gte),
+      );
+    const from = q.starting_after ? rows.findIndex((l) => l.id === q.starting_after) + 1 : 0;
+    const limit = Number(q.limit ?? 20);
+    const page = rows.slice(from, from + limit);
+    return [
+      200,
+      {
+        object: "list",
+        data: page.map(({ query, ip, userAgent, requestBody, responseBody, ...row }) => row),
+        has_more: rows.length > from + limit,
+        url: `${D}/request-logs`,
+      },
+    ];
+  },
+  "GET /request-logs/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "logs.read");
+    const log = t.logs.find((l) => l.id === id);
+    if (!log) throw new ApiError(404, "log_not_found", "No request with that id in this team.");
+    return [200, log];
+  },
   "GET /webhook-endpoints": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "webhooks.read");
     const live = url.searchParams.get("livemode");
@@ -546,7 +605,528 @@ const routes = {
     Object.assign(key, { status: "REVOKED", revokedAt: new Date().toISOString() });
     return [200, presentKey(key)];
   },
+
+  "GET /team/members": (req) => {
+    const { user: me, team: t } = requireTeam(req, "team.read");
+    const members = [...users.values()].flatMap((u) =>
+      u.memberships
+        .filter((m) => m.teamId === t.id)
+        .map((m) => ({
+          userId: u.id,
+          name: `${u.firstname} ${u.lastname}`,
+          email: u.email,
+          role: m.role,
+          isOwner: m.role === "TEAM_OWNER",
+          isYou: u.id === me.id,
+          joinedAt: m.joinedAt ?? null,
+          lastLoginAt: null,
+        })),
+    );
+    return [200, members.sort((a, b) => Number(b.isOwner) - Number(a.isOwner))];
+  },
+  "PATCH /team/members/:userId": (req, body, { userId }) => {
+    const { user: me, team: t, role: myRole } = requireTeam(req, "team.manage");
+    if (userId === me.id) throw new ApiError(403, "cannot_change_own_role", "You can't change your own role.");
+    const { user, membership } = memberOf(t, userId);
+    if (membership.role === "TEAM_OWNER")
+      throw new ApiError(403, "role_above_yours", "You can't change the owner's role.");
+    if (body.role === "TEAM_ADMIN" && myRole !== "TEAM_OWNER" && myRole !== "TEAM_ADMIN")
+      throw new ApiError(403, "role_above_yours", "You can't give a role above yours.");
+    membership.role = body.role;
+    return [
+      200,
+      {
+        userId,
+        name: `${user.firstname} ${user.lastname}`,
+        email: user.email,
+        role: body.role,
+        isOwner: false,
+        isYou: false,
+      },
+    ];
+  },
+  "DELETE /team/members/:userId": (req, body, { userId }) => {
+    const { user: me, team: t } = requireTeam(req, "team.manage");
+    if (userId === me.id) throw new ApiError(400, "use_leave", "To leave the team, use Leave team.");
+    const { user, membership } = memberOf(t, userId);
+    if (membership.role === "TEAM_OWNER") throw new ApiError(400, "member_is_owner", "The owner can't be removed.");
+    user.memberships = user.memberships.filter((m) => m !== membership);
+    return [204, null];
+  },
+  "POST /team/members/leave": (req) => {
+    const { user: me, team: t, role } = requireTeam(req, "team.read");
+    if (role === "TEAM_OWNER") throw new ApiError(400, "owner_cannot_leave", "Make someone else the owner first.");
+    me.memberships = me.memberships.filter((m) => m.teamId !== t.id);
+    return [204, null];
+  },
+  "POST /team/members/transfer-ownership": (req, body) => {
+    const { user: me, team: t, role } = requireTeam(req, "team.read");
+    if (role !== "TEAM_OWNER") throw new ApiError(403, "not_owner", "Only the owner can transfer ownership.");
+    const { user, membership } = memberOf(t, body.userId);
+    membership.role = "TEAM_OWNER";
+    me.memberships.find((m) => m.teamId === t.id).role = "TEAM_ADMIN";
+    t.owner = user;
+    return [200, []];
+  },
+  "GET /team/invitations": (req) => [200, requireTeam(req, "team.manage").team.invitations],
+  "POST /team/invitations": (req, body) => {
+    const { user: me, team: t } = requireTeam(req, "team.manage");
+    const email = String(body.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, "parameter_invalid", "email must be an email", "email");
+    const already = [...users.values()].some((u) => u.email === email && u.memberships.some((m) => m.teamId === t.id));
+    if (already) throw new ApiError(409, "already_member", "They're already in this team.", "email");
+    if (t.invitations.some((i) => i.email === email && i.status === "PENDING"))
+      throw new ApiError(409, "already_invited", "They already have an invitation. Resend it instead.", "email");
+    const now = new Date();
+    const invitation = {
+      id: newId(),
+      email,
+      role: body.role,
+      status: "PENDING",
+      expired: false,
+      expiresAt: new Date(now.getTime() + 7 * 864e5).toISOString(),
+      invitedBy: { id: me.id, name: `${me.firstname} ${me.lastname}` },
+      lastSentAt: now.toISOString(),
+      sendCount: 1,
+      createdAt: now.toISOString(),
+    };
+    t.invitations.push(invitation);
+    return [201, invitation];
+  },
+  "POST /team/invitations/:id/resend": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "team.manage");
+    const inv = t.invitations.find((i) => i.id === id && i.status === "PENDING");
+    if (!inv) throw new ApiError(404, "invitation_not_found", "No pending invitation with that id.");
+    Object.assign(inv, { lastSentAt: new Date().toISOString(), sendCount: inv.sendCount + 1, expired: false });
+    return [200, inv];
+  },
+  "DELETE /team/invitations/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "team.manage");
+    const inv = t.invitations.find((i) => i.id === id && i.status === "PENDING");
+    if (!inv) throw new ApiError(404, "invitation_not_found", "No pending invitation with that id.");
+    inv.status = "REVOKED";
+    return [200, inv];
+  },
+  "GET /wallet": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "wallet.read");
+    const live = url.searchParams.get("livemode") === "true";
+    if (live && t.liveStatus !== "APPROVED")
+      throw new ApiError(404, "live_wallet_not_open", "The live wallet opens when Pickriders approves live access.");
+    return [200, walletOf(t, live)];
+  },
+  "GET /wallet/transactions": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "wallet.read");
+    const q = Object.fromEntries(url.searchParams);
+    const rows = [...t.wallets[q.livemode === "true" ? "live" : "test"].transactions]
+      .reverse()
+      .filter((r) => !q.type || r.type === q.type);
+    const from = q.starting_after ? rows.findIndex((r) => r.id === q.starting_after) + 1 : 0;
+    const limit = Number(q.limit ?? 20);
+    return [
+      200,
+      {
+        object: "list",
+        data: rows.slice(from, from + limit),
+        has_more: rows.length > from + limit,
+        url: `${D}/wallet/transactions`,
+      },
+    ];
+  },
+  "POST /wallet/test-funds": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    const amount = Number(body.amount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000_000)
+      throw new ApiError(400, "parameter_invalid", "amount can be at most 1000000000 kobo per top-up", "amount");
+    t.wallets.test.available += amount;
+    record(t, false, "credit", "test_funding", amount, "Test top-up");
+    return [200, walletOf(t, false)];
+  },
+  "POST /wallet/funding-sessions": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    if (t.liveStatus !== "APPROVED")
+      throw new ApiError(403, "live_access_required", "Card top-ups fund the live wallet.");
+    // Stands in for Paystack: the payment succeeds and the checkout sends the payer straight back.
+    t.wallets.live.available += Number(body.amount);
+    record(t, true, "credit", "wallet_funding", Number(body.amount), "Card top-up");
+    return [
+      200,
+      {
+        object: "funding_session",
+        reference: `ref_${newId()}`,
+        url: body.success_url,
+        amount: body.amount,
+        currency: "NGN",
+        livemode: true,
+        created: new Date().toISOString(),
+      },
+    ];
+  },
+  "GET /wallet/low-balance-alert": (req) => [200, { threshold: requireTeam(req, "wallet.read").team.lowBalance }],
+  "PUT /wallet/low-balance-alert": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    t.lowBalance = body.threshold ?? null;
+    return [200, { threshold: t.lowBalance }];
+  },
+  "GET /wallet/funding-account": (req) => {
+    const { team: t } = requireTeam(req, "wallet.read");
+    if (!t.fundingAccount) throw new ApiError(404, "funding_account_not_set_up", "No transfer account yet.");
+    return [200, t.fundingAccount];
+  },
+  "POST /wallet/funding-account": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    if (!/^\d{11}$/.test(body.bvn ?? "")) throw new ApiError(400, "parameter_invalid", "bvn must be 11 digits", "bvn");
+    // Paystack checks the BVN in the background; the mock has it done at once.
+    t.fundingAccount = {
+      object: "funding_account",
+      status: "active",
+      bank_name: "Wema Bank",
+      account_number: "9930012345",
+      account_name: `PICKRIDERS/${t.name.toUpperCase()}`,
+      bvn_last4: body.bvn.slice(-4),
+      failure_reason: null,
+    };
+    return [201, t.fundingAccount];
+  },
+  "GET /wallet/auto-top-up": (req) => [200, requireTeam(req, "wallet.read").team.autoTopUp],
+  "PUT /wallet/auto-top-up": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    if (body.enabled && !t.autoTopUp.card) throw new ApiError(400, "card_required", "Save a card first.");
+    Object.assign(t.autoTopUp, {
+      enabled: !!body.enabled,
+      threshold: body.threshold,
+      amount: body.amount,
+      disabled_reason: null,
+    });
+    return [200, t.autoTopUp];
+  },
+  "POST /wallet/auto-top-up/card": (req, body) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    t.autoTopUp.card = { brand: "Visa", last4: "4081", exp_month: "12", exp_year: "2030", bank: "Test Bank" };
+    t.wallets.live.available += Number(body.amount);
+    record(t, true, "credit", "wallet_funding", Number(body.amount), "Card top-up");
+    return [
+      200,
+      {
+        object: "funding_session",
+        reference: `ref_${newId()}`,
+        url: body.success_url,
+        amount: body.amount,
+        currency: "NGN",
+        livemode: true,
+        created: new Date().toISOString(),
+      },
+    ];
+  },
+  "DELETE /wallet/auto-top-up/card": (req) => {
+    const { team: t } = requireTeam(req, "wallet.fund");
+    Object.assign(t.autoTopUp, { card: null, enabled: false });
+    return [200, t.autoTopUp];
+  },
+  "GET /service-areas": (req) => {
+    requireTeam(req, "orders.read");
+    return [200, { object: "list", data: [AREA] }];
+  },
+  "POST /quotes": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const live = liveFor(t, url);
+    return [200, makeQuote(t, body, live)];
+  },
+  "POST /orders": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const live = liveFor(t, url);
+    const quote = body.quote_id ? t.quotes.find((q) => q.id === body.quote_id) : makeQuote(t, body, live);
+    if (!quote) throw new ApiError(404, "resource_missing", "No quote with that id.", "quote_id");
+    if (!quote.usable)
+      throw new ApiError(400, "quote_used", "That quote was already used or has expired. Get a new one.", "quote_id");
+    if (body.reference && t.orders.some((o) => o.reference === body.reference && o.livemode === live))
+      throw new ApiError(409, "reference_taken", "Another order already has that reference.", "reference");
+    quote.usable = false;
+    const now = new Date().toISOString();
+    let drop = 0;
+    const order = {
+      object: "order",
+      id: `ord_${newId()}`,
+      type: quote.type,
+      status: "searching",
+      number: String(100000 + t.orders.length + 1),
+      reference: body.reference ?? null,
+      metadata: {},
+      quote_id: quote.id,
+      service_area: quote.service_area,
+      pricing: {
+        mode: "fixed",
+        currency: "NGN",
+        amount: quote.recommended_price,
+        delivery_fee: quote.breakdown.delivery_fee,
+        service_charge: quote.breakdown.service_charge,
+        max_amount: null,
+        min_offer_percentage: null,
+        auto_accept_after_s: null,
+      },
+      stops: quote.input.map((s, i) => ({
+        id: `stop_${newId()}`,
+        role: i === 0 ? "pickup" : "dropoff",
+        status: "pending",
+        address: s.address,
+        lat: s.lat,
+        lng: s.lng,
+        contact: s.contact,
+        instructions: s.instructions ?? null,
+        package: null,
+        confirmation_code: i === 0 ? null : String(4821 + ++drop),
+        arrived_at: null,
+        completed_at: null,
+        cancelled_at: null,
+        proof: null,
+        pending_change: null,
+        tracking_url: i === 0 ? null : `https://track.pickriders.test/s/${newId()}`,
+      })),
+      rider: null,
+      tracking_url: `https://track.pickriders.test/o/${newId()}`,
+      dispatch: "auto",
+      scheduled_for: null,
+      cancellation: null,
+      delivered_at: null,
+      livemode: live,
+      created: now,
+      updated: now,
+    };
+    const w = t.wallets[live ? "live" : "test"];
+    if (w.available < order.pricing.amount)
+      throw new ApiError(402, "insufficient_funds", "Your wallet can't cover this order. Add money and try again.");
+    w.available -= order.pricing.amount;
+    w.held += order.pricing.amount;
+    record(t, live, "debit", "order_hold", order.pricing.amount, `Held for order #${order.number}`, order.id);
+    t.orders.push(order);
+    if (!live) t.testOrders++;
+    return [201, order];
+  },
+  "GET /orders": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "orders.read");
+    const live = liveFor(t, url);
+    const q = Object.fromEntries(url.searchParams);
+    const rows = [...t.orders]
+      .reverse()
+      .filter(
+        (o) =>
+          o.livemode === live && (!q.status || o.status === q.status) && (!q.reference || o.reference === q.reference),
+      );
+    const from = q.starting_after ? rows.findIndex((o) => o.id === q.starting_after) + 1 : 0;
+    const limit = Number(q.limit ?? 20);
+    return [
+      200,
+      {
+        object: "list",
+        data: rows.slice(from, from + limit),
+        has_more: rows.length > from + limit,
+        url: `${D}/orders`,
+      },
+    ];
+  },
+  "GET /orders/:id": (req, body, { id }, url) => [200, findOrder(req, id, url, "orders.read")],
+  "GET /orders/:id/tracking": (req, body, { id }, url) => {
+    const order = findOrder(req, id, url, "orders.read");
+    const active = order.rider && !["delivered", "cancelled", "failed"].includes(order.status);
+    const next = order.stops.find((s) => s.status !== "completed");
+    const prev = [...order.stops].reverse().find((s) => s.status === "completed") ?? order.stops[0];
+    const at =
+      active && next
+        ? {
+            lat: (prev.lat + next.lat) / 2,
+            lng: (prev.lng + next.lng) / 2,
+            heading: null,
+            updated_at: new Date().toISOString(),
+          }
+        : null;
+    return [
+      200,
+      {
+        object: "order_tracking",
+        order_id: order.id,
+        status: order.status,
+        rider: active ? { name: order.rider.name, photo_url: null, vehicle: order.rider.vehicle, location: at } : null,
+        stops: order.stops.map((s) => ({
+          id: s.id,
+          role: s.role,
+          status: s.status,
+          address: s.address,
+          eta_s: s.status === "completed" ? null : 600,
+          completed_at: s.completed_at,
+        })),
+        tracking_url: order.tracking_url,
+      },
+    ];
+  },
+  "POST /orders/:id/cancel": (req, body, { id }, url) => {
+    const order = findOrder(req, id, url, "orders.write");
+    if (["delivered", "cancelled", "failed"].includes(order.status))
+      throw new ApiError(409, "order_not_cancellable", "This order can't be cancelled any more.");
+    const charged = order.rider ? order.pricing.service_charge : 0;
+    const w = t_of(req).wallets[order.livemode ? "live" : "test"];
+    w.held -= order.pricing.amount;
+    w.available += order.pricing.amount - charged;
+    record(
+      t_of(req),
+      order.livemode,
+      "credit",
+      "order_refund",
+      order.pricing.amount - charged,
+      `Refund for order #${order.number}`,
+      order.id,
+    );
+    Object.assign(order, {
+      status: "cancelled",
+      updated: new Date().toISOString(),
+      cancellation: {
+        cancelled_by: "developer",
+        reason: body.reason ?? null,
+        cancelled_at: new Date().toISOString(),
+        charged_amount: charged,
+        refunded_amount: order.pricing.amount - charged,
+      },
+    });
+    return [200, order];
+  },
+  "POST /orders/:id/advance": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const order = t.orders.find((o) => o.id === id && !o.livemode);
+    if (!order) throw new ApiError(404, "resource_missing", "No test order with that id.", "id");
+    if (["delivered", "cancelled", "failed"].includes(order.status))
+      throw new ApiError(409, "order_finished", "This order is already finished.");
+    do step(order);
+    while (body.to && order.status !== body.to && order.status !== "delivered");
+    return [200, order];
+  },
 };
+
+const AREA = {
+  object: "service_area",
+  id: "NG-LA",
+  country_code: "NG",
+  country_name: "Nigeria",
+  state_code: "LA",
+  state_name: "Lagos",
+  currency: "NGN",
+  minimum_price: 300000,
+  rider_search_radius_km: 20,
+};
+function liveFor(t, url) {
+  const live = url.searchParams.get("livemode") === "true";
+  if (live && t.liveStatus !== "APPROVED")
+    throw new ApiError(403, "live_access_required", "Live mode needs approved live access.");
+  return live;
+}
+function findOrder(req, id, url, permission) {
+  const { team: t } = requireTeam(req, permission);
+  const live = liveFor(t, url);
+  const order = t.orders.find((o) => o.id === id && o.livemode === live);
+  if (!order) throw new ApiError(404, "resource_missing", "No order with that id.", "id");
+  return order;
+}
+const km = (a, b) => {
+  const r = (d) => (d * Math.PI) / 180;
+  const h =
+    Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+};
+function makeQuote(t, body, live) {
+  const stops = body.stops ?? [];
+  if (stops.length < 2)
+    throw new ApiError(400, "parameter_invalid", "stops needs a pickup and at least one drop-off.", "stops");
+  if (body.service_area !== AREA.id)
+    throw new ApiError(400, "service_area_invalid", "Pickriders doesn't deliver there yet.", "service_area");
+  let distance = 0;
+  for (let i = 1; i < stops.length; i++) distance += km(stops[i - 1], stops[i]);
+  const fee = Math.max(300000, Math.round((distance * 15000) / 1000) * 1000);
+  const quote = {
+    object: "quote",
+    id: `quo_${newId()}`,
+    type: body.type ?? (stops.length > 2 ? "batch" : "single"),
+    service_area: AREA.id,
+    currency: "NGN",
+    recommended_price: fee + 50000,
+    min_price: Math.round(fee * 0.8) + 50000,
+    max_price: Math.round(fee * 1.4) + 50000,
+    breakdown: { delivery_fee: fee, service_charge: 50000 },
+    distance_m: Math.round(distance * 1000),
+    duration_s: Math.round((distance / 25) * 3600),
+    stops: [],
+    scheduled_for: null,
+    expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+    usable: true,
+    livemode: live,
+    created: new Date().toISOString(),
+    input: stops,
+  };
+  t.quotes.push(quote);
+  const { input, ...publicQuote } = quote;
+  return publicQuote;
+}
+/** One move of the test rider: take it, head to the pickup, arrive, collect, then each drop-off. */
+function step(order) {
+  const now = new Date().toISOString();
+  order.updated = now;
+  if (order.status === "searching") {
+    order.status = "rider_assigned";
+    order.rider = {
+      name: "Tunde A.",
+      phone: "+2348030000000",
+      photo_url: null,
+      rating: 4.8,
+      vehicle: { make: "Bajaj", model: "Boxer", color: "Red", plate_number: "LAG 123 XY" },
+    };
+    return;
+  }
+  if (order.status === "rider_assigned") {
+    order.status = "picking_up";
+    order.stops[0].status = "en_route";
+    return;
+  }
+  const stop = order.stops.find((s) => s.status !== "completed");
+  if (stop.status === "pending") stop.status = "en_route";
+  else if (stop.status === "en_route") Object.assign(stop, { status: "arrived", arrived_at: now });
+  else Object.assign(stop, { status: "completed", completed_at: now });
+  if (order.stops[0].status === "completed" && order.status === "picking_up") order.status = "in_transit";
+  if (order.stops.every((s) => s.status === "completed")) {
+    Object.assign(order, { status: "delivered", delivered_at: now });
+    const owner = [...teams.values()].find((t) => t.orders.includes(order));
+    owner.wallets.test.held -= order.pricing.amount;
+  }
+}
+const t_of = (req) => teams.get(req.headers["x-team-id"]);
+function memberOf(t, userId) {
+  const user = [...users.values()].find((u) => u.id === userId);
+  const membership = user?.memberships.find((m) => m.teamId === t.id);
+  if (!membership) throw new ApiError(404, "member_not_found", "That person is not a member of this team.");
+  return { user, membership };
+}
+/** A wallet transaction, as the ledger shows it. */
+function record(t, live, type, purpose, amount, description, order = null) {
+  const w = t.wallets[live ? "live" : "test"];
+  w.transactions.push({
+    object: "transaction",
+    id: `txn_${newId()}`,
+    type,
+    purpose,
+    status: "success",
+    amount,
+    currency: "NGN",
+    balance_after: w.available + w.held,
+    description,
+    order,
+    livemode: live,
+    created: new Date().toISOString(),
+  });
+}
+const walletOf = (t, live) => ({
+  object: "wallet",
+  currency: "NGN",
+  available: t.wallets[live ? "live" : "test"].available,
+  held: t.wallets[live ? "live" : "test"].held,
+  livemode: live,
+});
 
 const newSecret = () => `whsec_${randomBytes(24).toString("base64url")}`;
 const presentEndpoint = ({ secret, previousSecret, deliveries, ...endpoint }) => ({
@@ -701,6 +1281,98 @@ createServer(async (req, res) => {
     );
     for (const endpoint of listening) await deliver(endpoint, event);
     return send(200, { event_id: event.id, delivered_to: listening.length });
+  }
+  if (url.pathname === "/__test/member") {
+    const owner = users.get(url.searchParams.get("owner"));
+    const own = owner && owner.memberships.find((m) => m.role === "TEAM_OWNER");
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const [firstname, lastname = "Ade"] = (url.searchParams.get("name") ?? "Bo Ade").split(" ");
+    const person = makeUser({
+      firstname,
+      lastname,
+      email: url.searchParams.get("email"),
+      phone: "2348035550000",
+      password: "correct-horse-1",
+    });
+    person.emailVerified = person.phoneVerified = true;
+    person.memberships.push({
+      teamId: own.teamId,
+      role: url.searchParams.get("role") ?? "TEAM_DEVELOPER",
+      joinedAt: new Date().toISOString(),
+    });
+    return send(204, null);
+  }
+  if (url.pathname === "/__test/requests") {
+    const user = users.get(url.searchParams.get("email"));
+    const own = user && teams.get(user.memberships.find((m) => m.role === "TEAM_OWNER")?.teamId);
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const key = own.keys.find((k) => !k.livemode) ?? null;
+    const n = Number(url.searchParams.get("n") ?? 5);
+    const kinds = [
+      {
+        method: "POST",
+        path: "/developer/api/v1/quotes",
+        status: 200,
+        body: { type: "single", service_area: "NG-LA" },
+        res: { object: "quote", id: "quo_1", recommended_price: 350000 },
+      },
+      {
+        method: "POST",
+        path: "/developer/api/v1/orders",
+        status: 201,
+        body: { quote_id: "quo_1", reference: "shop-42", contact: { phone: "[redacted]" } },
+        res: { object: "order", id: "ord_1", status: "searching" },
+      },
+      { method: "GET", path: "/developer/api/v1/orders/ord_1", status: 200, res: { object: "order", id: "ord_1" } },
+      {
+        method: "POST",
+        path: "/developer/api/v1/orders",
+        status: 402,
+        body: { quote_id: "quo_2" },
+        res: {
+          error: {
+            type: "insufficient_funds_error",
+            code: "insufficient_funds",
+            message: "Your wallet can't cover this order.",
+          },
+        },
+        errorType: "insufficient_funds_error",
+        errorCode: "insufficient_funds",
+      },
+      {
+        method: "GET",
+        path: "/developer/api/v1/wallet",
+        status: 500,
+        res: { error: { type: "api_error", code: "internal_error" } },
+        errorType: "api_error",
+        errorCode: "internal_error",
+      },
+    ];
+    const made = [];
+    for (let i = 0; i < n; i++) {
+      const kind = kinds[i % kinds.length];
+      const log = {
+        id: newId(),
+        requestId: `req_${randomUUID().replace(/-/g, "").slice(0, 24)}`,
+        method: kind.method,
+        path: kind.path,
+        status: kind.status,
+        durationMs: 40 + ((i * 37) % 300),
+        livemode: false,
+        key: key ? { id: key.id, label: key.label, prefix: key.prefix } : null,
+        errorType: kind.errorType ?? null,
+        errorCode: kind.errorCode ?? null,
+        createdAt: new Date(Date.now() - (n - i) * 60_000).toISOString(),
+        query: null,
+        ip: "102.89.34.10",
+        userAgent: "pickriders-node/1.0.0",
+        requestBody: kind.body ?? null,
+        responseBody: kind.res,
+      };
+      own.logs.push(log);
+      made.push(log.requestId);
+    }
+    return send(200, { requestIds: made });
   }
   if (url.pathname === "/__test/join") {
     const user = users.get(url.searchParams.get("email"));

@@ -10,23 +10,36 @@
  */
 
 import {
+  AdvanceOrderRequestDto,
+  CancelOrderRequestDto,
   ConfigureAutoTopUpRequestDto,
   CreateDeveloperApiKeyRequestDto,
   CreateDeveloperTeamRequestDto,
   CreateFundingSessionRequestDto,
+  CreateOrderRequestDto,
+  CreateQuoteRequestDto,
   CreateTeamInvitationRequestDto,
+  DashboardAdvanceTestOrderData,
+  DashboardCancelOrderData,
+  DashboardCreateOrderData,
+  DashboardCreateQuoteData,
   DashboardCreateWebhookEndpointData,
   DashboardCreateWebhookEndpointRequestDto,
   DashboardDeleteWebhookEndpointData,
+  DashboardListOrdersData,
+  DashboardListServiceAreasData,
   DashboardListWebhookDeliveriesData,
   DashboardListWebhookEndpointsData,
   DashboardResendEventRequestDto,
   DashboardResendWebhookEventData,
+  DashboardRetrieveOrderData,
   DashboardRetrieveWebhookEndpointData,
   DashboardRollWebhookSecretData,
   DashboardTestWebhookEndpointData,
+  DashboardTrackOrderData,
   DashboardUpdateWebhookEndpointData,
   DeveloperAcceptInvitationData,
+  DeveloperAddTestFundsData,
   DeveloperConfigureAutoTopUpData,
   DeveloperCreateApiKeyData,
   DeveloperCreateInvitationData,
@@ -43,12 +56,14 @@ import {
   DeveloperGetIpAllowlistData,
   DeveloperGetLowBalanceAlertData,
   DeveloperGetOnboardingData,
+  DeveloperGetRequestLogData,
   DeveloperGetWalletData,
   DeveloperLeaveTeamData,
   DeveloperListApiKeysData,
   DeveloperListAuditLogsData,
   DeveloperListInvitationsData,
   DeveloperListMembersData,
+  DeveloperListRequestLogsData,
   DeveloperListTeamsData,
   DeveloperLoginData,
   DeveloperLoginRequestDto,
@@ -79,6 +94,7 @@ import {
   DeveloperVerifyCodeRequestDto,
   DeveloperVerifyEmailData,
   DeveloperVerifyPhoneData,
+  FundTestWalletRequestDto,
   LowBalanceAlertDto,
   RollDeveloperApiKeyRequestDto,
   SetUpFundingAccountRequestDto,
@@ -798,6 +814,25 @@ export namespace Developer {
   }
 
   /**
+   * @description Play money for the test wallet, as POST /test/wallet/fund does with a test key: up to ₦10,000,000 a top-up. Recorded as a "Test top-up" transaction. Never touches the live wallet.
+   * @tags developer-dashboard/wallet
+   * @name DeveloperAddTestFunds
+   * @request POST:/developer/api/v1/dashboard/wallet/test-funds
+   * @secure
+   * @response `200` `DeveloperAddTestFundsData`
+   */
+  export namespace DeveloperAddTestFunds {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = FundTestWalletRequestDto;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DeveloperAddTestFundsData;
+  }
+
+  /**
    * @description The wallet's transactions, newest first. `livemode=true` for the live wallet.
    * @tags developer-dashboard/wallet
    * @name DeveloperDashboardListWalletTransactions
@@ -1203,5 +1238,311 @@ export namespace Developer {
       "X-Team-Id": string;
     };
     export type ResponseBody = DashboardResendWebhookEventData;
+  }
+
+  /**
+   * @description Newest first, 20 a page. Filter by mode, outcome, method, path, key, time or request id.
+   * @tags developer-dashboard/request-logs
+   * @name DeveloperListRequestLogs
+   * @request GET:/developer/api/v1/dashboard/request-logs
+   * @secure
+   * @response `200` `DeveloperListRequestLogsData`
+   */
+  export namespace DeveloperListRequestLogs {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+      /** Only live or only test requests. */
+      livemode?: "true" | "false";
+      /** succeeded (below 400), failed (400 and up), or a status class. */
+      status?: "succeeded" | "failed" | "2xx" | "4xx" | "5xx";
+      method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+      /**
+       * Requests whose path contains this, e.g. /orders.
+       * @maxLength 200
+       * @example "/orders"
+       */
+      path?: string;
+      /** Requests made with this API key (its id). */
+      key?: string;
+      /** From this time (ISO 8601). */
+      created_gte?: string;
+      /** Up to this time (ISO 8601). */
+      created_lte?: string;
+      /**
+       * The request id from a response (Request-Id header or error.request_id). Finds it in either mode.
+       * @maxLength 64
+       * @example "req_kE72slxdyzWzqil0NpGahJCb"
+       */
+      request_id?: string;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DeveloperListRequestLogsData;
+  }
+
+  /**
+   * @description One request with its query, redacted request and response bodies, IP and user agent.
+   * @tags developer-dashboard/request-logs
+   * @name DeveloperGetRequestLog
+   * @request GET:/developer/api/v1/dashboard/request-logs/{logId}
+   * @secure
+   * @response `200` `DeveloperGetRequestLogData`
+   */
+  export namespace DeveloperGetRequestLog {
+    export type RequestParams = {
+      logId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DeveloperGetRequestLogData;
+  }
+
+  /**
+   * @description The team's orders in one mode, newest first. Filter by status, type, reference or date.
+   * @tags developer-dashboard/orders
+   * @name DashboardListOrders
+   * @request GET:/developer/api/v1/dashboard/orders
+   * @secure
+   * @response `200` `DashboardListOrdersData` A list object: { object, data, has_more, url }.
+   */
+  export namespace DashboardListOrders {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+      status?:
+        | "scheduled"
+        | "awaiting_dispatch"
+        | "searching"
+        | "rider_assigned"
+        | "picking_up"
+        | "in_transit"
+        | "delivered"
+        | "cancelled"
+        | "failed";
+      type?: "single" | "batch" | "bulk";
+      /**
+       * Your reference for the order: returns the one order that has it.
+       * @minLength 1
+       * @maxLength 100
+       */
+      reference?: string;
+      /**
+       * created[gte] and/or created[lte]: ISO 8601 dates or Unix seconds.
+       * @example {"gte":"2026-11-01T00:00:00Z"}
+       */
+      created?: object;
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardListOrdersData;
+  }
+
+  /**
+   * @description Creates the order: holds its price in the wallet and, unless scheduled, rings riders.
+   * @tags developer-dashboard/orders
+   * @name DashboardCreateOrder
+   * @request POST:/developer/api/v1/dashboard/orders
+   * @secure
+   * @response `201` `DashboardCreateOrderData`
+   */
+  export namespace DashboardCreateOrder {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = CreateOrderRequestDto;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardCreateOrderData;
+  }
+
+  /**
+   * No description
+   * @tags developer-dashboard/orders
+   * @name DashboardRetrieveOrder
+   * @request GET:/developer/api/v1/dashboard/orders/{id}
+   * @secure
+   * @response `200` `DashboardRetrieveOrderData`
+   */
+  export namespace DashboardRetrieveOrder {
+    export type RequestParams = {
+      /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+      id: string;
+    };
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardRetrieveOrderData;
+  }
+
+  /**
+   * @description Where the rider is and the order's timeline, for the live map.
+   * @tags developer-dashboard/orders
+   * @name DashboardTrackOrder
+   * @request GET:/developer/api/v1/dashboard/orders/{id}/tracking
+   * @secure
+   * @response `200` `DashboardTrackOrderData`
+   */
+  export namespace DashboardTrackOrder {
+    export type RequestParams = {
+      /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+      id: string;
+    };
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardTrackOrderData;
+  }
+
+  /**
+   * @description The price before creating it, held for 15 minutes.
+   * @tags developer-dashboard/orders
+   * @name DashboardCreateQuote
+   * @request POST:/developer/api/v1/dashboard/quotes
+   * @secure
+   * @response `200` `DashboardCreateQuoteData`
+   */
+  export namespace DashboardCreateQuote {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = CreateQuoteRequestDto;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardCreateQuoteData;
+  }
+
+  /**
+   * No description
+   * @tags developer-dashboard/orders
+   * @name DashboardCancelOrder
+   * @request POST:/developer/api/v1/dashboard/orders/{id}/cancel
+   * @secure
+   * @response `200` `DashboardCancelOrderData`
+   */
+  export namespace DashboardCancelOrder {
+    export type RequestParams = {
+      /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+      id: string;
+    };
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = CancelOrderRequestDto;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardCancelOrderData;
+  }
+
+  /**
+   * @description Test mode only: one step as the test rider would, or straight to `to`.
+   * @tags developer-dashboard/orders
+   * @name DashboardAdvanceTestOrder
+   * @request POST:/developer/api/v1/dashboard/orders/{id}/advance
+   * @secure
+   * @response `200` `DashboardAdvanceTestOrderData`
+   */
+  export namespace DashboardAdvanceTestOrder {
+    export type RequestParams = {
+      /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+      id: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = AdvanceOrderRequestDto;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardAdvanceTestOrderData;
+  }
+
+  /**
+   * No description
+   * @tags developer-dashboard/service-areas
+   * @name DashboardListServiceAreas
+   * @request GET:/developer/api/v1/dashboard/service-areas
+   * @secure
+   * @response `200` `DashboardListServiceAreasData`
+   */
+  export namespace DashboardListServiceAreas {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardListServiceAreasData;
   }
 }

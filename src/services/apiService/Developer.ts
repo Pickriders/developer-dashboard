@@ -10,25 +10,44 @@
  */
 
 import {
+  AdvanceOrderRequestDto,
+  CancelOrderRequestDto,
   ConfigureAutoTopUpRequestDto,
   CreateDeveloperApiKeyRequestDto,
   CreateDeveloperTeamRequestDto,
   CreateFundingSessionRequestDto,
+  CreateOrderRequestDto,
+  CreateQuoteRequestDto,
   CreateTeamInvitationRequestDto,
+  DashboardAdvanceTestOrderData,
+  DashboardCancelOrderData,
+  DashboardCancelOrderParams,
+  DashboardCreateOrderData,
+  DashboardCreateOrderParams,
+  DashboardCreateQuoteData,
+  DashboardCreateQuoteParams,
   DashboardCreateWebhookEndpointData,
   DashboardCreateWebhookEndpointRequestDto,
   DashboardDeleteWebhookEndpointData,
+  DashboardListOrdersData,
+  DashboardListOrdersParams,
+  DashboardListServiceAreasData,
   DashboardListWebhookDeliveriesData,
   DashboardListWebhookDeliveriesParams,
   DashboardListWebhookEndpointsData,
   DashboardListWebhookEndpointsParams,
   DashboardResendEventRequestDto,
   DashboardResendWebhookEventData,
+  DashboardRetrieveOrderData,
+  DashboardRetrieveOrderParams,
   DashboardRetrieveWebhookEndpointData,
   DashboardRollWebhookSecretData,
   DashboardTestWebhookEndpointData,
+  DashboardTrackOrderData,
+  DashboardTrackOrderParams,
   DashboardUpdateWebhookEndpointData,
   DeveloperAcceptInvitationData,
+  DeveloperAddTestFundsData,
   DeveloperConfigureAutoTopUpData,
   DeveloperCreateApiKeyData,
   DeveloperCreateInvitationData,
@@ -46,6 +65,7 @@ import {
   DeveloperGetIpAllowlistData,
   DeveloperGetLowBalanceAlertData,
   DeveloperGetOnboardingData,
+  DeveloperGetRequestLogData,
   DeveloperGetWalletData,
   DeveloperGetWalletParams,
   DeveloperLeaveTeamData,
@@ -55,6 +75,8 @@ import {
   DeveloperListAuditLogsParams,
   DeveloperListInvitationsData,
   DeveloperListMembersData,
+  DeveloperListRequestLogsData,
+  DeveloperListRequestLogsParams,
   DeveloperListTeamsData,
   DeveloperLoginData,
   DeveloperLoginRequestDto,
@@ -85,6 +107,7 @@ import {
   DeveloperVerifyCodeRequestDto,
   DeveloperVerifyEmailData,
   DeveloperVerifyPhoneData,
+  FundTestWalletRequestDto,
   LowBalanceAlertDto,
   RollDeveloperApiKeyRequestDto,
   SetUpFundingAccountRequestDto,
@@ -773,6 +796,25 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       ...params,
     });
   /**
+   * @description Play money for the test wallet, as POST /test/wallet/fund does with a test key: up to ₦10,000,000 a top-up. Recorded as a "Test top-up" transaction. Never touches the live wallet.
+   *
+   * @tags developer-dashboard/wallet
+   * @name DeveloperAddTestFunds
+   * @request POST:/developer/api/v1/dashboard/wallet/test-funds
+   * @secure
+   * @response `200` `DeveloperAddTestFundsData`
+   */
+  developerAddTestFunds = (data: FundTestWalletRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperAddTestFundsData, any>({
+      path: `/developer/api/v1/dashboard/wallet/test-funds`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
    * @description The wallet's transactions, newest first. `livemode=true` for the live wallet.
    *
    * @tags developer-dashboard/wallet
@@ -1108,6 +1150,195 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       body: data,
       secure: true,
       type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Newest first, 20 a page. Filter by mode, outcome, method, path, key, time or request id.
+   *
+   * @tags developer-dashboard/request-logs
+   * @name DeveloperListRequestLogs
+   * @request GET:/developer/api/v1/dashboard/request-logs
+   * @secure
+   * @response `200` `DeveloperListRequestLogsData`
+   */
+  developerListRequestLogs = (query: DeveloperListRequestLogsParams, params: RequestParams = {}) =>
+    this.request<DeveloperListRequestLogsData, any>({
+      path: `/developer/api/v1/dashboard/request-logs`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description One request with its query, redacted request and response bodies, IP and user agent.
+   *
+   * @tags developer-dashboard/request-logs
+   * @name DeveloperGetRequestLog
+   * @request GET:/developer/api/v1/dashboard/request-logs/{logId}
+   * @secure
+   * @response `200` `DeveloperGetRequestLogData`
+   */
+  developerGetRequestLog = (logId: string, params: RequestParams = {}) =>
+    this.request<DeveloperGetRequestLogData, any>({
+      path: `/developer/api/v1/dashboard/request-logs/${logId}`,
+      method: "GET",
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description The team's orders in one mode, newest first. Filter by status, type, reference or date.
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardListOrders
+   * @request GET:/developer/api/v1/dashboard/orders
+   * @secure
+   * @response `200` `DashboardListOrdersData` A list object: { object, data, has_more, url }.
+   */
+  dashboardListOrders = (query: DashboardListOrdersParams, params: RequestParams = {}) =>
+    this.request<DashboardListOrdersData, any>({
+      path: `/developer/api/v1/dashboard/orders`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Creates the order: holds its price in the wallet and, unless scheduled, rings riders.
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardCreateOrder
+   * @request POST:/developer/api/v1/dashboard/orders
+   * @secure
+   * @response `201` `DashboardCreateOrderData`
+   */
+  dashboardCreateOrder = (query: DashboardCreateOrderParams, data: CreateOrderRequestDto, params: RequestParams = {}) =>
+    this.request<DashboardCreateOrderData, any>({
+      path: `/developer/api/v1/dashboard/orders`,
+      method: "POST",
+      query: query,
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardRetrieveOrder
+   * @request GET:/developer/api/v1/dashboard/orders/{id}
+   * @secure
+   * @response `200` `DashboardRetrieveOrderData`
+   */
+  dashboardRetrieveOrder = ({ id, ...query }: DashboardRetrieveOrderParams, params: RequestParams = {}) =>
+    this.request<DashboardRetrieveOrderData, any>({
+      path: `/developer/api/v1/dashboard/orders/${id}`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Where the rider is and the order's timeline, for the live map.
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardTrackOrder
+   * @request GET:/developer/api/v1/dashboard/orders/{id}/tracking
+   * @secure
+   * @response `200` `DashboardTrackOrderData`
+   */
+  dashboardTrackOrder = ({ id, ...query }: DashboardTrackOrderParams, params: RequestParams = {}) =>
+    this.request<DashboardTrackOrderData, any>({
+      path: `/developer/api/v1/dashboard/orders/${id}/tracking`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description The price before creating it, held for 15 minutes.
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardCreateQuote
+   * @request POST:/developer/api/v1/dashboard/quotes
+   * @secure
+   * @response `200` `DashboardCreateQuoteData`
+   */
+  dashboardCreateQuote = (query: DashboardCreateQuoteParams, data: CreateQuoteRequestDto, params: RequestParams = {}) =>
+    this.request<DashboardCreateQuoteData, any>({
+      path: `/developer/api/v1/dashboard/quotes`,
+      method: "POST",
+      query: query,
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardCancelOrder
+   * @request POST:/developer/api/v1/dashboard/orders/{id}/cancel
+   * @secure
+   * @response `200` `DashboardCancelOrderData`
+   */
+  dashboardCancelOrder = (
+    { id, ...query }: DashboardCancelOrderParams,
+    data: CancelOrderRequestDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<DashboardCancelOrderData, any>({
+      path: `/developer/api/v1/dashboard/orders/${id}/cancel`,
+      method: "POST",
+      query: query,
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Test mode only: one step as the test rider would, or straight to `to`.
+   *
+   * @tags developer-dashboard/orders
+   * @name DashboardAdvanceTestOrder
+   * @request POST:/developer/api/v1/dashboard/orders/{id}/advance
+   * @secure
+   * @response `200` `DashboardAdvanceTestOrderData`
+   */
+  dashboardAdvanceTestOrder = (id: string, data: AdvanceOrderRequestDto, params: RequestParams = {}) =>
+    this.request<DashboardAdvanceTestOrderData, any>({
+      path: `/developer/api/v1/dashboard/orders/${id}/advance`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/service-areas
+   * @name DashboardListServiceAreas
+   * @request GET:/developer/api/v1/dashboard/service-areas
+   * @secure
+   * @response `200` `DashboardListServiceAreasData`
+   */
+  dashboardListServiceAreas = (params: RequestParams = {}) =>
+    this.request<DashboardListServiceAreasData, any>({
+      path: `/developer/api/v1/dashboard/service-areas`,
+      method: "GET",
+      secure: true,
       format: "json",
       ...params,
     });

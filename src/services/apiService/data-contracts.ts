@@ -6839,6 +6839,73 @@ export interface DashboardResendEventRequestDto {
   event_id: string;
 }
 
+export interface RequestLogKeyDto {
+  id: string;
+  /** The key’s name, if it still exists. */
+  label: string | null;
+  /** @example "sk_test_4fQ9" */
+  prefix: string | null;
+}
+
+export interface RequestLogDto {
+  id: string;
+  /** @example "req_kE72slxdyzWzqil0NpGahJCb" */
+  requestId: string | null;
+  /** @example "POST" */
+  method: string;
+  /** @example "/developer/api/v1/orders" */
+  path: string;
+  /** @example 201 */
+  status: number;
+  /** @example 182 */
+  durationMs: number;
+  livemode: boolean | null;
+  key: RequestLogKeyDto | null;
+  /** @example "invalid_request_error" */
+  errorType: string | null;
+  /** @example "parameter_missing" */
+  errorCode: string | null;
+  /** @format date-time */
+  createdAt: string;
+}
+
+export interface RequestLogListDto {
+  object: "list";
+  data: RequestLogDto[];
+  has_more: boolean;
+  url: string;
+}
+
+export interface RequestLogDetailDto {
+  id: string;
+  /** @example "req_kE72slxdyzWzqil0NpGahJCb" */
+  requestId: string | null;
+  /** @example "POST" */
+  method: string;
+  /** @example "/developer/api/v1/orders" */
+  path: string;
+  /** @example 201 */
+  status: number;
+  /** @example 182 */
+  durationMs: number;
+  livemode: boolean | null;
+  key: RequestLogKeyDto | null;
+  /** @example "invalid_request_error" */
+  errorType: string | null;
+  /** @example "parameter_missing" */
+  errorCode: string | null;
+  /** @format date-time */
+  createdAt: string;
+  /** The query string, redacted. */
+  query: object | null;
+  ip: string | null;
+  userAgent: string | null;
+  /** The JSON body sent, redacted (secrets, phone numbers, codes); { truncated, size } when too large. */
+  requestBody?: object | null;
+  /** The JSON response, redacted the same way. */
+  responseBody?: object | null;
+}
+
 export interface AdminDeveloperOwnerDto {
   id: string;
   name: string;
@@ -8511,6 +8578,8 @@ export type DeveloperGetWalletData = PublicWalletDto;
 
 export type DeveloperDashboardCreateFundingSessionData = FundingSessionDto;
 
+export type DeveloperAddTestFundsData = PublicWalletDto;
+
 export interface DeveloperDashboardListWalletTransactionsParams {
   /**
    * @min 1
@@ -8596,6 +8665,148 @@ export type DashboardListWebhookDeliveriesData = WebhookDeliveryDto[];
 export type DashboardTestWebhookEndpointData = WebhookDeliveryDto;
 
 export type DashboardResendWebhookEventData = ResendEventResponseDto;
+
+export interface DeveloperListRequestLogsParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  /** Only live or only test requests. */
+  livemode?: "true" | "false";
+  /** succeeded (below 400), failed (400 and up), or a status class. */
+  status?: "succeeded" | "failed" | "2xx" | "4xx" | "5xx";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  /**
+   * Requests whose path contains this, e.g. /orders.
+   * @maxLength 200
+   * @example "/orders"
+   */
+  path?: string;
+  /** Requests made with this API key (its id). */
+  key?: string;
+  /** From this time (ISO 8601). */
+  created_gte?: string;
+  /** Up to this time (ISO 8601). */
+  created_lte?: string;
+  /**
+   * The request id from a response (Request-Id header or error.request_id). Finds it in either mode.
+   * @maxLength 64
+   * @example "req_kE72slxdyzWzqil0NpGahJCb"
+   */
+  request_id?: string;
+}
+
+export type DeveloperListRequestLogsData = RequestLogListDto;
+
+export type DeveloperGetRequestLogData = RequestLogDetailDto;
+
+export interface DashboardListOrdersParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  status?:
+    | "scheduled"
+    | "awaiting_dispatch"
+    | "searching"
+    | "rider_assigned"
+    | "picking_up"
+    | "in_transit"
+    | "delivered"
+    | "cancelled"
+    | "failed";
+  type?: "single" | "batch" | "bulk";
+  /**
+   * Your reference for the order: returns the one order that has it.
+   * @minLength 1
+   * @maxLength 100
+   */
+  reference?: string;
+  /**
+   * created[gte] and/or created[lte]: ISO 8601 dates or Unix seconds.
+   * @example {"gte":"2026-11-01T00:00:00Z"}
+   */
+  created?: object;
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+}
+
+export type DashboardListOrdersData = PublicOrderDto[];
+
+export interface DashboardCreateOrderParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+}
+
+export type DashboardCreateOrderData = PublicOrderDto;
+
+export interface DashboardRetrieveOrderParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+  /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+  id: string;
+}
+
+export type DashboardRetrieveOrderData = PublicOrderDto;
+
+export interface DashboardTrackOrderParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+  /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+  id: string;
+}
+
+export type DashboardTrackOrderData = OrderTrackingDto;
+
+export interface DashboardCreateQuoteParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+}
+
+export type DashboardCreateQuoteData = PublicQuoteDto;
+
+export interface DashboardCancelOrderParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+  /** @example "ord_6560f0c2a1b2c3d4e5f60718" */
+  id: string;
+}
+
+export type DashboardCancelOrderData = PublicOrderDto;
+
+export type DashboardAdvanceTestOrderData = PublicOrderDto;
+
+export type DashboardListServiceAreasData = ServiceAreaListDto;
 
 export interface AdminListDevelopersParams {
   /** PENDING lists the review queue, oldest request first. */

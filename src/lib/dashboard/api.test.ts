@@ -45,6 +45,22 @@ const TOKEN = "inv_open_0000000000000000001";
 const KEY = "6560f0c2a1b2c3d4e5f60718";
 const WE = "we_6560f0c2a1b2c3d4e5f60718";
 const EVT = "evt_6560f0c2a1b2c3d4e5f60718";
+const STOP = {
+  lat: 6.43,
+  lng: 3.42,
+  address: "1 Admiralty Way, Lekki",
+  contact: { name: "Bola", phone: "+2348031234567" },
+};
+const ORDER = { type: "single" as const, service_area: "NG-LA", stops: [STOP, STOP] };
+const CHECKOUT = { amount: 5_000_000, success_url: "https://dash.test/wallet?funded=1" };
+// Paystack's documented test BVN and a test account, as in backend-api's own specs.
+const ACCOUNT = {
+  bvn: "22212345678",
+  account_number: "0123456789",
+  bank_code: "058",
+  first_name: "Ada",
+  last_name: "Obi",
+};
 const HOOK = { url: "https://acme.test/hooks", enabled_events: ["order.delivered" as const], livemode: false };
 const SIGNUP = { firstname: "Ada", lastname: "Obi", email: "ada@acme.com", phone: "+2348031234567", password: "p" };
 
@@ -207,6 +223,174 @@ const CASES: Case[] = [
     method: "POST",
     path: `${D}/webhook-endpoints/${WE}/test`,
   },
+  {
+    name: "orders.list",
+    call: () => api.orders.list("test", { status: "delivered" }, "ord_1"),
+    method: "GET",
+    path: `${D}/orders`,
+    params: { livemode: "false", limit: 20, status: "delivered", starting_after: "ord_1" },
+  },
+  {
+    name: "orders.get",
+    call: () => api.orders.get("live", "ord_1"),
+    method: "GET",
+    path: `${D}/orders/ord_1`,
+    params: { livemode: "true" },
+  },
+  {
+    name: "orders.tracking",
+    call: () => api.orders.tracking("test", "ord_1"),
+    method: "GET",
+    path: `${D}/orders/ord_1/tracking`,
+    params: { livemode: "false" },
+  },
+  {
+    name: "orders.quote",
+    call: () => api.orders.quote("test", ORDER),
+    method: "POST",
+    path: `${D}/quotes`,
+    params: { livemode: "false" },
+    data: ORDER,
+  },
+  {
+    name: "orders.create",
+    call: () => api.orders.create("test", { quote_id: "quo_1" }),
+    method: "POST",
+    path: `${D}/orders`,
+    params: { livemode: "false" },
+    data: { quote_id: "quo_1" },
+  },
+  {
+    name: "orders.cancel",
+    call: () => api.orders.cancel("test", "ord_1", "Changed my mind"),
+    method: "POST",
+    path: `${D}/orders/ord_1/cancel`,
+    params: { livemode: "false" },
+    data: { reason: "Changed my mind" },
+  },
+  {
+    name: "orders.advance",
+    call: () => api.orders.advance("ord_1", "delivered"),
+    method: "POST",
+    path: `${D}/orders/ord_1/advance`,
+    data: { to: "delivered" },
+  },
+  { name: "orders.serviceAreas", call: () => api.orders.serviceAreas(), method: "GET", path: `${D}/service-areas` },
+  {
+    name: "wallet.get",
+    call: () => api.wallet.get("live"),
+    method: "GET",
+    path: `${D}/wallet`,
+    params: { livemode: "true" },
+  },
+  {
+    name: "wallet.transactions",
+    call: () => api.wallet.transactions("test", "debit", "txn_1"),
+    method: "GET",
+    path: `${D}/wallet/transactions`,
+    params: { livemode: "false", limit: 20, type: "debit", starting_after: "txn_1" },
+  },
+  {
+    name: "wallet.addTestFunds",
+    call: () => api.wallet.addTestFunds(5_000_000),
+    method: "POST",
+    path: `${D}/wallet/test-funds`,
+    data: { amount: 5_000_000 },
+  },
+  {
+    name: "wallet.cardCheckout",
+    call: () => api.wallet.cardCheckout(CHECKOUT),
+    method: "POST",
+    path: `${D}/wallet/funding-sessions`,
+    data: CHECKOUT,
+  },
+  {
+    name: "wallet.lowBalanceAlert",
+    call: () => api.wallet.lowBalanceAlert(),
+    method: "GET",
+    path: `${D}/wallet/low-balance-alert`,
+  },
+  {
+    name: "wallet.setLowBalanceAlert",
+    call: () => api.wallet.setLowBalanceAlert(null),
+    method: "PUT",
+    path: `${D}/wallet/low-balance-alert`,
+    data: { threshold: null },
+  },
+  {
+    name: "wallet.fundingAccount",
+    call: () => api.wallet.fundingAccount(),
+    method: "GET",
+    path: `${D}/wallet/funding-account`,
+  },
+  {
+    name: "wallet.setUpFundingAccount",
+    call: () => api.wallet.setUpFundingAccount(ACCOUNT),
+    method: "POST",
+    path: `${D}/wallet/funding-account`,
+    data: ACCOUNT,
+  },
+  { name: "wallet.autoTopUp", call: () => api.wallet.autoTopUp(), method: "GET", path: `${D}/wallet/auto-top-up` },
+  {
+    name: "wallet.configureAutoTopUp",
+    call: () => api.wallet.configureAutoTopUp({ enabled: true, threshold: 2_000_000, amount: 10_000_000 }),
+    method: "PUT",
+    path: `${D}/wallet/auto-top-up`,
+    data: { enabled: true, threshold: 2_000_000, amount: 10_000_000 },
+  },
+  {
+    name: "wallet.saveCard",
+    call: () => api.wallet.saveCard(CHECKOUT),
+    method: "POST",
+    path: `${D}/wallet/auto-top-up/card`,
+    data: CHECKOUT,
+  },
+  {
+    name: "wallet.removeCard",
+    call: () => api.wallet.removeCard(),
+    method: "DELETE",
+    path: `${D}/wallet/auto-top-up/card`,
+  },
+  { name: "team.members", call: () => api.team.members(), method: "GET", path: `${D}/team/members` },
+  {
+    name: "team.setRole",
+    call: () => api.team.setRole(KEY, "TEAM_FINANCE"),
+    method: "PATCH",
+    path: `${D}/team/members/${KEY}`,
+    data: { role: "TEAM_FINANCE" },
+  },
+  { name: "team.remove", call: () => api.team.remove(KEY), method: "DELETE", path: `${D}/team/members/${KEY}` },
+  { name: "team.leave", call: () => api.team.leave(), method: "POST", path: `${D}/team/members/leave` },
+  {
+    name: "team.transfer",
+    call: () => api.team.transfer(KEY),
+    method: "POST",
+    path: `${D}/team/members/transfer-ownership`,
+    data: { userId: KEY },
+  },
+  { name: "team.invitations", call: () => api.team.invitations(), method: "GET", path: `${D}/team/invitations` },
+  {
+    name: "team.invite",
+    call: () => api.team.invite({ email: "bo@acme.com", role: "TEAM_DEVELOPER" }),
+    method: "POST",
+    path: `${D}/team/invitations`,
+    data: { email: "bo@acme.com", role: "TEAM_DEVELOPER" },
+  },
+  {
+    name: "team.resend",
+    call: () => api.team.resend(KEY),
+    method: "POST",
+    path: `${D}/team/invitations/${KEY}/resend`,
+  },
+  { name: "team.revoke", call: () => api.team.revoke(KEY), method: "DELETE", path: `${D}/team/invitations/${KEY}` },
+  {
+    name: "logs.list",
+    call: () => api.logs.list("test", { status: "failed", path: "/orders" }, "log_1"),
+    method: "GET",
+    path: `${D}/request-logs`,
+    params: { livemode: "false", limit: 25, status: "failed", path: "/orders", starting_after: "log_1" },
+  },
+  { name: "logs.get", call: () => api.logs.get(KEY), method: "GET", path: `${D}/request-logs/${KEY}` },
   {
     name: "webhooks.resend",
     call: () => api.webhooks.resend(WE, EVT),
