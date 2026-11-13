@@ -1,4 +1,4 @@
-import { House, KeyRound, Package, ScrollText, Webhook, type LucideIcon } from "lucide-react";
+import { House, KeyRound, Package, ScrollText, Wallet, Webhook, type LucideIcon } from "lucide-react";
 
 import type { Permission } from "@/lib/workspace";
 
@@ -30,6 +30,14 @@ export const NAV: NavGroup[] = [
         permission: "orders.read",
         key: "o",
         keywords: "deliveries riders tracking create order",
+      },
+      {
+        href: "/wallet",
+        label: "Wallet",
+        icon: Wallet,
+        permission: "wallet.read",
+        key: "m",
+        keywords: "money balance top up fund transactions csv",
       },
     ],
   },
