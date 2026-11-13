@@ -108,7 +108,8 @@ secondary, ghost, danger, link; sm, md, lg, icon; `loading`, `fullWidth`), `Inpu
 `<dialog>`: focus trap and Escape for free), `Toaster` (Sonner, restyled).
 
 **Also in `components/ui`:** `Menu` / `MenuItem` / `MenuLabel` / `MenuSeparator` (a dropdown: arrow
-keys, Escape, focus back to the trigger), `Avatar` (people: round, two initials; teams: square, one),
+keys, Escape, focus back to the trigger; portalled and placed against the viewport, flipping up near the
+bottom, so a card's clipped edge never cuts it off), `Avatar` (people: round, two initials; teams: square, one),
 `Segmented` (two to four exclusive choices, arrow keys move), `Popover` (a short explanation under its
 trigger), `Sheet` (one row up close: a right-hand panel from md, a bottom sheet on phones).
 
@@ -178,6 +179,13 @@ with a BVN, then the account details with copy buttons), Auto top-up (a saved ca
 much, a switch, the last charge and failures) and the Low-balance alert. Test mode says those are for
 the live wallet. Transactions list money in and out (+ green, − plain) with their order, filter in or
 out, and export as CSV (naira, money out negative, formulas neutralised).
+
+**Team** (`/team`): members (avatar, name with a _You_ tag, email and when they joined or were last
+active, the role as a pill, the owner with a crown) and pending invitations (role, who invited, when
+sent, _Expired_; Resend, Revoke). A member's row menu changes their role, makes them owner (the owner
+only; type the team's name) or removes them, and only appears where the role allows: you never manage
+yourself, the owner, or someone above you. Anyone but the owner can **Leave team**. Inviting is one
+email and one role, each role explained in a line.
 
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).

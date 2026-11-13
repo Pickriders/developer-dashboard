@@ -65,7 +65,8 @@ export function TeamSwitcher({ rail = false }: { rail?: boolean }) {
   return (
     <Menu
       label="Switch team"
-      className={rail ? "w-60" : "w-full"}
+      className={rail ? "w-60" : undefined}
+      matchWidth={!rail}
       trigger={({ ref, open, ...props }) => (
         <button
           ref={ref}

@@ -34,12 +34,13 @@ export function AddMoneyDialog({ open, onClose }: { open: boolean; onClose: () =
   const tooMuch = mode === "test" && kobo !== null && kobo > MAX_TEST;
   const busy = test.isPending || card.isPending;
 
-  React.useEffect(() => {
-    if (open) {
-      setText("");
-      setFailure(null);
-    }
-  }, [open]);
+  // Cleared on the way out, so an amount typed the moment it opens is never wiped.
+  const close = () => {
+    if (busy) return;
+    setText("");
+    setFailure(null);
+    onClose();
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +50,7 @@ export function AddMoneyDialog({ open, onClose }: { open: boolean; onClose: () =
       if (mode === "test") {
         await test.mutateAsync(kobo);
         toast.success(`${formatMoney(kobo)} of play money added`);
+        setText("");
         onClose();
       } else {
         const back = `${window.location.origin}/wallet`;
@@ -61,7 +63,7 @@ export function AddMoneyDialog({ open, onClose }: { open: boolean; onClose: () =
   };
 
   return (
-    <Modal open={open} onClose={() => !busy && onClose()} title={mode === "test" ? "Add play money" : "Top up by card"}>
+    <Modal open={open} onClose={close} title={mode === "test" ? "Add play money" : "Top up by card"}>
       <form onSubmit={submit} className="space-y-5">
         <p className="text-[15px] leading-6 text-fg-muted">
           {mode === "test"
@@ -104,7 +106,7 @@ export function AddMoneyDialog({ open, onClose }: { open: boolean; onClose: () =
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
+          <Button variant="secondary" onClick={close} disabled={busy}>
             Cancel
           </Button>
           <Button type="submit" loading={busy} disabled={!kobo || tooMuch}>

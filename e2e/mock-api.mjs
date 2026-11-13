@@ -9,6 +9,7 @@
 //   POST /__test/team?email=&liveStatus=&reason=   # set the live status of that person's own team
 //   POST /__test/order?email=                      # a test order arrives for that person's own team
 //   POST /__test/join?email=&name=&role=           # add them to a new team, owned by someone unverified
+//   POST /__test/member?owner=&email=&name=&role=  # a new person in the owner's own team
 //   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
 //   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
 //
@@ -123,6 +124,7 @@ function makeTeam(name, owner) {
       disabled_reason: null,
     },
     lowBalance: null,
+    invitations: [],
   };
   teams.set(t.id, t);
   record(t, false, "credit", "test_funding", 100_000_000, "Opening play money");
@@ -604,6 +606,109 @@ const routes = {
     return [200, presentKey(key)];
   },
 
+  "GET /team/members": (req) => {
+    const { user: me, team: t } = requireTeam(req, "team.read");
+    const members = [...users.values()].flatMap((u) =>
+      u.memberships
+        .filter((m) => m.teamId === t.id)
+        .map((m) => ({
+          userId: u.id,
+          name: `${u.firstname} ${u.lastname}`,
+          email: u.email,
+          role: m.role,
+          isOwner: m.role === "TEAM_OWNER",
+          isYou: u.id === me.id,
+          joinedAt: m.joinedAt ?? null,
+          lastLoginAt: null,
+        })),
+    );
+    return [200, members.sort((a, b) => Number(b.isOwner) - Number(a.isOwner))];
+  },
+  "PATCH /team/members/:userId": (req, body, { userId }) => {
+    const { user: me, team: t, role: myRole } = requireTeam(req, "team.manage");
+    if (userId === me.id) throw new ApiError(403, "cannot_change_own_role", "You can't change your own role.");
+    const { user, membership } = memberOf(t, userId);
+    if (membership.role === "TEAM_OWNER")
+      throw new ApiError(403, "role_above_yours", "You can't change the owner's role.");
+    if (body.role === "TEAM_ADMIN" && myRole !== "TEAM_OWNER" && myRole !== "TEAM_ADMIN")
+      throw new ApiError(403, "role_above_yours", "You can't give a role above yours.");
+    membership.role = body.role;
+    return [
+      200,
+      {
+        userId,
+        name: `${user.firstname} ${user.lastname}`,
+        email: user.email,
+        role: body.role,
+        isOwner: false,
+        isYou: false,
+      },
+    ];
+  },
+  "DELETE /team/members/:userId": (req, body, { userId }) => {
+    const { user: me, team: t } = requireTeam(req, "team.manage");
+    if (userId === me.id) throw new ApiError(400, "use_leave", "To leave the team, use Leave team.");
+    const { user, membership } = memberOf(t, userId);
+    if (membership.role === "TEAM_OWNER") throw new ApiError(400, "member_is_owner", "The owner can't be removed.");
+    user.memberships = user.memberships.filter((m) => m !== membership);
+    return [204, null];
+  },
+  "POST /team/members/leave": (req) => {
+    const { user: me, team: t, role } = requireTeam(req, "team.read");
+    if (role === "TEAM_OWNER") throw new ApiError(400, "owner_cannot_leave", "Make someone else the owner first.");
+    me.memberships = me.memberships.filter((m) => m.teamId !== t.id);
+    return [204, null];
+  },
+  "POST /team/members/transfer-ownership": (req, body) => {
+    const { user: me, team: t, role } = requireTeam(req, "team.read");
+    if (role !== "TEAM_OWNER") throw new ApiError(403, "not_owner", "Only the owner can transfer ownership.");
+    const { user, membership } = memberOf(t, body.userId);
+    membership.role = "TEAM_OWNER";
+    me.memberships.find((m) => m.teamId === t.id).role = "TEAM_ADMIN";
+    t.owner = user;
+    return [200, []];
+  },
+  "GET /team/invitations": (req) => [200, requireTeam(req, "team.manage").team.invitations],
+  "POST /team/invitations": (req, body) => {
+    const { user: me, team: t } = requireTeam(req, "team.manage");
+    const email = String(body.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, "parameter_invalid", "email must be an email", "email");
+    const already = [...users.values()].some((u) => u.email === email && u.memberships.some((m) => m.teamId === t.id));
+    if (already) throw new ApiError(409, "already_member", "They're already in this team.", "email");
+    if (t.invitations.some((i) => i.email === email && i.status === "PENDING"))
+      throw new ApiError(409, "already_invited", "They already have an invitation. Resend it instead.", "email");
+    const now = new Date();
+    const invitation = {
+      id: newId(),
+      email,
+      role: body.role,
+      status: "PENDING",
+      expired: false,
+      expiresAt: new Date(now.getTime() + 7 * 864e5).toISOString(),
+      invitedBy: { id: me.id, name: `${me.firstname} ${me.lastname}` },
+      lastSentAt: now.toISOString(),
+      sendCount: 1,
+      createdAt: now.toISOString(),
+    };
+    t.invitations.push(invitation);
+    return [201, invitation];
+  },
+  "POST /team/invitations/:id/resend": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "team.manage");
+    const inv = t.invitations.find((i) => i.id === id && i.status === "PENDING");
+    if (!inv) throw new ApiError(404, "invitation_not_found", "No pending invitation with that id.");
+    Object.assign(inv, { lastSentAt: new Date().toISOString(), sendCount: inv.sendCount + 1, expired: false });
+    return [200, inv];
+  },
+  "DELETE /team/invitations/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "team.manage");
+    const inv = t.invitations.find((i) => i.id === id && i.status === "PENDING");
+    if (!inv) throw new ApiError(404, "invitation_not_found", "No pending invitation with that id.");
+    inv.status = "REVOKED";
+    return [200, inv];
+  },
   "GET /wallet": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "wallet.read");
     const live = url.searchParams.get("livemode") === "true";
@@ -991,6 +1096,12 @@ function step(order) {
   }
 }
 const t_of = (req) => teams.get(req.headers["x-team-id"]);
+function memberOf(t, userId) {
+  const user = [...users.values()].find((u) => u.id === userId);
+  const membership = user?.memberships.find((m) => m.teamId === t.id);
+  if (!membership) throw new ApiError(404, "member_not_found", "That person is not a member of this team.");
+  return { user, membership };
+}
 /** A wallet transaction, as the ledger shows it. */
 function record(t, live, type, purpose, amount, description, order = null) {
   const w = t.wallets[live ? "live" : "test"];
@@ -1170,6 +1281,26 @@ createServer(async (req, res) => {
     );
     for (const endpoint of listening) await deliver(endpoint, event);
     return send(200, { event_id: event.id, delivered_to: listening.length });
+  }
+  if (url.pathname === "/__test/member") {
+    const owner = users.get(url.searchParams.get("owner"));
+    const own = owner && owner.memberships.find((m) => m.role === "TEAM_OWNER");
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const [firstname, lastname = "Ade"] = (url.searchParams.get("name") ?? "Bo Ade").split(" ");
+    const person = makeUser({
+      firstname,
+      lastname,
+      email: url.searchParams.get("email"),
+      phone: "2348035550000",
+      password: "correct-horse-1",
+    });
+    person.emailVerified = person.phoneVerified = true;
+    person.memberships.push({
+      teamId: own.teamId,
+      role: url.searchParams.get("role") ?? "TEAM_DEVELOPER",
+      joinedAt: new Date().toISOString(),
+    });
+    return send(204, null);
   }
   if (url.pathname === "/__test/requests") {
     const user = users.get(url.searchParams.get("email"));

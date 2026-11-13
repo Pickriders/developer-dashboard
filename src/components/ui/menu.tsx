@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
 
@@ -8,15 +9,19 @@ type MenuContext = { close: () => void };
 const Ctx = React.createContext<MenuContext>({ close: () => undefined });
 
 /**
- * A small dropdown (team switcher, account menu, row actions): opens under its trigger, closes on
- * Escape, a click outside or a choice, and moves with the arrow keys. Focus goes back to the
- * trigger on close, as a native menu would.
+ * A small dropdown (team switcher, account menu, row actions): opens under its trigger (or above,
+ * near the bottom of the screen), closes on Escape, a click outside or a choice, and moves with the
+ * arrow keys. Focus goes back to the trigger on close, as a native menu would.
+ *
+ * The panel is portalled (to the open <dialog> it was opened from, or the body) and placed against
+ * the viewport, so a card's rounded, clipped edge never cuts it off.
  */
 export function Menu({
   label,
   trigger,
   align = "start",
   side = "bottom",
+  matchWidth = false,
   className,
   children,
 }: {
@@ -31,24 +36,64 @@ export function Menu({
     "aria-label"?: string;
   }) => React.ReactNode;
   align?: "start" | "end";
+  /** Where it prefers to open; it flips when there isn't room. */
   side?: "bottom" | "top";
+  /** As wide as the trigger (the sidebar's team and account menus). */
+  matchWidth?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [place, setPlace] = React.useState<React.CSSProperties | null>(null);
   const root = React.useRef<HTMLDivElement>(null);
   const button = React.useRef<HTMLButtonElement>(null);
   const panel = React.useRef<HTMLDivElement>(null);
 
   const close = React.useCallback((refocus = true) => {
     setOpen(false);
+    setPlace(null);
     if (refocus) button.current?.focus();
   }, []);
+
+  // Measure the panel, then put it beside the trigger: below or above, whichever fits.
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const position = () => {
+      const anchor = button.current?.getBoundingClientRect();
+      const menu = panel.current;
+      if (!anchor || !menu) return;
+      const gap = 6;
+      const height = menu.offsetHeight;
+      const width = matchWidth ? anchor.width : menu.offsetWidth;
+      const below = window.innerHeight - anchor.bottom - gap;
+      const above = anchor.top - gap;
+      const up = side === "top" ? above >= height || above > below : below < height && above > below;
+      const left = Math.min(
+        Math.max(8, align === "start" ? anchor.left : anchor.right - width),
+        window.innerWidth - width - 8,
+      );
+      setPlace({
+        position: "fixed",
+        left,
+        top: up ? Math.max(8, anchor.top - gap - height) : anchor.bottom + gap,
+        width: matchWidth ? anchor.width : undefined,
+        transformOrigin: up ? "bottom" : "top",
+      });
+    };
+    position();
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    return () => {
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
+  }, [open, side, align, matchWidth]);
 
   React.useEffect(() => {
     if (!open) return;
     const onPointer = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) close(false);
+      const target = e.target as Node;
+      if (!root.current?.contains(target) && !panel.current?.contains(target)) close(false);
     };
     document.addEventListener("pointerdown", onPointer);
     panel.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')?.focus();
@@ -58,6 +103,8 @@ export function Menu({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.stopPropagation();
+      // Inside a <dialog>, Escape would also close the dialog.
+      e.preventDefault();
       return close();
     }
     if (e.key === "Tab") return close(false);
@@ -74,31 +121,37 @@ export function Menu({
     }
   };
 
+  // Into the dialog it was opened from (a <dialog> sits above everything else), or the body.
+  const host = open ? (button.current?.closest("dialog") ?? document.body) : null;
+
   return (
     <Ctx.Provider value={{ close }}>
       <div ref={root} className="relative" onKeyDown={onKeyDown}>
         {trigger({
           ref: button,
           open,
-          onClick: () => setOpen((v) => !v),
+          onClick: () => (open ? close(false) : setOpen(true)),
           "aria-haspopup": "menu",
           "aria-expanded": open,
         })}
-        {open && (
-          <div
-            ref={panel}
-            role="menu"
-            aria-label={label}
-            className={cn(
-              "absolute z-50 min-w-[14rem] animate-pop-in rounded-xl border border-line bg-surface-raised p-1.5 shadow-pop",
-              side === "bottom" ? "top-full mt-1.5 origin-top" : "bottom-full mb-1.5 origin-bottom",
-              align === "start" ? "left-0" : "right-0",
-              className,
-            )}
-          >
-            {children}
-          </div>
-        )}
+        {open &&
+          host &&
+          createPortal(
+            <div
+              ref={panel}
+              role="menu"
+              aria-label={label}
+              style={place ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }}
+              className={cn(
+                "z-[60] min-w-[14rem] max-w-[calc(100vw-1rem)] rounded-xl border border-line bg-surface-raised p-1.5 text-fg shadow-pop",
+                place && "animate-pop-in",
+                className,
+              )}
+            >
+              {children}
+            </div>,
+            host,
+          )}
       </div>
     </Ctx.Provider>
   );

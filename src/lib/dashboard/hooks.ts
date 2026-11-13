@@ -11,6 +11,7 @@ import {
   logs,
   type OrderFilters,
   orders,
+  team,
   wallet,
   webhooks,
 } from "./api";
@@ -66,6 +67,8 @@ export const teamKeys = {
     type
       ? (["team", teamId, mode, "wallet", "transactions", type] as const)
       : (["team", teamId, mode, "wallet", "transactions"] as const),
+  members: (teamId: string) => ["team", teamId, "members"] as const,
+  invitations: (teamId: string) => ["team", teamId, "invitations"] as const,
   /** The live wallet's settings: transfer account, auto top-up, low-balance alert. */
   walletSetting: (teamId: string, name: string) => ["team", teamId, "live", "wallet", name] as const,
 };
@@ -343,3 +346,36 @@ export const useConfigureAutoTopUp = (teamId: string) =>
 export const useSaveCard = (teamId: string) =>
   useWalletMutation(teamId, "live", (body: Parameters<typeof wallet.saveCard>[0]) => wallet.saveCard(body));
 export const useRemoveCard = (teamId: string) => useWalletMutation(teamId, "live", () => wallet.removeCard());
+
+export const useMembers = (teamId: string) =>
+  useQuery({ queryKey: teamKeys.members(teamId), queryFn: () => team.members() });
+
+export const useInvitations = (teamId: string, enabled: boolean) =>
+  useQuery({ queryKey: teamKeys.invitations(teamId), queryFn: () => team.invitations(), enabled });
+
+/** A team change: refreshes members, invitations and `me` (roles and teams can move). */
+const useTeamMutation = <TArgs, TResult>(teamId: string, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: teamKeys.members(teamId) }),
+        queryClient.invalidateQueries({ queryKey: teamKeys.invitations(teamId) }),
+        queryClient.invalidateQueries({ queryKey: ["me"] }),
+      ]),
+  });
+};
+
+export const useSetRole = (teamId: string) =>
+  useTeamMutation(teamId, ({ userId, role }: { userId: string; role: Parameters<typeof team.setRole>[1] }) =>
+    team.setRole(userId, role),
+  );
+export const useRemoveMember = (teamId: string) => useTeamMutation(teamId, (userId: string) => team.remove(userId));
+export const useLeaveTeam = (teamId: string) => useTeamMutation(teamId, () => team.leave());
+export const useTransferOwnership = (teamId: string) =>
+  useTeamMutation(teamId, (userId: string) => team.transfer(userId));
+export const useInvite = (teamId: string) =>
+  useTeamMutation(teamId, (body: Parameters<typeof team.invite>[0]) => team.invite(body));
+export const useResendInvitation = (teamId: string) => useTeamMutation(teamId, (id: string) => team.resend(id));
+export const useRevokeInvitation = (teamId: string) => useTeamMutation(teamId, (id: string) => team.revoke(id));
