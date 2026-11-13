@@ -45,3 +45,7 @@ export const timeAgo = (iso: string | Date, now: Date = new Date()): string => {
   }
   return "just now";
 };
+
+/** A 0–1 rate as a percentage: 0.9876 → "98.8%", 1 → "100%"; nothing to divide (null) → "—". */
+export const percent = (rate: number | null): string =>
+  rate === null ? "—" : `${(Math.round(rate * 1000) / 10).toLocaleString("en-NG", { maximumFractionDigits: 1 })}%`;

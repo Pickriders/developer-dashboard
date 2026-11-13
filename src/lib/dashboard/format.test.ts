@@ -1,4 +1,12 @@
-import { baseUnitToSubUnit, formatDate, formatDateTime, formatMoney, subUnitToBaseUnit, timeAgo } from "./format";
+import {
+  baseUnitToSubUnit,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  percent,
+  subUnitToBaseUnit,
+  timeAgo,
+} from "./format";
 
 describe("money", () => {
   it("converts between kobo and naira without drift", () => {
@@ -33,5 +41,18 @@ describe("dates", () => {
     ["2026-10-01T12:00:00Z", "last month"],
   ])("says %s as %p", (iso, said) => {
     expect(timeAgo(iso, now)).toBe(said);
+  });
+});
+
+describe("percent", () => {
+  it("shows a rate to one decimal place", () => {
+    expect(percent(0.9876)).toBe("98.8%");
+    expect(percent(1)).toBe("100%");
+    expect(percent(0)).toBe("0%");
+    expect(percent(0.6667)).toBe("66.7%");
+  });
+
+  it("shows a dash when there was nothing to count", () => {
+    expect(percent(null)).toBe("—");
   });
 });

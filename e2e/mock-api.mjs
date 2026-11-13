@@ -12,6 +12,8 @@
 //   POST /__test/member?owner=&email=&name=&role=  # a new person in the owner's own team
 //   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
 //   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
+//   POST /__test/fail?route=GET%20/orders           # that route answers 500 until the next reset
+//   POST /__test/history?email=&days=              # a few test orders a day for that many days back (usage)
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
 // (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
@@ -61,6 +63,7 @@ function reset() {
   ada.phoneVerified = true;
 }
 const lastSent = new Map(); // address -> code
+const failing = new Set(); // "GET /orders": routes that answer 500 (the error states)
 
 const newId = () => randomUUID().replace(/-/g, "").slice(0, 24);
 
@@ -74,6 +77,8 @@ function makeUser({ firstname, lastname, email, phone, password }) {
     password,
     emailVerified: false,
     phoneVerified: false,
+    pendingEmail: null,
+    pendingPhone: null,
     memberships: [], // { teamId, role }
   };
   const own = makeTeam(`${firstname}'s team`, user);
@@ -125,6 +130,8 @@ function makeTeam(name, owner) {
     },
     lowBalance: null,
     invitations: [],
+    notificationEmails: [],
+    allowedIps: [],
   };
   teams.set(t.id, t);
   record(t, false, "credit", "test_funding", 100_000_000, "Opening play money");
@@ -183,6 +190,8 @@ const describe = (u) => ({
     phone: u.phone,
     emailVerified: u.emailVerified,
     phoneVerified: u.phoneVerified,
+    pendingEmail: u.pendingEmail,
+    pendingPhone: u.pendingPhone,
   },
   teams: u.memberships.map(summary),
 });
@@ -262,6 +271,7 @@ const accountOf = (t) => ({
   id: t.id,
   name: t.name,
   ...t.profile,
+  notificationEmails: t.notificationEmails,
   emailVerified: t.owner.emailVerified,
   phoneVerified: t.owner.phoneVerified,
   canRequestLive: canRequestLive(t),
@@ -349,6 +359,163 @@ const routes = {
     user.phoneVerified = true;
     return [200, describe(user)];
   },
+  "PATCH /auth/profile": (req, body) => {
+    const user = requireUser(req);
+    for (const field of ["firstname", "lastname"]) {
+      if (field in body && !String(body[field]).trim())
+        throw new ApiError(400, "parameter_invalid", "Enter your name.", field);
+      if (field in body) user[field] = String(body[field]).trim();
+    }
+    return [200, describe(user)];
+  },
+  "POST /auth/email/change": (req, body) => {
+    const user = requireUser(req);
+    const email = String(body.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, "parameter_invalid", "Enter a valid email.", "email");
+    if (email === user.email) throw new ApiError(400, "email_unchanged", "That's already your email.", "email");
+    if (users.has(email) || [...users.values()].some((u) => u.pendingEmail === email))
+      throw new ApiError(409, "email_taken", "An account already uses this email.", "email");
+    if (!user.emailVerified) {
+      const sent = issue(user, "verify_email", email);
+      users.delete(user.email);
+      user.email = email;
+      users.set(email, user);
+      return [200, { sentTo: email, ...sent }];
+    }
+    const sent = issue(user, "change_email", email);
+    user.pendingEmail = email;
+    return [200, { sentTo: email, ...sent }];
+  },
+  "POST /auth/email/change/verify": (req, body) => {
+    const user = requireUser(req);
+    if (!user.pendingEmail) throw new ApiError(400, "no_change_pending", "There's no new email waiting for a code.");
+    consume(user, `change_email:${user.pendingEmail}`, body.code);
+    users.delete(user.email);
+    user.email = user.pendingEmail;
+    user.pendingEmail = null;
+    users.set(user.email, user);
+    return [200, describe(user)];
+  },
+  "DELETE /auth/email/change": (req) => {
+    const user = requireUser(req);
+    user.pendingEmail = null;
+    codes.delete(user.id);
+    return [200, describe(user)];
+  },
+  "POST /auth/phone/change": (req, body) => {
+    const user = requireUser(req);
+    const phone = nationalPhone(body.phone);
+    if (!phone) throw new ApiError(400, "invalid_phone", `${body.phone} isn't a valid NG phone number.`, "phone");
+    if (phone === user.phone) throw new ApiError(400, "phone_unchanged", "That's already your phone number.", "phone");
+    if ([...users.values()].some((u) => u.phone === phone || u.pendingPhone === phone))
+      throw new ApiError(409, "phone_taken", "An account already uses this phone number.", "phone");
+    if (!user.phoneVerified) {
+      const sent = issue(user, "verify_phone", phone);
+      user.phone = phone;
+      return [200, { sentTo: phone, ...sent }];
+    }
+    const sent = issue(user, "change_phone", phone);
+    user.pendingPhone = phone;
+    return [200, { sentTo: phone, ...sent }];
+  },
+  "POST /auth/phone/change/verify": (req, body) => {
+    const user = requireUser(req);
+    if (!user.pendingPhone)
+      throw new ApiError(400, "no_change_pending", "There's no new phone number waiting for a code.");
+    consume(user, `change_phone:${user.pendingPhone}`, body.code);
+    user.phone = user.pendingPhone;
+    user.pendingPhone = null;
+    return [200, describe(user)];
+  },
+  "DELETE /auth/phone/change": (req) => {
+    const user = requireUser(req);
+    user.pendingPhone = null;
+    codes.delete(user.id);
+    return [200, describe(user)];
+  },
+  "GET /ip-allowlist": (req) => [200, { allowedIps: requireTeam(req, "keys.read").team.allowedIps }],
+  "PUT /ip-allowlist": (req, body) => {
+    const { team: t } = requireTeam(req, "keys.write");
+    const out = [];
+    for (const raw of body.allowedIps ?? []) {
+      const entry = String(raw).trim();
+      const ok = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(entry) || /^[\da-f:]+:[\da-f:]*(\/\d{1,3})?$/i.test(entry);
+      if (!ok)
+        throw new ApiError(
+          400,
+          "invalid_ip",
+          `"${entry}" isn't an IP address or CIDR range (e.g. 203.0.113.9 or 203.0.113.0/24).`,
+          "allowedIps",
+        );
+      if (!out.includes(entry)) out.push(entry);
+    }
+    t.allowedIps = out;
+    return [200, { allowedIps: out }];
+  },
+  "GET /usage": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "team.read");
+    const live = url.searchParams.get("livemode") === "true";
+    const period = url.searchParams.get("period") ?? "30d";
+    const days = { "7d": 7, "30d": 30, "90d": 90 }[period];
+    if (!days) throw new ApiError(400, "parameter_invalid", "period must be one of 7d, 30d, 90d", "period");
+    const now = new Date();
+    const lagos = (d) => new Date(d.getTime() + 36e5).toISOString().slice(0, 10);
+    const first = new Date(`${lagos(new Date(now.getTime() - (days - 1) * 864e5))}T00:00:00.000Z`);
+    const from = new Date(first.getTime() - 36e5);
+    const inPeriod = (x) => x.livemode === live && new Date(x.created ?? x.createdAt ?? 0) >= from;
+    const orders = t.orders.filter(inPeriod);
+    const per = new Map();
+    const done = { delivered: 0, failed: 0, cancelled: 0 };
+    for (const o of orders) {
+      const day = lagos(new Date(o.created));
+      const row = per.get(day) ?? { created: 0, delivered: 0 };
+      row.created++;
+      if (o.status === "delivered") (row.delivered++, done.delivered++);
+      if (o.status === "cancelled") done.cancelled++;
+      if (o.status === "failed") done.failed++;
+      per.set(day, row);
+    }
+    const spend = t.wallets[live ? "live" : "test"].transactions
+      .filter((x) => inPeriod(x) && ["order_hold", "order_refund"].includes(x.purpose))
+      .reduce((n, x) => n + (x.type === "debit" ? x.amount : -x.amount), 0);
+    const logs = t.logs.filter(inPeriod);
+    const errors = logs.filter((l) => l.status >= 400).length;
+    const deliveries = t.endpoints
+      .filter((e) => e.livemode === live)
+      .flatMap((e) => e.deliveries)
+      .filter((d) => d.event_type !== "ping" && new Date(d.created) >= from);
+    const ok = deliveries.filter((d) => d.status === "succeeded").length;
+    const bad = deliveries.filter((d) => d.status === "failed").length;
+    const rate = (a, b) => (b ? Math.round((a / b) * 1e4) / 1e4 : null);
+    return [
+      200,
+      {
+        period,
+        from: from.toISOString(),
+        to: now.toISOString(),
+        livemode: live,
+        orders: {
+          created: orders.length,
+          ...done,
+          success_rate: rate(done.delivered, done.delivered + done.failed),
+          per_day: Array.from({ length: days }, (_, i) => {
+            const date = new Date(first.getTime() + i * 864e5).toISOString().slice(0, 10);
+            return { date, ...(per.get(date) ?? { created: 0, delivered: 0 }) };
+          }),
+        },
+        spend: { amount: Math.max(0, spend), currency: "NGN" },
+        api: {
+          requests: logs.length,
+          errors,
+          server_errors: logs.filter((l) => l.status >= 500).length,
+          error_rate: rate(errors, logs.length),
+        },
+        webhooks: { deliveries: deliveries.length, succeeded: ok, failed: bad, success_rate: rate(ok, bad + ok) },
+      },
+    ];
+  },
   "POST /auth/password/forgot": (req, body) => {
     const email = String(body.email ?? "")
       .trim()
@@ -405,6 +572,14 @@ const routes = {
       t.profile[field] = value || null;
     }
     if (typeof body.name === "string" && body.name.trim().length >= 2) t.name = body.name.trim();
+    if ("notificationEmails" in body) {
+      const emails = [...new Set((body.notificationEmails ?? []).map((e) => String(e).trim().toLowerCase()))];
+      const bad = emails.find((e) => !/^\S+@\S+\.\S+$/.test(e));
+      if (bad) throw new ApiError(400, "parameter_invalid", `"${bad}" isn't an email address.`, "notificationEmails");
+      if (emails.length > 5)
+        throw new ApiError(400, "parameter_invalid", "Up to 5 notification emails.", "notificationEmails");
+      t.notificationEmails = emails;
+    }
     return [200, accountOf(t)];
   },
   "GET /account/onboarding": (req) => {
@@ -1267,7 +1442,8 @@ createServer(async (req, res) => {
     res.end(data == null ? undefined : JSON.stringify(data));
   };
 
-  if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), send(204, null));
+  if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), failing.clear(), send(204, null));
+  if (url.pathname === "/__test/fail") return (failing.add(url.searchParams.get("route")), send(204, null));
   if (url.pathname === "/__test/code") return send(200, { code: lastSent.get(url.searchParams.get("to")) ?? null });
   if (url.pathname === "/__test/event") {
     const user = users.get(url.searchParams.get("email"));
@@ -1374,6 +1550,36 @@ createServer(async (req, res) => {
     }
     return send(200, { requestIds: made });
   }
+  if (url.pathname === "/__test/history") {
+    const user = users.get(url.searchParams.get("email"));
+    const own = user && teams.get(user.memberships.find((m) => m.role === "TEAM_OWNER")?.teamId);
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const days = Number(url.searchParams.get("days") ?? 30);
+    for (let d = days - 1; d >= 0; d--) {
+      // A weekly rhythm with a rising trend, so the chart has a shape.
+      const n = Math.round(3 + (days - d) / 4 + 3 * Math.sin(d / 1.2) + (d % 7 === 0 ? -2 : 0));
+      for (let i = 0; i < Math.max(0, n); i++) {
+        const created = new Date(Date.now() - d * 864e5 - i * 6e5).toISOString();
+        const status =
+          d === 0 && i === 0 ? "pending" : i % 9 === 4 ? "failed" : i % 11 === 5 ? "cancelled" : "delivered";
+        own.orders.push({ object: "order", id: `ord_${newId()}`, livemode: false, status, created, updated: created });
+        if (status !== "cancelled") {
+          own.wallets.test.transactions.push({
+            object: "transaction",
+            id: `txn_${newId()}`,
+            type: "debit",
+            purpose: "order_hold",
+            status: "success",
+            amount: 150_000 + (i % 4) * 25_000,
+            currency: "NGN",
+            livemode: false,
+            created,
+          });
+        }
+      }
+    }
+    return send(204, null);
+  }
   if (url.pathname === "/__test/join") {
     const user = users.get(url.searchParams.get("email"));
     const owner = makeUser({
@@ -1414,6 +1620,17 @@ createServer(async (req, res) => {
         type: "not_found_error",
         code: "route_not_found",
         message: "No such route.",
+        param: null,
+        request_id: requestId,
+      },
+    });
+  const routeKey = `${req.method} ${url.pathname.slice(D.length)}`;
+  if (failing.has(routeKey))
+    return send(500, {
+      error: {
+        type: "api_error",
+        code: "internal_error",
+        message: "Something went wrong on our side. Try again in a moment.",
         param: null,
         request_id: requestId,
       },

@@ -21,6 +21,8 @@ import type {
   UpdateWebhookEndpointRequestDto,
   RollDeveloperApiKeyRequestDto,
   UpdateDeveloperAccountRequestDto,
+  UpdateDeveloperProfileRequestDto,
+  DeveloperGetUsageParams,
 } from "@/services/apiService";
 
 /**
@@ -42,6 +44,14 @@ export const auth = {
   verifyPhone: (code: string) => apiService.developerVerifyPhone({ code }),
   forgotPassword: (body: DeveloperForgotPasswordRequestDto) => apiService.developerForgotPassword(body),
   resetPassword: (body: DeveloperResetPasswordRequestDto) => session(apiService.developerResetPassword(body)),
+  updateProfile: (body: UpdateDeveloperProfileRequestDto) => apiService.developerUpdateProfile(body),
+  /** A verified address only changes once the code sent to the new one is entered (`pendingEmail`). */
+  startEmailChange: (email: string) => apiService.developerStartEmailChange({ email }),
+  confirmEmailChange: (code: string) => apiService.developerConfirmEmailChange({ code }),
+  cancelEmailChange: () => apiService.developerCancelEmailChange(),
+  startPhoneChange: (phone: string) => apiService.developerStartPhoneChange({ phone }),
+  confirmPhoneChange: (code: string) => apiService.developerConfirmPhoneChange({ code }),
+  cancelPhoneChange: () => apiService.developerCancelPhoneChange(),
 };
 
 export const invitations = {
@@ -60,6 +70,16 @@ export const account = {
   update: (body: UpdateDeveloperAccountRequestDto) => apiService.developerUpdateAccount(body),
   onboarding: () => apiService.developerGetOnboarding(),
   requestLiveAccess: () => apiService.developerRequestLiveAccess(),
+  /** Where the team's API keys may be used from. Empty allows any IP. */
+  ipAllowlist: () => apiService.developerGetIpAllowlist(),
+  setIpAllowlist: (allowedIps: string[]) => apiService.developerUpdateIpAllowlist({ allowedIps }),
+};
+
+export type UsagePeriod = DeveloperGetUsageParams["period"] & string;
+
+export const usage = {
+  get: (mode: "test" | "live", period: UsagePeriod) =>
+    apiService.developerGetUsage({ livemode: mode === "live" ? "true" : "false", period }),
 };
 
 /** "true" | "false": how the API takes a mode in a query string. */

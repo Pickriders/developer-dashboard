@@ -90,15 +90,16 @@ test.describe("on a phone", () => {
     await signIn(page);
     const tabs = page.getByRole("navigation", { name: "Tabs" });
 
-    await tabs.getByRole("link", { name: "API keys" }).click();
-    await expect(page).toHaveURL("/keys");
-    await expect(tabs.getByRole("link", { name: "API keys" })).toHaveAttribute("aria-current", "page");
+    await tabs.getByRole("link", { name: "Usage" }).click();
+    await expect(page).toHaveURL("/usage");
+    await expect(tabs.getByRole("link", { name: "Usage" })).toHaveAttribute("aria-current", "page");
+    await expect(tabs.getByRole("link", { name: "API keys" })).toHaveCount(0);
 
     await tabs.getByRole("button", { name: "More" }).click();
     const menu = page.getByRole("complementary", { name: "Menu" });
     await expect(menu.getByRole("button", { name: /Account: Ada Obi/ })).toBeVisible();
-    await menu.getByRole("link", { name: "Webhooks" }).click();
-    await expect(page).toHaveURL("/webhooks");
+    await menu.getByRole("link", { name: "API keys" }).click();
+    await expect(page).toHaveURL("/keys");
     await expect(menu).toBeHidden();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
