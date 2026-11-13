@@ -13,3 +13,4 @@ export * from "./theme-toggle";
 export * from "./progress-ring";
 export * from "./new-secret";
 export * from "./filter-menu";
+export * from "./list-editor";

@@ -23,6 +23,10 @@ import type {
   RollDeveloperApiKeyRequestDto,
   TeamInvitationPreviewDto,
   UpdateDeveloperAccountRequestDto,
+  DeveloperAccountDto,
+  DeveloperMeResponseDto,
+  IpAllowlistDto,
+  UpdateDeveloperProfileRequestDto,
 } from "@/services/apiService";
 
 type Mode = "test" | "live";
@@ -71,6 +75,7 @@ export const teamKeys = {
   invitations: (teamId: string) => ["team", teamId, "invitations"] as const,
   /** The live wallet's settings: transfer account, auto top-up, low-balance alert. */
   walletSetting: (teamId: string, name: string) => ["team", teamId, "live", "wallet", name] as const,
+  ipAllowlist: (teamId: string) => ["team", teamId, "ip-allowlist"] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -93,6 +98,74 @@ export const useRequestLiveAccess = (teamId: string) => {
       queryClient.invalidateQueries({ queryKey: ["me"] }),
     ]);
     return result;
+  });
+};
+
+/** Saves team settings (name, notification emails, the reviewer's profile) and refreshes the account. */
+export const useUpdateAccount = (teamId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<DeveloperAccountDto, ApiError, UpdateDeveloperAccountRequestDto>({
+    mutationFn: (body) => account.update(body).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: (data) => {
+      queryClient.setQueryData(teamKeys.account(teamId), data);
+      // The team's name shows in the switcher, which reads `me`.
+      return queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+};
+
+/** A change to the signed-in person (name, email, phone): the API answers with the new `me`. */
+const useMeMutation = <TArgs>(fn: (args: TArgs) => Promise<DeveloperMeResponseDto>) => {
+  const queryClient = useQueryClient();
+  return useMutation<DeveloperMeResponseDto, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: (me) => {
+      queryClient.setQueryData(["me"], me);
+      // The account mirrors the owner's verification.
+      return queryClient.invalidateQueries({
+        predicate: (q) => q.queryKey[0] === "team" && q.queryKey[2] === "account",
+      });
+    },
+  });
+};
+
+export const useUpdateProfile = () =>
+  useMeMutation((body: UpdateDeveloperProfileRequestDto) => auth.updateProfile(body));
+
+export type Contact = "email" | "phone";
+
+/** Changing the email or phone: send a code to the new one, enter it, or give up. */
+export const useContactChange = (channel: Contact) => {
+  const queryClient = useQueryClient();
+  const start = useApiMutation((address: string) =>
+    (channel === "email" ? auth.startEmailChange(address) : auth.startPhoneChange(address)).then(async (sent) => {
+      // An unverified address is corrected in place, a verified one waits as `pending…`: either way `me` moved.
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      return sent;
+    }),
+  );
+  // A change waiting on `pending…` is confirmed; an unverified address corrected in place is just verified.
+  const confirm = useMeMutation(({ code, pending }: { code: string; pending: boolean }) =>
+    channel === "email"
+      ? pending
+        ? auth.confirmEmailChange(code)
+        : auth.verifyEmail(code)
+      : pending
+        ? auth.confirmPhoneChange(code)
+        : auth.verifyPhone(code),
+  );
+  const cancel = useMeMutation(() => (channel === "email" ? auth.cancelEmailChange() : auth.cancelPhoneChange()));
+  return { start, confirm, cancel };
+};
+
+export const useIpAllowlist = (teamId: string, enabled: boolean) =>
+  useQuery({ queryKey: teamKeys.ipAllowlist(teamId), queryFn: () => account.ipAllowlist(), enabled });
+
+export const useSetIpAllowlist = (teamId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<IpAllowlistDto, ApiError, string[]>({
+    mutationFn: (ips) => account.setIpAllowlist(ips).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: (data) => queryClient.setQueryData(teamKeys.ipAllowlist(teamId), data),
   });
 };
 

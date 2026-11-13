@@ -74,6 +74,8 @@ function makeUser({ firstname, lastname, email, phone, password }) {
     password,
     emailVerified: false,
     phoneVerified: false,
+    pendingEmail: null,
+    pendingPhone: null,
     memberships: [], // { teamId, role }
   };
   const own = makeTeam(`${firstname}'s team`, user);
@@ -125,6 +127,8 @@ function makeTeam(name, owner) {
     },
     lowBalance: null,
     invitations: [],
+    notificationEmails: [],
+    allowedIps: [],
   };
   teams.set(t.id, t);
   record(t, false, "credit", "test_funding", 100_000_000, "Opening play money");
@@ -183,6 +187,8 @@ const describe = (u) => ({
     phone: u.phone,
     emailVerified: u.emailVerified,
     phoneVerified: u.phoneVerified,
+    pendingEmail: u.pendingEmail,
+    pendingPhone: u.pendingPhone,
   },
   teams: u.memberships.map(summary),
 });
@@ -262,6 +268,7 @@ const accountOf = (t) => ({
   id: t.id,
   name: t.name,
   ...t.profile,
+  notificationEmails: t.notificationEmails,
   emailVerified: t.owner.emailVerified,
   phoneVerified: t.owner.phoneVerified,
   canRequestLive: canRequestLive(t),
@@ -349,6 +356,101 @@ const routes = {
     user.phoneVerified = true;
     return [200, describe(user)];
   },
+  "PATCH /auth/profile": (req, body) => {
+    const user = requireUser(req);
+    for (const field of ["firstname", "lastname"]) {
+      if (field in body && !String(body[field]).trim())
+        throw new ApiError(400, "parameter_invalid", "Enter your name.", field);
+      if (field in body) user[field] = String(body[field]).trim();
+    }
+    return [200, describe(user)];
+  },
+  "POST /auth/email/change": (req, body) => {
+    const user = requireUser(req);
+    const email = String(body.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, "parameter_invalid", "Enter a valid email.", "email");
+    if (email === user.email) throw new ApiError(400, "email_unchanged", "That's already your email.", "email");
+    if (users.has(email) || [...users.values()].some((u) => u.pendingEmail === email))
+      throw new ApiError(409, "email_taken", "An account already uses this email.", "email");
+    if (!user.emailVerified) {
+      const sent = issue(user, "verify_email", email);
+      users.delete(user.email);
+      user.email = email;
+      users.set(email, user);
+      return [200, { sentTo: email, ...sent }];
+    }
+    const sent = issue(user, "change_email", email);
+    user.pendingEmail = email;
+    return [200, { sentTo: email, ...sent }];
+  },
+  "POST /auth/email/change/verify": (req, body) => {
+    const user = requireUser(req);
+    if (!user.pendingEmail) throw new ApiError(400, "no_change_pending", "There's no new email waiting for a code.");
+    consume(user, `change_email:${user.pendingEmail}`, body.code);
+    users.delete(user.email);
+    user.email = user.pendingEmail;
+    user.pendingEmail = null;
+    users.set(user.email, user);
+    return [200, describe(user)];
+  },
+  "DELETE /auth/email/change": (req) => {
+    const user = requireUser(req);
+    user.pendingEmail = null;
+    codes.delete(user.id);
+    return [200, describe(user)];
+  },
+  "POST /auth/phone/change": (req, body) => {
+    const user = requireUser(req);
+    const phone = nationalPhone(body.phone);
+    if (!phone) throw new ApiError(400, "invalid_phone", `${body.phone} isn't a valid NG phone number.`, "phone");
+    if (phone === user.phone) throw new ApiError(400, "phone_unchanged", "That's already your phone number.", "phone");
+    if ([...users.values()].some((u) => u.phone === phone || u.pendingPhone === phone))
+      throw new ApiError(409, "phone_taken", "An account already uses this phone number.", "phone");
+    if (!user.phoneVerified) {
+      const sent = issue(user, "verify_phone", phone);
+      user.phone = phone;
+      return [200, { sentTo: phone, ...sent }];
+    }
+    const sent = issue(user, "change_phone", phone);
+    user.pendingPhone = phone;
+    return [200, { sentTo: phone, ...sent }];
+  },
+  "POST /auth/phone/change/verify": (req, body) => {
+    const user = requireUser(req);
+    if (!user.pendingPhone)
+      throw new ApiError(400, "no_change_pending", "There's no new phone number waiting for a code.");
+    consume(user, `change_phone:${user.pendingPhone}`, body.code);
+    user.phone = user.pendingPhone;
+    user.pendingPhone = null;
+    return [200, describe(user)];
+  },
+  "DELETE /auth/phone/change": (req) => {
+    const user = requireUser(req);
+    user.pendingPhone = null;
+    codes.delete(user.id);
+    return [200, describe(user)];
+  },
+  "GET /ip-allowlist": (req) => [200, { allowedIps: requireTeam(req, "keys.read").team.allowedIps }],
+  "PUT /ip-allowlist": (req, body) => {
+    const { team: t } = requireTeam(req, "keys.write");
+    const out = [];
+    for (const raw of body.allowedIps ?? []) {
+      const entry = String(raw).trim();
+      const ok = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(entry) || /^[\da-f:]+:[\da-f:]*(\/\d{1,3})?$/i.test(entry);
+      if (!ok)
+        throw new ApiError(
+          400,
+          "invalid_ip",
+          `"${entry}" isn't an IP address or CIDR range (e.g. 203.0.113.9 or 203.0.113.0/24).`,
+          "allowedIps",
+        );
+      if (!out.includes(entry)) out.push(entry);
+    }
+    t.allowedIps = out;
+    return [200, { allowedIps: out }];
+  },
   "POST /auth/password/forgot": (req, body) => {
     const email = String(body.email ?? "")
       .trim()
@@ -405,6 +507,14 @@ const routes = {
       t.profile[field] = value || null;
     }
     if (typeof body.name === "string" && body.name.trim().length >= 2) t.name = body.name.trim();
+    if ("notificationEmails" in body) {
+      const emails = [...new Set((body.notificationEmails ?? []).map((e) => String(e).trim().toLowerCase()))];
+      const bad = emails.find((e) => !/^\S+@\S+\.\S+$/.test(e));
+      if (bad) throw new ApiError(400, "parameter_invalid", `"${bad}" isn't an email address.`, "notificationEmails");
+      if (emails.length > 5)
+        throw new ApiError(400, "parameter_invalid", "Up to 5 notification emails.", "notificationEmails");
+      t.notificationEmails = emails;
+    }
     return [200, accountOf(t)];
   },
   "GET /account/onboarding": (req) => {

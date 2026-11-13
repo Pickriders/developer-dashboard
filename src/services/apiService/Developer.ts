@@ -48,7 +48,13 @@ import {
   DashboardUpdateWebhookEndpointData,
   DeveloperAcceptInvitationData,
   DeveloperAddTestFundsData,
+  DeveloperCancelEmailChangeData,
+  DeveloperCancelPhoneChangeData,
+  DeveloperChangeEmailRequestDto,
+  DeveloperChangePhoneRequestDto,
   DeveloperConfigureAutoTopUpData,
+  DeveloperConfirmEmailChangeData,
+  DeveloperConfirmPhoneChangeData,
   DeveloperCreateApiKeyData,
   DeveloperCreateInvitationData,
   DeveloperCreateTeamData,
@@ -66,6 +72,8 @@ import {
   DeveloperGetLowBalanceAlertData,
   DeveloperGetOnboardingData,
   DeveloperGetRequestLogData,
+  DeveloperGetUsageData,
+  DeveloperGetUsageParams,
   DeveloperGetWalletData,
   DeveloperGetWalletParams,
   DeveloperLeaveTeamData,
@@ -100,10 +108,13 @@ import {
   DeveloperSetUpFundingAccountData,
   DeveloperSignupData,
   DeveloperSignupRequestDto,
+  DeveloperStartEmailChangeData,
+  DeveloperStartPhoneChangeData,
   DeveloperTransferOwnershipData,
   DeveloperUpdateAccountData,
   DeveloperUpdateIpAllowlistData,
   DeveloperUpdateMemberRoleData,
+  DeveloperUpdateProfileData,
   DeveloperVerifyCodeRequestDto,
   DeveloperVerifyEmailData,
   DeveloperVerifyPhoneData,
@@ -114,6 +125,7 @@ import {
   TeamInvitationTokenRequestDto,
   TransferTeamOwnershipRequestDto,
   UpdateDeveloperAccountRequestDto,
+  UpdateDeveloperProfileRequestDto,
   UpdateIpAllowlistRequestDto,
   UpdateTeamMemberRoleRequestDto,
   UpdateWebhookEndpointRequestDto,
@@ -252,6 +264,137 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
   developerVerifyPhone = (data: DeveloperVerifyCodeRequestDto, params: RequestParams = {}) =>
     this.request<DeveloperVerifyPhoneData, any>({
       path: `/developer/api/v1/dashboard/auth/verification/phone`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Settings: the name on the account. Returns the refreshed `me`.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperUpdateProfile
+   * @request PATCH:/developer/api/v1/dashboard/auth/profile
+   * @secure
+   * @response `200` `DeveloperUpdateProfileData`
+   */
+  developerUpdateProfile = (data: UpdateDeveloperProfileRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperUpdateProfileData, any>({
+      path: `/developer/api/v1/dashboard/auth/profile`,
+      method: "PATCH",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Settings: change the email. A verified one only changes once the code sent to the new address is entered (`pendingEmail` meanwhile); an unverified one is corrected in place.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperStartEmailChange
+   * @request POST:/developer/api/v1/dashboard/auth/email/change
+   * @secure
+   * @response `200` `DeveloperStartEmailChangeData`
+   * @response `409` `any` EMAIL_TAKEN
+   */
+  developerStartEmailChange = (data: DeveloperChangeEmailRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperStartEmailChangeData, any>({
+      path: `/developer/api/v1/dashboard/auth/email/change`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperCancelEmailChange
+   * @request DELETE:/developer/api/v1/dashboard/auth/email/change
+   * @secure
+   * @response `200` `DeveloperCancelEmailChangeData`
+   */
+  developerCancelEmailChange = (params: RequestParams = {}) =>
+    this.request<DeveloperCancelEmailChangeData, any>({
+      path: `/developer/api/v1/dashboard/auth/email/change`,
+      method: "DELETE",
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperConfirmEmailChange
+   * @request POST:/developer/api/v1/dashboard/auth/email/change/verify
+   * @secure
+   * @response `200` `DeveloperConfirmEmailChangeData`
+   */
+  developerConfirmEmailChange = (data: DeveloperVerifyCodeRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperConfirmEmailChangeData, any>({
+      path: `/developer/api/v1/dashboard/auth/email/change/verify`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Settings: change the phone number. A verified one only changes once the code texted to the new number is entered (`pendingPhone` meanwhile), so live access never rests on an unproved number.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperStartPhoneChange
+   * @request POST:/developer/api/v1/dashboard/auth/phone/change
+   * @secure
+   * @response `200` `DeveloperStartPhoneChangeData`
+   * @response `409` `any` PHONE_TAKEN
+   */
+  developerStartPhoneChange = (data: DeveloperChangePhoneRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperStartPhoneChangeData, any>({
+      path: `/developer/api/v1/dashboard/auth/phone/change`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperCancelPhoneChange
+   * @request DELETE:/developer/api/v1/dashboard/auth/phone/change
+   * @secure
+   * @response `200` `DeveloperCancelPhoneChangeData`
+   */
+  developerCancelPhoneChange = (params: RequestParams = {}) =>
+    this.request<DeveloperCancelPhoneChangeData, any>({
+      path: `/developer/api/v1/dashboard/auth/phone/change`,
+      method: "DELETE",
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperConfirmPhoneChange
+   * @request POST:/developer/api/v1/dashboard/auth/phone/change/verify
+   * @secure
+   * @response `200` `DeveloperConfirmPhoneChangeData`
+   */
+  developerConfirmPhoneChange = (data: DeveloperVerifyCodeRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperConfirmPhoneChangeData, any>({
+      path: `/developer/api/v1/dashboard/auth/phone/change/verify`,
       method: "POST",
       body: data,
       secure: true,
@@ -1154,17 +1297,17 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       ...params,
     });
   /**
-   * @description Newest first, 20 a page. Filter by mode, outcome, method, path, key, time or request id.
+   * @description Orders per day and how they ended, spend, API errors and webhook success, for a period and mode.
    *
-   * @tags developer-dashboard/request-logs
-   * @name DeveloperListRequestLogs
-   * @request GET:/developer/api/v1/dashboard/request-logs
+   * @tags developer-dashboard/usage
+   * @name DeveloperGetUsage
+   * @request GET:/developer/api/v1/dashboard/usage
    * @secure
-   * @response `200` `DeveloperListRequestLogsData`
+   * @response `200` `DeveloperGetUsageData`
    */
-  developerListRequestLogs = (query: DeveloperListRequestLogsParams, params: RequestParams = {}) =>
-    this.request<DeveloperListRequestLogsData, any>({
-      path: `/developer/api/v1/dashboard/request-logs`,
+  developerGetUsage = (query: DeveloperGetUsageParams, params: RequestParams = {}) =>
+    this.request<DeveloperGetUsageData, any>({
+      path: `/developer/api/v1/dashboard/usage`,
       method: "GET",
       query: query,
       secure: true,
@@ -1172,17 +1315,17 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       ...params,
     });
   /**
-   * @description One request with its query, redacted request and response bodies, IP and user agent.
+   * No description
    *
-   * @tags developer-dashboard/request-logs
-   * @name DeveloperGetRequestLog
-   * @request GET:/developer/api/v1/dashboard/request-logs/{logId}
+   * @tags developer-dashboard/service-areas
+   * @name DashboardListServiceAreas
+   * @request GET:/developer/api/v1/dashboard/service-areas
    * @secure
-   * @response `200` `DeveloperGetRequestLogData`
+   * @response `200` `DashboardListServiceAreasData`
    */
-  developerGetRequestLog = (logId: string, params: RequestParams = {}) =>
-    this.request<DeveloperGetRequestLogData, any>({
-      path: `/developer/api/v1/dashboard/request-logs/${logId}`,
+  dashboardListServiceAreas = (params: RequestParams = {}) =>
+    this.request<DashboardListServiceAreasData, any>({
+      path: `/developer/api/v1/dashboard/service-areas`,
       method: "GET",
       secure: true,
       format: "json",
@@ -1326,17 +1469,35 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       ...params,
     });
   /**
-   * No description
+   * @description Newest first, 20 a page. Filter by mode, outcome, method, path, key, time or request id.
    *
-   * @tags developer-dashboard/service-areas
-   * @name DashboardListServiceAreas
-   * @request GET:/developer/api/v1/dashboard/service-areas
+   * @tags developer-dashboard/request-logs
+   * @name DeveloperListRequestLogs
+   * @request GET:/developer/api/v1/dashboard/request-logs
    * @secure
-   * @response `200` `DashboardListServiceAreasData`
+   * @response `200` `DeveloperListRequestLogsData`
    */
-  dashboardListServiceAreas = (params: RequestParams = {}) =>
-    this.request<DashboardListServiceAreasData, any>({
-      path: `/developer/api/v1/dashboard/service-areas`,
+  developerListRequestLogs = (query: DeveloperListRequestLogsParams, params: RequestParams = {}) =>
+    this.request<DeveloperListRequestLogsData, any>({
+      path: `/developer/api/v1/dashboard/request-logs`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description One request with its query, redacted request and response bodies, IP and user agent.
+   *
+   * @tags developer-dashboard/request-logs
+   * @name DeveloperGetRequestLog
+   * @request GET:/developer/api/v1/dashboard/request-logs/{logId}
+   * @secure
+   * @response `200` `DeveloperGetRequestLogData`
+   */
+  developerGetRequestLog = (logId: string, params: RequestParams = {}) =>
+    this.request<DeveloperGetRequestLogData, any>({
+      path: `/developer/api/v1/dashboard/request-logs/${logId}`,
       method: "GET",
       secure: true,
       format: "json",
