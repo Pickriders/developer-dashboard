@@ -1,4 +1,15 @@
-import { House, KeyRound, Package, ScrollText, Settings, Users, Wallet, Webhook, type LucideIcon } from "lucide-react";
+import {
+  ChartColumn,
+  House,
+  KeyRound,
+  Package,
+  ScrollText,
+  Settings,
+  Users,
+  Wallet,
+  Webhook,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { Permission } from "@/lib/workspace";
 
@@ -18,7 +29,17 @@ export type NavGroup = { title: string; items: NavItem[] };
 export const NAV: NavGroup[] = [
   {
     title: "Overview",
-    items: [{ href: "/", label: "Home", icon: House, key: "h", keywords: "get started checklist setup" }],
+    items: [
+      { href: "/", label: "Home", icon: House, key: "h", keywords: "get started checklist setup" },
+      {
+        href: "/usage",
+        label: "Usage",
+        icon: ChartColumn,
+        permission: "team.read",
+        key: "u",
+        keywords: "analytics stats orders per day spend success rate errors",
+      },
+    ],
   },
   {
     title: "Operate",

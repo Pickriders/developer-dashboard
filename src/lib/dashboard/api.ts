@@ -22,6 +22,7 @@ import type {
   RollDeveloperApiKeyRequestDto,
   UpdateDeveloperAccountRequestDto,
   UpdateDeveloperProfileRequestDto,
+  DeveloperGetUsageParams,
 } from "@/services/apiService";
 
 /**
@@ -72,6 +73,13 @@ export const account = {
   /** Where the team's API keys may be used from. Empty allows any IP. */
   ipAllowlist: () => apiService.developerGetIpAllowlist(),
   setIpAllowlist: (allowedIps: string[]) => apiService.developerUpdateIpAllowlist({ allowedIps }),
+};
+
+export type UsagePeriod = DeveloperGetUsageParams["period"] & string;
+
+export const usage = {
+  get: (mode: "test" | "live", period: UsagePeriod) =>
+    apiService.developerGetUsage({ livemode: mode === "live" ? "true" : "false", period }),
 };
 
 /** "true" | "false": how the API takes a mode in a query string. */

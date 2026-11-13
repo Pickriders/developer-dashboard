@@ -210,6 +210,13 @@ const CASES: Case[] = [
     data: { allowedIps: ["203.0.113.9"] },
   },
   {
+    name: "usage.get",
+    call: () => api.usage.get("live", "7d"),
+    method: "GET",
+    path: `${D}/usage`,
+    params: { livemode: "true", period: "7d" },
+  },
+  {
     name: "keys.list",
     call: () => api.keys.list("live"),
     method: "GET",

@@ -12,6 +12,8 @@ import {
   type OrderFilters,
   orders,
   team,
+  usage,
+  type UsagePeriod,
   wallet,
   webhooks,
 } from "./api";
@@ -76,6 +78,7 @@ export const teamKeys = {
   /** The live wallet's settings: transfer account, auto top-up, low-balance alert. */
   walletSetting: (teamId: string, name: string) => ["team", teamId, "live", "wallet", name] as const,
   ipAllowlist: (teamId: string) => ["team", teamId, "ip-allowlist"] as const,
+  usage: (teamId: string, mode: Mode, period: UsagePeriod) => ["team", teamId, mode, "usage", period] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -168,6 +171,14 @@ export const useSetIpAllowlist = (teamId: string) => {
     onSuccess: (data) => queryClient.setQueryData(teamKeys.ipAllowlist(teamId), data),
   });
 };
+
+/** The usage overview: every number is counted by the API (CLAUDE.md §4.9). */
+export const useUsage = (teamId: string, mode: Mode, period: UsagePeriod) =>
+  useQuery({
+    queryKey: teamKeys.usage(teamId, mode, period),
+    queryFn: () => usage.get(mode, period),
+    placeholderData: (previous) => previous,
+  });
 
 export const useApiKeys = (teamId: string, mode: Mode) =>
   useQuery({ queryKey: teamKeys.keys(teamId, mode), queryFn: () => keys.list(mode) });
