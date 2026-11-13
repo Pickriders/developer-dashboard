@@ -78,6 +78,13 @@ export function DashboardShell({
   return (
     <ShellContext.Provider value={shell}>
       <div className="min-h-dvh bg-canvas">
+        {/* The first Tab stop: straight to the page, past the sidebar and header. */}
+        <a
+          href="#main"
+          className="focus-ring fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-surface px-4 py-2.5 text-sm font-bold text-fg-heading shadow-pop transition-transform focus:translate-y-0"
+        >
+          Skip to content
+        </a>
         {banner && <div className="sticky top-0 z-40">{banner}</div>}
         <div className="flex">
           <aside
@@ -135,7 +142,7 @@ export function DashboardShell({
               onMenu={() => setDrawer(true)}
               onSearch={openPalette}
             />
-            <main className="flex-1 px-4 pb-28 pt-6 md:px-8 md:pt-8 lg:pb-12">
+            <main id="main" tabIndex={-1} className="flex-1 px-4 pb-28 pt-6 outline-none md:px-8 md:pt-8 lg:pb-12">
               <div key={pathname} className="mx-auto w-full max-w-[72rem] animate-slide-up">
                 {children}
               </div>

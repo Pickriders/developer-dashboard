@@ -216,7 +216,10 @@ yarn build
 
 All four clean (Jest via `next/jest`, `src/**/*.test.ts(x)`), plus `yarn e2e` (Playwright, `e2e/`,
 against `e2e/mock-api.mjs`; CI runs it on a production build) for the flows
-named in the plan step. Review your own diff for what tooling can't catch: secret handling,
+named in the plan step. A new page joins `PAGES` (and the error-state list) in `e2e/quality.spec.ts`,
+which checks every page on a phone and a laptop in both themes: no sideways scroll, one h1, a name on
+every control, a label on every field, unique ids, and an error (with the request id) when its data
+fails to load. Review your own diff for what tooling can't catch: secret handling,
 team scoping, test-vs-live mode, money conversions, unconfirmed destructive actions, and anything
 off the design system (raw colours, a second accent, shadows on cards). Look at UI changes in
 both themes.

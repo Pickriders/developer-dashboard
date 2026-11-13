@@ -12,6 +12,7 @@
 //   POST /__test/member?owner=&email=&name=&role=  # a new person in the owner's own team
 //   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
 //   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
+//   POST /__test/fail?route=GET%20/orders           # that route answers 500 until the next reset
 //   POST /__test/history?email=&days=              # a few test orders a day for that many days back (usage)
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
@@ -62,6 +63,7 @@ function reset() {
   ada.phoneVerified = true;
 }
 const lastSent = new Map(); // address -> code
+const failing = new Set(); // "GET /orders": routes that answer 500 (the error states)
 
 const newId = () => randomUUID().replace(/-/g, "").slice(0, 24);
 
@@ -1440,7 +1442,8 @@ createServer(async (req, res) => {
     res.end(data == null ? undefined : JSON.stringify(data));
   };
 
-  if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), send(204, null));
+  if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), failing.clear(), send(204, null));
+  if (url.pathname === "/__test/fail") return (failing.add(url.searchParams.get("route")), send(204, null));
   if (url.pathname === "/__test/code") return send(200, { code: lastSent.get(url.searchParams.get("to")) ?? null });
   if (url.pathname === "/__test/event") {
     const user = users.get(url.searchParams.get("email"));
@@ -1617,6 +1620,17 @@ createServer(async (req, res) => {
         type: "not_found_error",
         code: "route_not_found",
         message: "No such route.",
+        param: null,
+        request_id: requestId,
+      },
+    });
+  const routeKey = `${req.method} ${url.pathname.slice(D.length)}`;
+  if (failing.has(routeKey))
+    return send(500, {
+      error: {
+        type: "api_error",
+        code: "internal_error",
+        message: "Something went wrong on our side. Try again in a moment.",
         param: null,
         request_id: requestId,
       },
