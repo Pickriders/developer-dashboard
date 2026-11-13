@@ -12,6 +12,7 @@
 //   POST /__test/member?owner=&email=&name=&role=  # a new person in the owner's own team
 //   POST /__test/event?email=&type=                # a test-mode event for their own team, delivered for real
 //   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
+//   POST /__test/history?email=&days=              # a few test orders a day for that many days back (usage)
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
 // (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
@@ -450,6 +451,68 @@ const routes = {
     }
     t.allowedIps = out;
     return [200, { allowedIps: out }];
+  },
+  "GET /usage": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "team.read");
+    const live = url.searchParams.get("livemode") === "true";
+    const period = url.searchParams.get("period") ?? "30d";
+    const days = { "7d": 7, "30d": 30, "90d": 90 }[period];
+    if (!days) throw new ApiError(400, "parameter_invalid", "period must be one of 7d, 30d, 90d", "period");
+    const now = new Date();
+    const lagos = (d) => new Date(d.getTime() + 36e5).toISOString().slice(0, 10);
+    const first = new Date(`${lagos(new Date(now.getTime() - (days - 1) * 864e5))}T00:00:00.000Z`);
+    const from = new Date(first.getTime() - 36e5);
+    const inPeriod = (x) => x.livemode === live && new Date(x.created ?? x.createdAt ?? 0) >= from;
+    const orders = t.orders.filter(inPeriod);
+    const per = new Map();
+    const done = { delivered: 0, failed: 0, cancelled: 0 };
+    for (const o of orders) {
+      const day = lagos(new Date(o.created));
+      const row = per.get(day) ?? { created: 0, delivered: 0 };
+      row.created++;
+      if (o.status === "delivered") (row.delivered++, done.delivered++);
+      if (o.status === "cancelled") done.cancelled++;
+      if (o.status === "failed") done.failed++;
+      per.set(day, row);
+    }
+    const spend = t.wallets[live ? "live" : "test"].transactions
+      .filter((x) => inPeriod(x) && ["order_hold", "order_refund"].includes(x.purpose))
+      .reduce((n, x) => n + (x.type === "debit" ? x.amount : -x.amount), 0);
+    const logs = t.logs.filter(inPeriod);
+    const errors = logs.filter((l) => l.status >= 400).length;
+    const deliveries = t.endpoints
+      .filter((e) => e.livemode === live)
+      .flatMap((e) => e.deliveries)
+      .filter((d) => d.event_type !== "ping" && new Date(d.created) >= from);
+    const ok = deliveries.filter((d) => d.status === "succeeded").length;
+    const bad = deliveries.filter((d) => d.status === "failed").length;
+    const rate = (a, b) => (b ? Math.round((a / b) * 1e4) / 1e4 : null);
+    return [
+      200,
+      {
+        period,
+        from: from.toISOString(),
+        to: now.toISOString(),
+        livemode: live,
+        orders: {
+          created: orders.length,
+          ...done,
+          success_rate: rate(done.delivered, done.delivered + done.failed),
+          per_day: Array.from({ length: days }, (_, i) => {
+            const date = new Date(first.getTime() + i * 864e5).toISOString().slice(0, 10);
+            return { date, ...(per.get(date) ?? { created: 0, delivered: 0 }) };
+          }),
+        },
+        spend: { amount: Math.max(0, spend), currency: "NGN" },
+        api: {
+          requests: logs.length,
+          errors,
+          server_errors: logs.filter((l) => l.status >= 500).length,
+          error_rate: rate(errors, logs.length),
+        },
+        webhooks: { deliveries: deliveries.length, succeeded: ok, failed: bad, success_rate: rate(ok, bad + ok) },
+      },
+    ];
   },
   "POST /auth/password/forgot": (req, body) => {
     const email = String(body.email ?? "")
@@ -1483,6 +1546,36 @@ createServer(async (req, res) => {
       made.push(log.requestId);
     }
     return send(200, { requestIds: made });
+  }
+  if (url.pathname === "/__test/history") {
+    const user = users.get(url.searchParams.get("email"));
+    const own = user && teams.get(user.memberships.find((m) => m.role === "TEAM_OWNER")?.teamId);
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    const days = Number(url.searchParams.get("days") ?? 30);
+    for (let d = days - 1; d >= 0; d--) {
+      // A weekly rhythm with a rising trend, so the chart has a shape.
+      const n = Math.round(3 + (days - d) / 4 + 3 * Math.sin(d / 1.2) + (d % 7 === 0 ? -2 : 0));
+      for (let i = 0; i < Math.max(0, n); i++) {
+        const created = new Date(Date.now() - d * 864e5 - i * 6e5).toISOString();
+        const status =
+          d === 0 && i === 0 ? "pending" : i % 9 === 4 ? "failed" : i % 11 === 5 ? "cancelled" : "delivered";
+        own.orders.push({ object: "order", id: `ord_${newId()}`, livemode: false, status, created, updated: created });
+        if (status !== "cancelled") {
+          own.wallets.test.transactions.push({
+            object: "transaction",
+            id: `txn_${newId()}`,
+            type: "debit",
+            purpose: "order_hold",
+            status: "success",
+            amount: 150_000 + (i % 4) * 25_000,
+            currency: "NGN",
+            livemode: false,
+            created,
+          });
+        }
+      }
+    }
+    return send(204, null);
   }
   if (url.pathname === "/__test/join") {
     const user = users.get(url.searchParams.get("email"));
