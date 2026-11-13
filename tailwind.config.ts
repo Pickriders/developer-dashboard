@@ -45,6 +45,13 @@ const config: Config = {
         danger: tone("danger"),
         info: tone("info"),
         plum: { DEFAULT: token("plum"), mid: token("plum-mid") },
+        nav: {
+          DEFAULT: token("nav"),
+          fg: token("nav-fg"),
+          muted: token("nav-muted"),
+          subtle: token("nav-subtle"),
+          accent: token("nav-accent"),
+        },
       },
       fontFamily: {
         sans: ["var(--font-urbanist)", "ui-sans-serif", "system-ui", "sans-serif"],

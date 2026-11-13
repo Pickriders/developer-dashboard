@@ -59,6 +59,13 @@
     --plum: 26 18 48; /* #1a1230 */
     --plum-mid: 46 16 48; /* #2e1030 */
 
+    /* The sidebar: deep Pickriders plum in both themes, text checked against it (AA) */
+    --nav: 23 15 42; /* #170f2a */
+    --nav-fg: 245 243 250; /* #f5f3fa — 16.8:1 */
+    --nav-muted: 169 162 190; /* #a9a2be — 7.5:1: items, labels */
+    --nav-subtle: 142 135 166; /* #8e87a6 — 5.4:1: group titles, hints */
+    --nav-accent: 143 227 221; /* #8fe3dd — 12.5:1: the selected page, the cursor in the logo */
+
     --shadow-card: 0 1px 2px rgb(17 23 22 / 0.04), 0 1px 3px rgb(17 23 22 / 0.06);
     --shadow-pop: 0 12px 40px rgb(17 23 22 / 0.14);
     --shadow-button: 0 1px 2px rgb(17 23 22 / 0.08);
@@ -109,6 +116,8 @@
     --info-fg: 143 176 240; /* #8fb0f0 */
     --info-subtle: 20 32 58; /* #14203a */
     --info-line: 36 57 106; /* #24396a */
+
+    --nav: 17 11 32; /* #110b20 */
 
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.5);
     --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.6);

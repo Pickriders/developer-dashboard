@@ -90,8 +90,10 @@ src/
 ├── components/auth/      AuthShell (brand panel), Field, PasswordInput, CodeInput, alerts
 ├── lib/session/          cookie, proxy, guest/open paths, safeRedirect, crossSessionBoundary
 ├── components/brand/     the Logo
-├── components/shell/     DashboardShell (sidebar, header, phone drawer), TeamSwitcher, AccountMenu,
-│                         NAV (a page joins the sidebar in the step that builds it)
+├── components/shell/     DashboardShell (plum sidebar that folds to a rail, breadcrumb header, phone
+│                         tab bar and drawer), CommandPalette (⌘K), TeamSwitcher, SetupCard,
+│                         AccountMenu, NAV (a page joins the sidebar, the tab bar, the palette and
+│                         the G-shortcuts in the step that builds it)
 ├── lib/workspace/        WorkspaceProvider / useWorkspace: the signed-in user, the selected team
 │                         (sets X-Team-Id before any page fetches), can(permission), and the
 │                         test/live `mode` (per team; live only once approved)
