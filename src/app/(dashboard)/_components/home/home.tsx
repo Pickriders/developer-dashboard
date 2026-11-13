@@ -10,13 +10,14 @@ import { ApiErrorAlert } from "@/components/auth";
 import { IdText } from "@/components/kit/id-text";
 import { ProgressRing } from "@/components/kit/progress-ring";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DOCS_URL } from "@/constant";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import { checklist, type Checklist, type Step, type StepId } from "@/lib/dashboard/checklist";
 import { toApiError } from "@/lib/dashboard/errors";
+import { LIVE_STATUS } from "@/lib/dashboard/live";
 import { useAccount, useOnboarding } from "@/lib/dashboard/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -350,17 +351,9 @@ function StepIcon({ state, number, isNext }: { state: Step["state"]; number: num
   );
 }
 
-const LIVE: Record<DeveloperAccountDto["liveStatus"], [string, BadgeTone]> = {
-  NOT_REQUESTED: ["Test mode only", "neutral"],
-  PENDING: ["In review", "warning"],
-  APPROVED: ["Live", "success"],
-  REJECTED: ["Not approved", "danger"],
-  SUSPENDED: ["Suspended", "danger"],
-};
-
 function TeamCard({ account }: { account: DeveloperAccountDto }) {
   const { team } = useWorkspace();
-  const [label, tone] = LIVE[account.liveStatus];
+  const [label, tone] = LIVE_STATUS[account.liveStatus];
   return (
     <section aria-label="Your team" className="rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="flex items-center gap-3">

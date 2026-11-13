@@ -1687,6 +1687,7 @@ export interface User {
   /** @default false */
   phoneVerified: boolean;
   pendingPhone?: string;
+  pendingEmail?: string;
   /** @default false */
   emailVerified: boolean;
   gender?: string;
@@ -1920,6 +1921,7 @@ export interface UserProfileResponseDto {
   /** @default false */
   phoneVerified: boolean;
   pendingPhone?: string;
+  pendingEmail?: string;
   /** @default false */
   emailVerified: boolean;
   gender?: string;
@@ -2651,6 +2653,7 @@ export interface AdminUserProfileResponseDto {
   /** @default false */
   phoneVerified: boolean;
   pendingPhone?: string;
+  pendingEmail?: string;
   /** @default false */
   emailVerified: boolean;
   gender?: string;
@@ -5057,6 +5060,8 @@ export interface Team {
   supportPhone: string;
   /** Developer teams: what they are building, for the live-access review. */
   useCase: string;
+  /** Developer teams: extra addresses for operational emails (low balance, auto top-up failures, a failing webhook endpoint), on top of the members who get them. */
+  notificationEmails: string[];
   lowBalanceThreshold?: number | null;
   /** @format date-time */
   lowBalanceAlertedAt?: string;
@@ -6282,6 +6287,10 @@ export interface DeveloperUserDto {
   phone: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  /** A new email waiting for its code (Settings). */
+  pendingEmail: string | null;
+  /** A new phone number waiting for its code (Settings). */
+  pendingPhone: string | null;
 }
 
 export interface DeveloperTeamSummaryDto {
@@ -6378,6 +6387,38 @@ export interface DeveloperSendPhoneCodeRequestDto {
    * @example "08031234567"
    */
   phone?: string;
+}
+
+export interface UpdateDeveloperProfileRequestDto {
+  /**
+   * @minLength 1
+   * @maxLength 60
+   * @example "Ada"
+   */
+  firstname?: string;
+  /**
+   * @minLength 1
+   * @maxLength 60
+   * @example "Obi"
+   */
+  lastname?: string;
+}
+
+export interface DeveloperChangeEmailRequestDto {
+  /**
+   * The new address. A code goes to it; nothing changes until it is entered.
+   * @maxLength 254
+   * @example "ada@newco.com"
+   */
+  email: string;
+}
+
+export interface DeveloperChangePhoneRequestDto {
+  /**
+   * The new number. A code is texted to it; nothing changes until it is entered.
+   * @example "08031234567"
+   */
+  phone: string;
 }
 
 export interface DeveloperForgotPasswordRequestDto {
@@ -6539,6 +6580,8 @@ export interface DeveloperAccountDto {
   supportPhone: string | null;
   useCase: string | null;
   expectedMonthlyVolume: "UP_TO_100" | "UP_TO_1000" | "UP_TO_10000" | "OVER_10000" | null;
+  /** Extra addresses for operational emails. */
+  notificationEmails: string[];
   /** Whether the team owner's email is verified. */
   emailVerified: boolean;
   /** Whether the team owner's phone is verified. */
@@ -6603,6 +6646,12 @@ export interface UpdateDeveloperAccountRequestDto {
    */
   useCase?: string | null;
   expectedMonthlyVolume?: "UP_TO_100" | "UP_TO_1000" | "UP_TO_10000" | "OVER_10000" | null;
+  /**
+   * Up to five more addresses for operational emails: low balance, auto top-up failures, a failing webhook endpoint. [] or null clears them.
+   * @maxItems 5
+   * @example ["ops@acme.com"]
+   */
+  notificationEmails?: string[] | null;
 }
 
 export interface DeveloperApiKeyCreatorDto {
@@ -6837,6 +6886,74 @@ export interface DashboardCreateWebhookEndpointRequestDto {
 export interface DashboardResendEventRequestDto {
   /** @example "evt_6560f0c2a1b2c3d4e5f60718" */
   event_id: string;
+}
+
+export interface UsageDayDto {
+  /**
+   * The day, in Lagos time.
+   * @example "2026-11-12"
+   */
+  date: string;
+  /** Orders created that day. */
+  created: number;
+  /** Of those, how many were delivered. */
+  delivered: number;
+}
+
+export interface UsageOrdersDto {
+  created: number;
+  delivered: number;
+  /** Pickriders couldn’t deliver them (no rider found, cancelled by support). */
+  failed: number;
+  /** You cancelled them. */
+  cancelled: number;
+  /** delivered ÷ (delivered + failed), 0 to 1. Your own cancellations don’t count against it. Null with nothing finished. */
+  success_rate: number | null;
+  /** Every day of the period, oldest first, zeros included. */
+  per_day: UsageDayDto[];
+}
+
+export interface UsageSpendDto {
+  /** Order payments less refunds, in kobo. */
+  amount: number;
+  /** @example "NGN" */
+  currency: string;
+}
+
+export interface UsageApiDto {
+  requests: number;
+  /** Answered 400 or above. */
+  errors: number;
+  /** Answered 500 or above: ours, not yours. */
+  server_errors: number;
+  /** errors ÷ requests, 0 to 1. Null with no requests. */
+  error_rate: number | null;
+}
+
+export interface UsageWebhooksDto {
+  /** Deliveries made in the period, test pings left out. */
+  deliveries: number;
+  succeeded: number;
+  /** Gave up after every retry. */
+  failed: number;
+  /** succeeded ÷ (succeeded + failed), 0 to 1. Null with nothing finished. */
+  success_rate: number | null;
+}
+
+export interface UsageDto {
+  period: "7d" | "30d" | "90d";
+  /**
+   * The period’s first moment (start of the first day, Lagos time).
+   * @format date-time
+   */
+  from: string;
+  /** @format date-time */
+  to: string;
+  livemode: boolean;
+  orders: UsageOrdersDto;
+  spend: UsageSpendDto;
+  api: UsageApiDto;
+  webhooks: UsageWebhooksDto;
 }
 
 export interface RequestLogKeyDto {
@@ -8490,6 +8607,20 @@ export type DeveloperSendPhoneCodeData = DeveloperCodeSentResponseDto;
 
 export type DeveloperVerifyPhoneData = DeveloperMeResponseDto;
 
+export type DeveloperUpdateProfileData = DeveloperMeResponseDto;
+
+export type DeveloperStartEmailChangeData = DeveloperCodeSentResponseDto;
+
+export type DeveloperCancelEmailChangeData = DeveloperMeResponseDto;
+
+export type DeveloperConfirmEmailChangeData = DeveloperMeResponseDto;
+
+export type DeveloperStartPhoneChangeData = DeveloperCodeSentResponseDto;
+
+export type DeveloperCancelPhoneChangeData = DeveloperMeResponseDto;
+
+export type DeveloperConfirmPhoneChangeData = DeveloperMeResponseDto;
+
 export type DeveloperForgotPasswordData = DeveloperCodeSentResponseDto;
 
 export type DeveloperResetPasswordData = DeveloperSessionResponseDto;
@@ -8666,45 +8797,22 @@ export type DashboardTestWebhookEndpointData = WebhookDeliveryDto;
 
 export type DashboardResendWebhookEventData = ResendEventResponseDto;
 
-export interface DeveloperListRequestLogsParams {
+export interface DeveloperGetUsageParams {
   /**
-   * @min 1
-   * @max 100
-   * @default 20
+   * true for live mode.
+   * @default "false"
    */
-  limit?: number;
-  /** Id of the last object on the previous page; returns the objects after it. */
-  starting_after?: string;
-  /** Id of the first object on the next page; returns the objects before it. */
-  ending_before?: string;
-  /** Only live or only test requests. */
   livemode?: "true" | "false";
-  /** succeeded (below 400), failed (400 and up), or a status class. */
-  status?: "succeeded" | "failed" | "2xx" | "4xx" | "5xx";
-  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   /**
-   * Requests whose path contains this, e.g. /orders.
-   * @maxLength 200
-   * @example "/orders"
+   * The last 7, 30 or 90 days.
+   * @default "30d"
    */
-  path?: string;
-  /** Requests made with this API key (its id). */
-  key?: string;
-  /** From this time (ISO 8601). */
-  created_gte?: string;
-  /** Up to this time (ISO 8601). */
-  created_lte?: string;
-  /**
-   * The request id from a response (Request-Id header or error.request_id). Finds it in either mode.
-   * @maxLength 64
-   * @example "req_kE72slxdyzWzqil0NpGahJCb"
-   */
-  request_id?: string;
+  period?: "7d" | "30d" | "90d";
 }
 
-export type DeveloperListRequestLogsData = RequestLogListDto;
+export type DeveloperGetUsageData = UsageDto;
 
-export type DeveloperGetRequestLogData = RequestLogDetailDto;
+export type DashboardListServiceAreasData = ServiceAreaListDto;
 
 export interface DashboardListOrdersParams {
   /**
@@ -8806,7 +8914,45 @@ export type DashboardCancelOrderData = PublicOrderDto;
 
 export type DashboardAdvanceTestOrderData = PublicOrderDto;
 
-export type DashboardListServiceAreasData = ServiceAreaListDto;
+export interface DeveloperListRequestLogsParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  /** Only live or only test requests. */
+  livemode?: "true" | "false";
+  /** succeeded (below 400), failed (400 and up), or a status class. */
+  status?: "succeeded" | "failed" | "2xx" | "4xx" | "5xx";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  /**
+   * Requests whose path contains this, e.g. /orders.
+   * @maxLength 200
+   * @example "/orders"
+   */
+  path?: string;
+  /** Requests made with this API key (its id). */
+  key?: string;
+  /** From this time (ISO 8601). */
+  created_gte?: string;
+  /** Up to this time (ISO 8601). */
+  created_lte?: string;
+  /**
+   * The request id from a response (Request-Id header or error.request_id). Finds it in either mode.
+   * @maxLength 64
+   * @example "req_kE72slxdyzWzqil0NpGahJCb"
+   */
+  request_id?: string;
+}
+
+export type DeveloperListRequestLogsData = RequestLogListDto;
+
+export type DeveloperGetRequestLogData = RequestLogDetailDto;
 
 export interface AdminListDevelopersParams {
   /** PENDING lists the review queue, oldest request first. */

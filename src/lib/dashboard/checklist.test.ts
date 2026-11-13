@@ -10,6 +10,7 @@ const account = (over: Partial<DeveloperAccountDto> = {}): DeveloperAccountDto =
   supportPhone: null,
   useCase: null,
   expectedMonthlyVolume: null,
+  notificationEmails: [],
   emailVerified: false,
   phoneVerified: false,
   canRequestLive: false,

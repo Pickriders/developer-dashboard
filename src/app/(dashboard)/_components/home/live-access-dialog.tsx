@@ -11,6 +11,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import type { ApiError } from "@/lib/dashboard/errors";
 import { useRequestLiveAccess } from "@/lib/dashboard/hooks";
+import { withScheme } from "@/lib/dashboard/live";
 import { useWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import type { DeveloperAccountDto, UpdateDeveloperAccountRequestDto } from "@/services/apiService";
@@ -77,7 +78,9 @@ export function LiveAccessDialog({
       if (editsProfile) {
         changes = {};
         for (const field of FIELDS) {
-          const value = String(values[field] ?? "").trim();
+          const raw = String(values[field] ?? "").trim();
+          // The API takes a website with its scheme; people type "acme.com".
+          const value = field === "website" ? withScheme(raw) : raw;
           if (value !== (account[field] ?? "")) Object.assign(changes, { [field]: value || null });
         }
       }

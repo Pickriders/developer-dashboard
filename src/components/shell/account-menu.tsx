@@ -1,6 +1,7 @@
 "use client";
 
-import { BookOpen, ChevronsUpDown, Keyboard, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { BookOpen, ChevronsUpDown, Keyboard, LogOut, Settings } from "lucide-react";
 
 import { RailTip } from "./rail-tip";
 import { useShell } from "./shell-context";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 export function AccountMenu({ rail = false }: { rail?: boolean }) {
   const { me } = useWorkspace();
   const { openPalette } = useShell();
+  const router = useRouter();
   const name = `${me.user.firstname} ${me.user.lastname}`.trim();
 
   return (
@@ -56,6 +58,9 @@ export function AccountMenu({ rail = false }: { rail?: boolean }) {
         <ThemeToggle />
       </div>
       <MenuSeparator />
+      <MenuItem icon={<Settings />} hint="G S" onSelect={() => router.push("/settings")}>
+        Settings
+      </MenuItem>
       <MenuItem icon={<Keyboard />} hint="⌘K" onSelect={openPalette}>
         Search and shortcuts
       </MenuItem>

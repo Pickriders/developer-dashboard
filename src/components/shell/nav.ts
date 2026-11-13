@@ -1,4 +1,4 @@
-import { House, KeyRound, Package, ScrollText, Users, Wallet, Webhook, type LucideIcon } from "lucide-react";
+import { House, KeyRound, Package, ScrollText, Settings, Users, Wallet, Webhook, type LucideIcon } from "lucide-react";
 
 import type { Permission } from "@/lib/workspace";
 
@@ -80,6 +80,13 @@ export const NAV: NavGroup[] = [
         permission: "team.read",
         key: "t",
         keywords: "members people invite roles owner",
+      },
+      {
+        href: "/settings",
+        label: "Settings",
+        icon: Settings,
+        key: "s",
+        keywords: "profile name email phone change live access alerts notifications ip allowlist security",
       },
     ],
   },

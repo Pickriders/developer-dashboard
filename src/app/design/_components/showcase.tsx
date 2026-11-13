@@ -11,6 +11,7 @@ import {
   EmptyState,
   IdText,
   Kbd,
+  ListEditor,
   Panel,
   ProgressRing,
   SecretReveal,
@@ -198,6 +199,7 @@ export function Showcase() {
             Email me when an endpoint fails
           </label>
         </div>
+        <ListEditorDemo />
       </Section>
 
       <Section id="data" title="Data">
@@ -340,5 +342,26 @@ function SegmentedDemo() {
         { value: "write", label: "Write" },
       ]}
     />
+  );
+}
+
+/** A short list saved one change at a time (alert emails, the IP allowlist). */
+function ListEditorDemo() {
+  const [ips, setIps] = React.useState(["203.0.113.9", "192.0.2.0/24"]);
+  return (
+    <div className="max-w-xl">
+      <ListEditor
+        id="d-ip"
+        label="Allowed IPs"
+        inputLabel="New IP or range"
+        items={ips}
+        mono
+        max={5}
+        placeholder="203.0.113.9"
+        addLabel="Add IP"
+        validate={(v) => (/^[\d./]+$/.test(v) ? null : `"${v}" isn't an IP address.`)}
+        onSave={async (next) => setIps(next)}
+      />
+    </div>
   );
 }
