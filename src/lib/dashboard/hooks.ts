@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { account, auth, invitations, keys, webhooks } from "./api";
+import { account, auth, invitations, keys, type LogFilters, logs, webhooks } from "./api";
 import { type ApiError, toApiError } from "./errors";
 import type {
   CreateDeveloperApiKeyRequestDto,
@@ -45,6 +45,8 @@ export const teamKeys = {
   /** One endpoint and its deliveries: the id is mode-specific already. */
   webhook: (teamId: string, id: string) => ["team", teamId, "webhook", id] as const,
   deliveries: (teamId: string, id: string) => ["team", teamId, "webhook", id, "deliveries"] as const,
+  logs: (teamId: string, mode: Mode, filters: LogFilters) => ["team", teamId, mode, "logs", filters] as const,
+  log: (teamId: string, id: string) => ["team", teamId, "log", id] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -176,3 +178,17 @@ export const useTestEndpoint = (teamId: string, mode: Mode, id: string) =>
 
 export const useResendEvent = (teamId: string, mode: Mode, id: string) =>
   useWebhookMutation(teamId, mode, (eventId: string) => webhooks.resend(id, eventId));
+
+/** The request log, newest first, 25 a page. While `live`, the newest page refreshes every 10 s. */
+export const useRequestLogs = (teamId: string, mode: Mode, filters: LogFilters, { live = false } = {}) =>
+  useInfiniteQuery({
+    queryKey: teamKeys.logs(teamId, mode, filters),
+    queryFn: ({ pageParam }) => logs.list(mode, filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
+    refetchInterval: live ? 10_000 : false,
+    placeholderData: (previous) => previous,
+  });
+
+export const useRequestLog = (teamId: string, id: string | null) =>
+  useQuery({ queryKey: teamKeys.log(teamId, id ?? ""), queryFn: () => logs.get(id as string), enabled: !!id });

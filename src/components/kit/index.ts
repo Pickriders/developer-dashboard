@@ -12,3 +12,4 @@ export * from "./test-mode-banner";
 export * from "./theme-toggle";
 export * from "./progress-ring";
 export * from "./new-secret";
+export * from "./filter-menu";

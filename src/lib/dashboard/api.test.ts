@@ -208,6 +208,14 @@ const CASES: Case[] = [
     path: `${D}/webhook-endpoints/${WE}/test`,
   },
   {
+    name: "logs.list",
+    call: () => api.logs.list("test", { status: "failed", path: "/orders" }, "log_1"),
+    method: "GET",
+    path: `${D}/request-logs`,
+    params: { livemode: "false", limit: 25, status: "failed", path: "/orders", starting_after: "log_1" },
+  },
+  { name: "logs.get", call: () => api.logs.get(KEY), method: "GET", path: `${D}/request-logs/${KEY}` },
+  {
     name: "webhooks.resend",
     call: () => api.webhooks.resend(WE, EVT),
     method: "POST",

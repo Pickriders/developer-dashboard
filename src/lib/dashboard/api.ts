@@ -6,6 +6,7 @@ import type {
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
   CreateDeveloperApiKeyRequestDto,
+  DeveloperListRequestLogsParams,
   DashboardCreateWebhookEndpointRequestDto,
   UpdateWebhookEndpointRequestDto,
   RollDeveloperApiKeyRequestDto,
@@ -78,4 +79,21 @@ export const webhooks = {
     }),
   test: (id: string) => apiService.dashboardTestWebhookEndpoint(id),
   resend: (id: string, eventId: string) => apiService.dashboardResendWebhookEvent(id, { event_id: eventId }),
+};
+
+export type LogFilters = Omit<
+  DeveloperListRequestLogsParams,
+  "livemode" | "limit" | "starting_after" | "ending_before"
+>;
+
+export const logs = {
+  /** Newest first, 25 a page; `startingAfter` is the last id seen. A request id ignores the mode. */
+  list: (mode: "test" | "live", filters: LogFilters, startingAfter?: string) =>
+    apiService.developerListRequestLogs({
+      livemode: livemode(mode),
+      limit: 25,
+      ...filters,
+      ...(startingAfter && { starting_after: startingAfter }),
+    }),
+  get: (id: string) => apiService.developerGetRequestLog(id),
 };
