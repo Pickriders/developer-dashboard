@@ -162,6 +162,15 @@ red), method, path without the API prefix, the error code under it, key, duratio
 auto-refreshes every 10 s. A request opens in a `Sheet`: the error with a link to its doc, the request
 id, key, mode, IP, user agent, and the redacted request and response bodies.
 
+**Orders** (`/orders`): rows show your reference (or the order number), the status pill, the route as
+pickup → first drop-off (+N), the price and when. Creating one is two moves on one page: the stops (a
+service area, then a pickup and up to ten drop-offs, each with an address, a contact and optional
+instructions; Google Places search when a Maps key is set, coordinates otherwise; **Use a sample** in
+test mode), then **Get price**, which shows the total, its breakdown, distance, time and a countdown while
+the price holds, beside a live preview of the route. An order's page has the map (Google Maps, or the
+route drawn to scale without a key), a timeline built from the order, the stops with contacts and
+drop-off codes, the rider, the price, and Advance (one step, or Deliver it now) in test mode.
+
 **Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
 action, the others folded to a line, finished steps ticked with what was done (the address, the date).
 A refused or suspended live request opens first. Copy for every step lives in one place

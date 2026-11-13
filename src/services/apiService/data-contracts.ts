@@ -8806,6 +8806,8 @@ export type DashboardCancelOrderData = PublicOrderDto;
 
 export type DashboardAdvanceTestOrderData = PublicOrderDto;
 
+export type DashboardListServiceAreasData = ServiceAreaListDto;
+
 export interface AdminListDevelopersParams {
   /** PENDING lists the review queue, oldest request first. */
   liveStatus?: "NOT_REQUESTED" | "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";

@@ -1,4 +1,4 @@
-import { House, KeyRound, ScrollText, Webhook, type LucideIcon } from "lucide-react";
+import { House, KeyRound, Package, ScrollText, Webhook, type LucideIcon } from "lucide-react";
 
 import type { Permission } from "@/lib/workspace";
 
@@ -19,6 +19,19 @@ export const NAV: NavGroup[] = [
   {
     title: "Overview",
     items: [{ href: "/", label: "Home", icon: House, key: "h", keywords: "get started checklist setup" }],
+  },
+  {
+    title: "Operate",
+    items: [
+      {
+        href: "/orders",
+        label: "Orders",
+        icon: Package,
+        permission: "orders.read",
+        key: "o",
+        keywords: "deliveries riders tracking create order",
+      },
+    ],
   },
   {
     title: "Build",
@@ -59,8 +72,13 @@ export const isActive = (pathname: string, href: string) =>
 /** The page you're on, for the breadcrumb: the nav item, plus a deeper page's own name. */
 export function pageFor(pathname: string): { item?: NavItem; child?: string } {
   const item = [...ALL_ITEMS].sort((a, b) => b.href.length - a.href.length).find((i) => isActive(pathname, i.href));
-  const child = item && pathname !== item.href && item.href !== "/" ? CHILDREN[item.href] : undefined;
+  const child =
+    item && pathname !== item.href && item.href !== "/"
+      ? pathname === `${item.href}/new`
+        ? "New"
+        : CHILDREN[item.href]
+      : undefined;
   return { item, child };
 }
 
-const CHILDREN: Record<string, string> = { "/webhooks": "Endpoint" };
+const CHILDREN: Record<string, string> = { "/webhooks": "Endpoint", "/orders": "Order" };

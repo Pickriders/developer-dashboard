@@ -45,6 +45,13 @@ const TOKEN = "inv_open_0000000000000000001";
 const KEY = "6560f0c2a1b2c3d4e5f60718";
 const WE = "we_6560f0c2a1b2c3d4e5f60718";
 const EVT = "evt_6560f0c2a1b2c3d4e5f60718";
+const STOP = {
+  lat: 6.43,
+  lng: 3.42,
+  address: "1 Admiralty Way, Lekki",
+  contact: { name: "Bola", phone: "+2348031234567" },
+};
+const ORDER = { type: "single" as const, service_area: "NG-LA", stops: [STOP, STOP] };
 const HOOK = { url: "https://acme.test/hooks", enabled_events: ["order.delivered" as const], livemode: false };
 const SIGNUP = { firstname: "Ada", lastname: "Obi", email: "ada@acme.com", phone: "+2348031234567", password: "p" };
 
@@ -207,6 +214,59 @@ const CASES: Case[] = [
     method: "POST",
     path: `${D}/webhook-endpoints/${WE}/test`,
   },
+  {
+    name: "orders.list",
+    call: () => api.orders.list("test", { status: "delivered" }, "ord_1"),
+    method: "GET",
+    path: `${D}/orders`,
+    params: { livemode: "false", limit: 20, status: "delivered", starting_after: "ord_1" },
+  },
+  {
+    name: "orders.get",
+    call: () => api.orders.get("live", "ord_1"),
+    method: "GET",
+    path: `${D}/orders/ord_1`,
+    params: { livemode: "true" },
+  },
+  {
+    name: "orders.tracking",
+    call: () => api.orders.tracking("test", "ord_1"),
+    method: "GET",
+    path: `${D}/orders/ord_1/tracking`,
+    params: { livemode: "false" },
+  },
+  {
+    name: "orders.quote",
+    call: () => api.orders.quote("test", ORDER),
+    method: "POST",
+    path: `${D}/quotes`,
+    params: { livemode: "false" },
+    data: ORDER,
+  },
+  {
+    name: "orders.create",
+    call: () => api.orders.create("test", { quote_id: "quo_1" }),
+    method: "POST",
+    path: `${D}/orders`,
+    params: { livemode: "false" },
+    data: { quote_id: "quo_1" },
+  },
+  {
+    name: "orders.cancel",
+    call: () => api.orders.cancel("test", "ord_1", "Changed my mind"),
+    method: "POST",
+    path: `${D}/orders/ord_1/cancel`,
+    params: { livemode: "false" },
+    data: { reason: "Changed my mind" },
+  },
+  {
+    name: "orders.advance",
+    call: () => api.orders.advance("ord_1", "delivered"),
+    method: "POST",
+    path: `${D}/orders/ord_1/advance`,
+    data: { to: "delivered" },
+  },
+  { name: "orders.serviceAreas", call: () => api.orders.serviceAreas(), method: "GET", path: `${D}/service-areas` },
   {
     name: "logs.list",
     call: () => api.logs.list("test", { status: "failed", path: "/orders" }, "log_1"),
