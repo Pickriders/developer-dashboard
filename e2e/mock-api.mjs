@@ -105,6 +105,8 @@ function makeTeam(name, owner) {
     keys: [],
     endpoints: [],
     logs: [],
+    orders: [],
+    quotes: [],
   };
   teams.set(t.id, t);
   return t;
@@ -584,7 +586,257 @@ const routes = {
     Object.assign(key, { status: "REVOKED", revokedAt: new Date().toISOString() });
     return [200, presentKey(key)];
   },
+
+  "GET /service-areas": (req) => {
+    requireTeam(req, "orders.read");
+    return [200, { object: "list", data: [AREA] }];
+  },
+  "POST /quotes": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const live = liveFor(t, url);
+    return [200, makeQuote(t, body, live)];
+  },
+  "POST /orders": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const live = liveFor(t, url);
+    const quote = body.quote_id ? t.quotes.find((q) => q.id === body.quote_id) : makeQuote(t, body, live);
+    if (!quote) throw new ApiError(404, "resource_missing", "No quote with that id.", "quote_id");
+    if (!quote.usable)
+      throw new ApiError(400, "quote_used", "That quote was already used or has expired. Get a new one.", "quote_id");
+    if (body.reference && t.orders.some((o) => o.reference === body.reference && o.livemode === live))
+      throw new ApiError(409, "reference_taken", "Another order already has that reference.", "reference");
+    quote.usable = false;
+    const now = new Date().toISOString();
+    let drop = 0;
+    const order = {
+      object: "order",
+      id: `ord_${newId()}`,
+      type: quote.type,
+      status: "searching",
+      number: String(100000 + t.orders.length + 1),
+      reference: body.reference ?? null,
+      metadata: {},
+      quote_id: quote.id,
+      service_area: quote.service_area,
+      pricing: {
+        mode: "fixed",
+        currency: "NGN",
+        amount: quote.recommended_price,
+        delivery_fee: quote.breakdown.delivery_fee,
+        service_charge: quote.breakdown.service_charge,
+        max_amount: null,
+        min_offer_percentage: null,
+        auto_accept_after_s: null,
+      },
+      stops: quote.input.map((s, i) => ({
+        id: `stop_${newId()}`,
+        role: i === 0 ? "pickup" : "dropoff",
+        status: "pending",
+        address: s.address,
+        lat: s.lat,
+        lng: s.lng,
+        contact: s.contact,
+        instructions: s.instructions ?? null,
+        package: null,
+        confirmation_code: i === 0 ? null : String(4821 + ++drop),
+        arrived_at: null,
+        completed_at: null,
+        cancelled_at: null,
+        proof: null,
+        pending_change: null,
+        tracking_url: i === 0 ? null : `https://track.pickriders.test/s/${newId()}`,
+      })),
+      rider: null,
+      tracking_url: `https://track.pickriders.test/o/${newId()}`,
+      dispatch: "auto",
+      scheduled_for: null,
+      cancellation: null,
+      delivered_at: null,
+      livemode: live,
+      created: now,
+      updated: now,
+    };
+    t.orders.push(order);
+    if (!live) t.testOrders++;
+    return [201, order];
+  },
+  "GET /orders": (req, body, params, url) => {
+    const { team: t } = requireTeam(req, "orders.read");
+    const live = liveFor(t, url);
+    const q = Object.fromEntries(url.searchParams);
+    const rows = [...t.orders]
+      .reverse()
+      .filter(
+        (o) =>
+          o.livemode === live && (!q.status || o.status === q.status) && (!q.reference || o.reference === q.reference),
+      );
+    const from = q.starting_after ? rows.findIndex((o) => o.id === q.starting_after) + 1 : 0;
+    const limit = Number(q.limit ?? 20);
+    return [
+      200,
+      {
+        object: "list",
+        data: rows.slice(from, from + limit),
+        has_more: rows.length > from + limit,
+        url: `${D}/orders`,
+      },
+    ];
+  },
+  "GET /orders/:id": (req, body, { id }, url) => [200, findOrder(req, id, url, "orders.read")],
+  "GET /orders/:id/tracking": (req, body, { id }, url) => {
+    const order = findOrder(req, id, url, "orders.read");
+    const active = order.rider && !["delivered", "cancelled", "failed"].includes(order.status);
+    const next = order.stops.find((s) => s.status !== "completed");
+    const prev = [...order.stops].reverse().find((s) => s.status === "completed") ?? order.stops[0];
+    const at =
+      active && next
+        ? {
+            lat: (prev.lat + next.lat) / 2,
+            lng: (prev.lng + next.lng) / 2,
+            heading: null,
+            updated_at: new Date().toISOString(),
+          }
+        : null;
+    return [
+      200,
+      {
+        object: "order_tracking",
+        order_id: order.id,
+        status: order.status,
+        rider: active ? { name: order.rider.name, photo_url: null, vehicle: order.rider.vehicle, location: at } : null,
+        stops: order.stops.map((s) => ({
+          id: s.id,
+          role: s.role,
+          status: s.status,
+          address: s.address,
+          eta_s: s.status === "completed" ? null : 600,
+          completed_at: s.completed_at,
+        })),
+        tracking_url: order.tracking_url,
+      },
+    ];
+  },
+  "POST /orders/:id/cancel": (req, body, { id }, url) => {
+    const order = findOrder(req, id, url, "orders.write");
+    if (["delivered", "cancelled", "failed"].includes(order.status))
+      throw new ApiError(409, "order_not_cancellable", "This order can't be cancelled any more.");
+    const charged = order.rider ? order.pricing.service_charge : 0;
+    Object.assign(order, {
+      status: "cancelled",
+      updated: new Date().toISOString(),
+      cancellation: {
+        cancelled_by: "developer",
+        reason: body.reason ?? null,
+        cancelled_at: new Date().toISOString(),
+        charged_amount: charged,
+        refunded_amount: order.pricing.amount - charged,
+      },
+    });
+    return [200, order];
+  },
+  "POST /orders/:id/advance": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const order = t.orders.find((o) => o.id === id && !o.livemode);
+    if (!order) throw new ApiError(404, "resource_missing", "No test order with that id.", "id");
+    if (["delivered", "cancelled", "failed"].includes(order.status))
+      throw new ApiError(409, "order_finished", "This order is already finished.");
+    do step(order);
+    while (body.to && order.status !== body.to && order.status !== "delivered");
+    return [200, order];
+  },
 };
+
+const AREA = {
+  object: "service_area",
+  id: "NG-LA",
+  country_code: "NG",
+  country_name: "Nigeria",
+  state_code: "LA",
+  state_name: "Lagos",
+  currency: "NGN",
+  minimum_price: 300000,
+  rider_search_radius_km: 20,
+};
+function liveFor(t, url) {
+  const live = url.searchParams.get("livemode") === "true";
+  if (live && t.liveStatus !== "APPROVED")
+    throw new ApiError(403, "live_access_required", "Live mode needs approved live access.");
+  return live;
+}
+function findOrder(req, id, url, permission) {
+  const { team: t } = requireTeam(req, permission);
+  const live = liveFor(t, url);
+  const order = t.orders.find((o) => o.id === id && o.livemode === live);
+  if (!order) throw new ApiError(404, "resource_missing", "No order with that id.", "id");
+  return order;
+}
+const km = (a, b) => {
+  const r = (d) => (d * Math.PI) / 180;
+  const h =
+    Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+};
+function makeQuote(t, body, live) {
+  const stops = body.stops ?? [];
+  if (stops.length < 2)
+    throw new ApiError(400, "parameter_invalid", "stops needs a pickup and at least one drop-off.", "stops");
+  if (body.service_area !== AREA.id)
+    throw new ApiError(400, "service_area_invalid", "Pickriders doesn't deliver there yet.", "service_area");
+  let distance = 0;
+  for (let i = 1; i < stops.length; i++) distance += km(stops[i - 1], stops[i]);
+  const fee = Math.max(300000, Math.round((distance * 15000) / 1000) * 1000);
+  const quote = {
+    object: "quote",
+    id: `quo_${newId()}`,
+    type: body.type ?? (stops.length > 2 ? "batch" : "single"),
+    service_area: AREA.id,
+    currency: "NGN",
+    recommended_price: fee + 50000,
+    min_price: Math.round(fee * 0.8) + 50000,
+    max_price: Math.round(fee * 1.4) + 50000,
+    breakdown: { delivery_fee: fee, service_charge: 50000 },
+    distance_m: Math.round(distance * 1000),
+    duration_s: Math.round((distance / 25) * 3600),
+    stops: [],
+    scheduled_for: null,
+    expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+    usable: true,
+    livemode: live,
+    created: new Date().toISOString(),
+    input: stops,
+  };
+  t.quotes.push(quote);
+  const { input, ...publicQuote } = quote;
+  return publicQuote;
+}
+/** One move of the test rider: take it, head to the pickup, arrive, collect, then each drop-off. */
+function step(order) {
+  const now = new Date().toISOString();
+  order.updated = now;
+  if (order.status === "searching") {
+    order.status = "rider_assigned";
+    order.rider = {
+      name: "Tunde A.",
+      phone: "+2348030000000",
+      photo_url: null,
+      rating: 4.8,
+      vehicle: { make: "Bajaj", model: "Boxer", color: "Red", plate_number: "LAG 123 XY" },
+    };
+    return;
+  }
+  if (order.status === "rider_assigned") {
+    order.status = "picking_up";
+    order.stops[0].status = "en_route";
+    return;
+  }
+  const stop = order.stops.find((s) => s.status !== "completed");
+  if (stop.status === "pending") stop.status = "en_route";
+  else if (stop.status === "en_route") Object.assign(stop, { status: "arrived", arrived_at: now });
+  else Object.assign(stop, { status: "completed", completed_at: now });
+  if (order.stops[0].status === "completed" && order.status === "picking_up") order.status = "in_transit";
+  if (order.stops.every((s) => s.status === "completed"))
+    Object.assign(order, { status: "delivered", delivered_at: now });
+}
 
 const newSecret = () => `whsec_${randomBytes(24).toString("base64url")}`;
 const presentEndpoint = ({ secret, previousSecret, deliveries, ...endpoint }) => ({

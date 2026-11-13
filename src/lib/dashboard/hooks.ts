@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { account, auth, invitations, keys, type LogFilters, logs, webhooks } from "./api";
+import { account, auth, invitations, keys, type LogFilters, logs, type OrderFilters, orders, webhooks } from "./api";
 import { type ApiError, toApiError } from "./errors";
 import type {
   CreateDeveloperApiKeyRequestDto,
@@ -47,6 +47,9 @@ export const teamKeys = {
   deliveries: (teamId: string, id: string) => ["team", teamId, "webhook", id, "deliveries"] as const,
   logs: (teamId: string, mode: Mode, filters: LogFilters) => ["team", teamId, mode, "logs", filters] as const,
   log: (teamId: string, id: string) => ["team", teamId, "log", id] as const,
+  orders: (teamId: string, mode: Mode, filters?: OrderFilters) =>
+    filters ? (["team", teamId, mode, "orders", filters] as const) : (["team", teamId, mode, "orders"] as const),
+  order: (teamId: string, mode: Mode, id: string) => ["team", teamId, mode, "order", id] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -192,3 +195,71 @@ export const useRequestLogs = (teamId: string, mode: Mode, filters: LogFilters, 
 
 export const useRequestLog = (teamId: string, id: string | null) =>
   useQuery({ queryKey: teamKeys.log(teamId, id ?? ""), queryFn: () => logs.get(id as string), enabled: !!id });
+
+/** Statuses an order no longer leaves: no need to keep asking about it. */
+export const DONE_STATUSES = ["delivered", "cancelled", "failed"] as const;
+const moving = (status?: string) => !!status && !(DONE_STATUSES as readonly string[]).includes(status);
+
+/** Orders, newest first, 20 a page. Refreshes every 10 s so statuses move without a reload. */
+export const useOrders = (teamId: string, mode: Mode, filters: OrderFilters) =>
+  useInfiniteQuery({
+    queryKey: teamKeys.orders(teamId, mode, filters),
+    queryFn: ({ pageParam }) => orders.list(mode, filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
+    refetchInterval: 10_000,
+    placeholderData: (previous) => previous,
+  });
+
+/** One order, every 5 s while it is still moving. */
+export const useOrder = (teamId: string, mode: Mode, id: string) =>
+  useQuery<Awaited<ReturnType<typeof orders.get>>, ApiError>({
+    queryKey: teamKeys.order(teamId, mode, id),
+    queryFn: () => orders.get(mode, id).catch((e) => Promise.reject(toApiError(e))),
+    refetchInterval: (query) => (moving(query.state.data?.status) ? 5_000 : false),
+    retry: (count, error) => error.status !== 404 && count < 1,
+  });
+
+/** Where the rider is, every 5 s while the order is moving. */
+export const useOrderTracking = (teamId: string, mode: Mode, id: string, status?: string) =>
+  useQuery({
+    queryKey: [...teamKeys.order(teamId, mode, id), "tracking"],
+    queryFn: () => orders.tracking(mode, id),
+    refetchInterval: moving(status) ? 5_000 : false,
+    enabled: !!status,
+  });
+
+export const useServiceAreas = () =>
+  useQuery({ queryKey: ["service-areas"], queryFn: () => orders.serviceAreas(), staleTime: 60 * 60_000 });
+
+/** An order change: refreshes the order, the list and the checklist (a first test order ticks it). */
+const useOrderMutation = <TArgs, TResult>(teamId: string, mode: Mode, fn: (args: TArgs) => Promise<TResult>) => {
+  const queryClient = useQueryClient();
+  return useMutation<TResult, ApiError, TArgs>({
+    mutationFn: (args) => fn(args).catch((e) => Promise.reject(toApiError(e))),
+    onSuccess: (result) => {
+      const order = result as { object?: string; id?: string };
+      if (order?.object === "order" && order.id)
+        queryClient.setQueryData(teamKeys.order(teamId, mode, order.id), result);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: teamKeys.orders(teamId, mode) }),
+        queryClient.invalidateQueries({ queryKey: teamKeys.onboarding(teamId) }),
+        order?.id
+          ? queryClient.invalidateQueries({ queryKey: [...teamKeys.order(teamId, mode, order.id), "tracking"] })
+          : null,
+      ]);
+    },
+  });
+};
+
+export const useQuoteOrder = (mode: Mode) =>
+  useApiMutation((body: Parameters<typeof orders.quote>[1]) => orders.quote(mode, body));
+
+export const useCreateOrder = (teamId: string, mode: Mode) =>
+  useOrderMutation(teamId, mode, (body: Parameters<typeof orders.create>[1]) => orders.create(mode, body));
+
+export const useCancelOrder = (teamId: string, mode: Mode, id: string) =>
+  useOrderMutation(teamId, mode, (reason?: string) => orders.cancel(mode, id, reason));
+
+export const useAdvanceOrder = (teamId: string, id: string) =>
+  useOrderMutation(teamId, "test", (to?: Parameters<typeof orders.advance>[1]) => orders.advance(id, to));

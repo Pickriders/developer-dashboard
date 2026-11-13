@@ -31,6 +31,7 @@ import {
   DashboardDeleteWebhookEndpointData,
   DashboardListOrdersData,
   DashboardListOrdersParams,
+  DashboardListServiceAreasData,
   DashboardListWebhookDeliveriesData,
   DashboardListWebhookDeliveriesParams,
   DashboardListWebhookEndpointsData,
@@ -1321,6 +1322,23 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       body: data,
       secure: true,
       type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags developer-dashboard/service-areas
+   * @name DashboardListServiceAreas
+   * @request GET:/developer/api/v1/dashboard/service-areas
+   * @secure
+   * @response `200` `DashboardListServiceAreasData`
+   */
+  dashboardListServiceAreas = (params: RequestParams = {}) =>
+    this.request<DashboardListServiceAreasData, any>({
+      path: `/developer/api/v1/dashboard/service-areas`,
+      method: "GET",
+      secure: true,
       format: "json",
       ...params,
     });

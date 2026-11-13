@@ -27,6 +27,7 @@ import {
   DashboardCreateWebhookEndpointRequestDto,
   DashboardDeleteWebhookEndpointData,
   DashboardListOrdersData,
+  DashboardListServiceAreasData,
   DashboardListWebhookDeliveriesData,
   DashboardListWebhookEndpointsData,
   DashboardResendEventRequestDto,
@@ -1524,5 +1525,24 @@ export namespace Developer {
       "X-Team-Id": string;
     };
     export type ResponseBody = DashboardAdvanceTestOrderData;
+  }
+
+  /**
+   * No description
+   * @tags developer-dashboard/service-areas
+   * @name DashboardListServiceAreas
+   * @request GET:/developer/api/v1/dashboard/service-areas
+   * @secure
+   * @response `200` `DashboardListServiceAreasData`
+   */
+  export namespace DashboardListServiceAreas {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DashboardListServiceAreasData;
   }
 }

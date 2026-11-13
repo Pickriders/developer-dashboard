@@ -5,7 +5,12 @@ import type {
   DeveloperResetPasswordRequestDto,
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
+  AdvanceOrderRequestDto,
   CreateDeveloperApiKeyRequestDto,
+  CreateOrderRequestDto,
+  CreateQuoteRequestDto,
+  DashboardListOrdersParams,
+  PublicOrderDto,
   DeveloperListRequestLogsParams,
   DashboardCreateWebhookEndpointRequestDto,
   UpdateWebhookEndpointRequestDto,
@@ -96,4 +101,40 @@ export const logs = {
       ...(startingAfter && { starting_after: startingAfter }),
     }),
   get: (id: string) => apiService.developerGetRequestLog(id),
+};
+
+/** What GET dashboard/orders really returns (the generated type says a bare array). */
+export type OrderList = { object: "list"; data: PublicOrderDto[]; has_more: boolean; url: string };
+export type OrderFilters = Pick<DashboardListOrdersParams, "status" | "reference" | "type">;
+
+export const orders = {
+  list: (mode: "test" | "live", filters: OrderFilters, startingAfter?: string) =>
+    apiService.dashboardListOrders({
+      livemode: livemode(mode),
+      limit: 20,
+      ...filters,
+      ...(startingAfter && { starting_after: startingAfter }),
+    }) as unknown as Promise<OrderList>,
+  get: (mode: "test" | "live", id: string) => apiService.dashboardRetrieveOrder({ id, livemode: livemode(mode) }),
+  tracking: (mode: "test" | "live", id: string) => apiService.dashboardTrackOrder({ id, livemode: livemode(mode) }),
+  quote: (mode: "test" | "live", body: CreateQuoteRequestDto) =>
+    apiService.dashboardCreateQuote({ livemode: livemode(mode) }, body),
+  create: (mode: "test" | "live", body: CreateOrderRequestDto) =>
+    apiService.dashboardCreateOrder({ livemode: livemode(mode) }, body),
+  cancel: (mode: "test" | "live", id: string, reason?: string) =>
+    apiService.dashboardCancelOrder({ id, livemode: livemode(mode) }, reason ? { reason } : {}),
+  /** Test mode only: one step as the test rider would, or straight to `to`. */
+  advance: (id: string, to?: AdvanceOrderRequestDto["to"]) =>
+    apiService.dashboardAdvanceTestOrder(id, to ? { to } : {}),
+  serviceAreas: () =>
+    apiService.dashboardListServiceAreas() as unknown as Promise<{ object: "list"; data: ServiceArea[] }>,
+};
+
+export type ServiceArea = {
+  object: "service_area";
+  id: string;
+  country_name: string;
+  state_name: string;
+  currency: string;
+  minimum_price: number;
 };

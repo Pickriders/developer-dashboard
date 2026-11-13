@@ -10,6 +10,7 @@ import {
   LogOut,
   Monitor,
   Moon,
+  Package,
   Radio,
   Rocket,
   Search,
@@ -261,6 +262,15 @@ function useCommands(close: () => void): Command[] {
         run: go("/keys?create=live"),
       });
   }
+  if (can("orders.write"))
+    commands.push({
+      id: "create-order",
+      group: "Actions",
+      label: `Create a ${mode} order`,
+      icon: icon(Package),
+      keywords: "new delivery order",
+      run: go("/orders/new"),
+    });
   if (can("webhooks.write"))
     commands.push({
       id: "add-endpoint",
