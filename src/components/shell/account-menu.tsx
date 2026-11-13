@@ -22,7 +22,8 @@ export function AccountMenu({ rail = false }: { rail?: boolean }) {
     <Menu
       label="Account"
       side="top"
-      className={rail ? "w-64" : "w-full"}
+      className={rail ? "w-64" : undefined}
+      matchWidth={!rail}
       trigger={({ ref, open, ...props }) => (
         <button
           ref={ref}

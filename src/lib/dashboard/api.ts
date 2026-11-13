@@ -6,6 +6,7 @@ import type {
   DeveloperSessionResponseDto,
   DeveloperSignupRequestDto,
   AdvanceOrderRequestDto,
+  CreateTeamInvitationRequestDto,
   ConfigureAutoTopUpRequestDto,
   CreateFundingSessionRequestDto,
   PublicWalletTransactionDto,
@@ -168,4 +169,18 @@ export const wallet = {
   /** A Paystack checkout that charges `amount` and keeps the card for auto top-up. */
   saveCard: (body: CreateFundingSessionRequestDto) => apiService.developerSaveAutoTopUpCard(body),
   removeCard: () => apiService.developerRemoveAutoTopUpCard(),
+};
+
+export type InvitableRole = CreateTeamInvitationRequestDto["role"];
+
+export const team = {
+  members: () => apiService.developerListMembers(),
+  setRole: (userId: string, role: InvitableRole) => apiService.developerUpdateMemberRole(userId, { role }),
+  remove: (userId: string) => apiService.developerRemoveMember(userId),
+  leave: () => apiService.developerLeaveTeam(),
+  transfer: (userId: string) => apiService.developerTransferOwnership({ userId }),
+  invitations: () => apiService.developerListInvitations(),
+  invite: (body: CreateTeamInvitationRequestDto) => apiService.developerCreateInvitation(body),
+  resend: (id: string) => apiService.developerResendInvitation(id),
+  revoke: (id: string) => apiService.developerRevokeInvitation(id),
 };
