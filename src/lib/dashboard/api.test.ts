@@ -11,6 +11,8 @@ import * as api from "./api";
 type Captured = { method: string; url: string; params?: unknown; data?: unknown; headers: Record<string, unknown> };
 
 let captured: Captured[] = [];
+/** What the fake API answers; `{}` unless a test sets it. */
+let answer: unknown = {};
 
 beforeAll(() => {
   apiService.instance.defaults.adapter = async (config: AxiosRequestConfig) => {
@@ -21,12 +23,13 @@ beforeAll(() => {
       data: typeof config.data === "string" ? JSON.parse(config.data) : config.data,
       headers: { ...(config.headers as Record<string, unknown>) },
     });
-    return { data: {}, status: 200, statusText: "OK", headers: {}, config: config as never };
+    return { data: answer, status: 200, statusText: "OK", headers: {}, config: config as never };
   };
 });
 
 beforeEach(() => {
   captured = [];
+  answer = {};
   setTeamId(null);
 });
 
@@ -494,5 +497,20 @@ describe("apiService", () => {
     setTeamId("6560f0c2a1b2c3d4e5f60718");
     await api.account.get();
     expect(captured[1].headers["X-Team-Id"]).toBe("6560f0c2a1b2c3d4e5f60718");
+  });
+});
+
+describe("list routes", () => {
+  // The API wraps every paginated list ({ object, data, has_more, url }); the generated types say a bare array.
+  const list = (data: unknown[]) => ({ object: "list", data, has_more: false, url: "/x" });
+
+  it("gives the webhook endpoints as an array", async () => {
+    answer = list([{ id: "we_1" }, { id: "we_2" }]);
+    expect(await api.webhooks.list("test")).toEqual([{ id: "we_1" }, { id: "we_2" }]);
+  });
+
+  it("gives deliveries as the list, so the page can tell whether there are more", async () => {
+    answer = { ...list([{ id: "wd_1" }]), has_more: true };
+    expect(await api.webhooks.deliveries("we_1")).toEqual(expect.objectContaining({ has_more: true }));
   });
 });

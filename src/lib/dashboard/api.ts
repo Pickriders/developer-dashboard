@@ -16,6 +16,8 @@ import type {
   CreateQuoteRequestDto,
   DashboardListOrdersParams,
   PublicOrderDto,
+  PublicWebhookEndpointDto,
+  WebhookDeliveryDto,
   DeveloperListRequestLogsParams,
   DashboardCreateWebhookEndpointRequestDto,
   UpdateWebhookEndpointRequestDto,
@@ -93,8 +95,17 @@ export const keys = {
   revoke: (id: string) => apiService.developerRevokeApiKey(id),
 };
 
+/** A page of a list route: the generated types say a bare array, but the API sends this envelope. */
+export type List<T> = { object: "list"; data: T[]; has_more: boolean; url: string };
+
 export const webhooks = {
-  list: (mode: "test" | "live") => apiService.dashboardListWebhookEndpoints({ livemode: livemode(mode), limit: 100 }),
+  /** Every endpoint in the mode (a team has at most a handful), unwrapped from the list. */
+  list: (mode: "test" | "live") =>
+    (
+      apiService.dashboardListWebhookEndpoints({ livemode: livemode(mode), limit: 100 }) as unknown as Promise<
+        List<PublicWebhookEndpointDto>
+      >
+    ).then((list) => list.data),
   get: (id: string) => apiService.dashboardRetrieveWebhookEndpoint(id),
   create: (body: DashboardCreateWebhookEndpointRequestDto) => apiService.dashboardCreateWebhookEndpoint(body),
   update: (id: string, body: UpdateWebhookEndpointRequestDto) => apiService.dashboardUpdateWebhookEndpoint(id, body),
@@ -106,7 +117,7 @@ export const webhooks = {
       endpointId: id,
       limit: 20,
       ...(startingAfter && { starting_after: startingAfter }),
-    }),
+    }) as unknown as Promise<List<WebhookDeliveryDto>>,
   test: (id: string) => apiService.dashboardTestWebhookEndpoint(id),
   resend: (id: string, eventId: string) => apiService.dashboardResendWebhookEvent(id, { event_id: eventId }),
 };

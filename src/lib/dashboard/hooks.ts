@@ -227,17 +227,15 @@ export const useWebhookEndpoint = (teamId: string, id: string) =>
     retry: (count, error) => error.status !== 404 && count < 1,
   });
 
-const PAGE = 20;
-
 /** An endpoint's deliveries, newest first, 20 at a time. Polls while any is still on its way. */
 export const useDeliveries = (teamId: string, id: string) =>
   useInfiniteQuery({
     queryKey: teamKeys.deliveries(teamId, id),
     queryFn: ({ pageParam }) => webhooks.deliveries(id, pageParam),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => (last.length === PAGE ? last[last.length - 1].id : undefined),
+    getNextPageParam: (last) => (last.has_more ? last.data[last.data.length - 1]?.id : undefined),
     refetchInterval: (query) =>
-      query.state.data?.pages.some((page) => page.some((d) => d.status === "pending" || d.status === "delivering"))
+      query.state.data?.pages.some((page) => page.data.some((d) => d.status === "pending" || d.status === "delivering"))
         ? 4_000
         : false,
   });

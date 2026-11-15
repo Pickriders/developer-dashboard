@@ -321,7 +321,7 @@ function Deliveries({
 }) {
   const { team } = useWorkspace();
   const deliveries = useDeliveries(team.id, endpoint.id);
-  const rows = deliveries.data?.pages.flat() ?? [];
+  const rows = deliveries.data?.pages.flatMap((page) => page.data) ?? [];
 
   return (
     <section
@@ -358,7 +358,7 @@ function Deliveries({
         <>
           <ul className="divide-y divide-line">
             {rows.map((delivery) => {
-              const last = delivery.attempts[delivery.attempts.length - 1];
+              const last = delivery.attempts?.[delivery.attempts.length - 1];
               return (
                 <li key={delivery.id}>
                   <button
