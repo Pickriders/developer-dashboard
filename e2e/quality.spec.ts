@@ -8,6 +8,17 @@ import { ADA, MOCK_API, signIn } from "./helpers";
  * label, and ids are unique (labels and aria references point at the right thing).
  */
 const PAGES = ["/", "/usage", "/orders", "/orders/new", "/wallet", "/keys", "/webhooks", "/logs", "/team", "/settings"];
+/** The public docs, held to the same bar. */
+const DOCS = [
+  "/docs",
+  "/docs/quickstart",
+  "/docs/test-and-live",
+  "/docs/authentication",
+  "/docs/webhooks",
+  "/docs/errors",
+  "/docs/money",
+  "/docs/api",
+];
 
 async function audit(page: Page) {
   return page.evaluate(() => {
@@ -77,7 +88,7 @@ for (const [device, viewport] of [
       const page = await context.newPage();
       await signIn(page);
       const found: string[] = [];
-      for (const path of PAGES) {
+      for (const path of [...PAGES, ...DOCS]) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await page.waitForLoadState("networkidle");
