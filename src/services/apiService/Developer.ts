@@ -11,7 +11,6 @@
 
 import {
   AdvanceOrderRequestDto,
-  CancelOrderRequestDto,
   ConfigureAutoTopUpRequestDto,
   CreateDeveloperApiKeyRequestDto,
   CreateDeveloperTeamRequestDto,
@@ -49,6 +48,7 @@ import {
   DeveloperAcceptInvitationData,
   DeveloperAddTestFundsData,
   DeveloperCancelEmailChangeData,
+  DeveloperCancelOrderRequestDto,
   DeveloperCancelPhoneChangeData,
   DeveloperChangeEmailRequestDto,
   DeveloperChangePhoneRequestDto,
@@ -1436,7 +1436,7 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
    */
   dashboardCancelOrder = (
     { id, ...query }: DashboardCancelOrderParams,
-    data: CancelOrderRequestDto,
+    data: DeveloperCancelOrderRequestDto,
     params: RequestParams = {},
   ) =>
     this.request<DashboardCancelOrderData, any>({

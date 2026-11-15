@@ -1048,23 +1048,23 @@ const routes = {
         min_offer_percentage: null,
         auto_accept_after_s: null,
       },
-      stops: quote.input.map((s, i) => ({
+      stops: quote.input.map((s) => ({
         id: `stop_${newId()}`,
-        role: i === 0 ? "pickup" : "dropoff",
+        role: s.role,
         status: "pending",
         address: s.address,
         lat: s.lat,
         lng: s.lng,
-        contact: s.contact,
+        contact: s.contact ?? { name: null, phone: null },
         instructions: s.instructions ?? null,
         package: null,
-        confirmation_code: i === 0 ? null : String(4821 + ++drop),
+        confirmation_code: s.role === "pickup" ? null : String(4821 + ++drop),
         arrived_at: null,
         completed_at: null,
         cancelled_at: null,
         proof: null,
         pending_change: null,
-        tracking_url: i === 0 ? null : `https://track.pickriders.test/s/${newId()}`,
+        tracking_url: s.role === "pickup" ? null : `https://track.pickriders.test/s/${newId()}`,
       })),
       rider: null,
       tracking_url: `https://track.pickriders.test/o/${newId()}`,
@@ -1214,19 +1214,36 @@ const km = (a, b) => {
     Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 };
+const rolesFor = (type, n) =>
+  type === "bulk"
+    ? [...Array(n - 1).fill("pickup"), "dropoff"]
+    : ["pickup", ...Array(n - 1).fill("dropoff")];
+
 function makeQuote(t, body, live) {
   const stops = body.stops ?? [];
   if (stops.length < 2)
     throw new ApiError(400, "parameter_invalid", "stops needs a pickup and at least one drop-off.", "stops");
   if (body.service_area !== AREA.id)
     throw new ApiError(400, "service_area_invalid", "Pickriders doesn't deliver there yet.", "service_area");
+  const type = body.type ?? (stops.length > 2 ? "batch" : "single");
+  const roles = rolesFor(type, stops.length);
+  // As backend-api: every drop-off has a contact, and a batch pickup; a single or bulk pickup may be an errand.
+  stops.forEach((s, i) => {
+    if (!s.contact && (roles[i] === "dropoff" || type === "batch"))
+      throw new ApiError(
+        400,
+        "parameter_missing",
+        "Give this stop a contact: the name and phone number of the person the rider meets.",
+        `stops.${i}.contact`,
+      );
+  });
   let distance = 0;
   for (let i = 1; i < stops.length; i++) distance += km(stops[i - 1], stops[i]);
   const fee = Math.max(300000, Math.round((distance * 15000) / 1000) * 1000);
   const quote = {
     object: "quote",
     id: `quo_${newId()}`,
-    type: body.type ?? (stops.length > 2 ? "batch" : "single"),
+    type,
     service_area: AREA.id,
     currency: "NGN",
     recommended_price: fee + 50000,
@@ -1241,7 +1258,7 @@ function makeQuote(t, body, live) {
     usable: true,
     livemode: live,
     created: new Date().toISOString(),
-    input: stops,
+    input: stops.map((s, i) => ({ ...s, role: roles[i] })),
   };
   t.quotes.push(quote);
   const { input, ...publicQuote } = quote;

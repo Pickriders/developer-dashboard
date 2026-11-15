@@ -57,10 +57,16 @@ test("checks the stops before asking for a price", async ({ page }) => {
   await page.getByRole("button", { name: "Get price" }).click();
   const pickup = page.getByRole("region", { name: "Pickup" });
   await expect(pickup.getByText("Enter the address.")).toBeVisible();
-  await expect(pickup.getByText("Who should the rider ask for?")).toBeVisible();
+  // A single pickup may be an errand; the drop-off always needs someone to meet.
+  await expect(pickup.getByText("Who should the rider ask for?")).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Drop-off 1" }).getByText("Who should the rider ask for?"),
+  ).toBeVisible();
   await expect(page.getByLabel("Address").first()).toBeFocused();
 
-  // A third stop makes it a batch; any drop-off after the first can be removed.
+  // Only a batch has several drop-offs; any after the first can be removed.
+  await expect(page.getByRole("button", { name: "Add another drop-off" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Batch" }).click();
   await page.getByRole("button", { name: "Add another drop-off" }).click();
   await expect(page.getByRole("region", { name: "Drop-off 2" })).toBeVisible();
   await page.getByRole("button", { name: "Remove drop-off 2" }).click();
@@ -101,4 +107,91 @@ test("a Viewer sees orders but can't create one", async ({ page, request }) => {
 
   await expect(page.getByText("No test orders yet")).toBeVisible();
   await expect(page.getByRole("link", { name: /Create (test|live) order/ })).toHaveCount(0);
+});
+
+test.describe("stop contacts by delivery type", () => {
+  /** A sample place with its contact cleared: an errand at a shop. */
+  async function errand(page: Page, region: string) {
+    const stop = page.getByRole("region", { name: region, exact: true });
+    await stop.getByRole("button", { name: "Use a sample" }).click();
+    await stop.getByLabel(/Contact name/).fill("");
+    await stop.getByLabel(/Contact phone/).fill("");
+  }
+  const sample = (page: Page, region: string) =>
+    page.getByRole("region", { name: region, exact: true }).getByRole("button", { name: "Use a sample" }).click();
+
+  test("a single pickup can be an errand, but the drop-off needs a contact", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/orders/new");
+    const pickup = page.getByRole("region", { name: "Pickup", exact: true });
+    await expect(pickup.getByText(/An errand, like buying from a shop/)).toBeVisible();
+
+    await errand(page, "Pickup");
+    await errand(page, "Drop-off 1");
+    await page.getByRole("button", { name: "Get price" }).click();
+    await expect(
+      page.getByRole("region", { name: "Drop-off 1" }).getByText("Who should the rider ask for?"),
+    ).toBeVisible();
+    await expect(pickup.getByText("Who should the rider ask for?")).toHaveCount(0);
+
+    // Half a contact is a mistake, even where none is needed.
+    await pickup.getByLabel(/Contact name/).fill("Mama Put");
+    await sample(page, "Drop-off 1");
+    await page.getByRole("button", { name: "Get price" }).click();
+    await expect(pickup.getByText(/Enter a Nigerian mobile number/)).toBeVisible();
+    await pickup.getByLabel(/Contact name/).fill("");
+
+    await page.getByRole("button", { name: "Get price" }).click();
+    await page.getByRole("button", { name: /Create order/ }).click();
+    await expect(page).toHaveURL(/\/orders\/ord_/);
+    await expect(page.getByText("Errand: no one to meet")).toBeVisible();
+  });
+
+  test("a batch pickup needs a contact", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/orders/new");
+    await page.getByRole("radio", { name: "Batch" }).click();
+    await expect(page.getByRole("region", { name: "Pickup", exact: true }).getByText(/An errand/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Add another drop-off" }).click();
+
+    await errand(page, "Pickup");
+    await sample(page, "Drop-off 1");
+    await sample(page, "Drop-off 2");
+    await page.getByRole("button", { name: "Get price" }).click();
+    await expect(
+      page.getByRole("region", { name: "Pickup", exact: true }).getByText("Who should the rider ask for?"),
+    ).toBeVisible();
+  });
+
+  test("a bulk delivery collects from several errand pickups into one drop-off", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/orders/new");
+    await page.getByRole("radio", { name: "Bulk" }).click();
+    await expect(page.getByText("Several pickups, all brought to one drop-off.")).toBeVisible();
+    await page.getByRole("button", { name: "Add another pickup" }).click();
+    await expect(page.getByRole("region", { name: "Pickup 2" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add another drop-off" })).toHaveCount(0);
+
+    await errand(page, "Pickup 1");
+    await errand(page, "Pickup 2");
+    await sample(page, "Drop-off");
+    await page.getByRole("button", { name: "Get price" }).click();
+    await page.getByRole("button", { name: /Create order/ }).click();
+
+    await expect(page).toHaveURL(/\/orders\/ord_/);
+    await expect(page.getByText("Errand: no one to meet")).toHaveCount(2);
+  });
+
+  test("switching type keeps the stops that still fit", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/orders/new");
+    await page.getByRole("radio", { name: "Batch" }).click();
+    await page.getByRole("button", { name: "Add another drop-off" }).click();
+    await sample(page, "Drop-off 2");
+    await page.getByRole("radio", { name: "Single" }).click();
+    await expect(page.getByRole("region", { name: "Drop-off 2" })).toHaveCount(0);
+    await page.getByRole("radio", { name: "Bulk" }).click();
+    await expect(page.getByRole("region", { name: "Pickup", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Drop-off" })).toBeVisible();
+  });
 });

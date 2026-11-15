@@ -14,6 +14,7 @@ import { FilterMenu } from "@/components/kit/filter-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { GOOGLE_MAPS_API_KEY } from "@/constant";
 import { COUNTRY, formatPhoneInput, nationalNumber } from "@/lib/auth/phone";
 import type { ApiError } from "@/lib/dashboard/errors";
@@ -23,8 +24,11 @@ import { useWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import type { PublicQuoteDto } from "@/services/apiService";
 
+type Role = "pickup" | "dropoff";
+type OrderType = "single" | "batch" | "bulk";
 type StopDraft = {
   key: number;
+  role: Role;
   address: string;
   lat: string;
   lng: string;
@@ -66,11 +70,34 @@ const SAMPLES = [
     phone: "806 777 1212",
   },
 ];
-const MAX_DROPOFFS = 10;
+/** Drop-offs in a batch, or pickups in a bulk delivery (backend-api's MAX_ORDER_STOPS). */
+const MAX_STOPS = 20;
+
+const TYPES: { value: OrderType; label: string; hint: string }[] = [
+  { value: "single", label: "Single", hint: "One pickup, one drop-off." },
+  { value: "batch", label: "Batch", hint: "One pickup, then several drop-offs in turn." },
+  { value: "bulk", label: "Bulk", hint: "Several pickups, all brought to one drop-off." },
+];
+
+/**
+ * Every drop-off needs someone to hand the parcel to, and a batch pickup someone handing over every
+ * parcel. A single or bulk pickup may be an errand (buy or collect from a shop), with no one to call.
+ */
+export const contactRequired = (type: OrderType, role: Role) => role === "dropoff" || type === "batch";
+
+/** The stops kept when switching type: a single keeps the first of each, a batch every drop-off, a bulk every pickup. */
+export function stopsFor<T extends { role: Role }>(type: OrderType, stops: T[]): T[] {
+  const pickups = stops.filter((s) => s.role === "pickup");
+  const dropoffs = stops.filter((s) => s.role === "dropoff");
+  if (type === "batch") return [pickups[0], ...dropoffs];
+  if (type === "bulk") return [...pickups, dropoffs[0]];
+  return [pickups[0], dropoffs[0]];
+}
 
 let nextKey = 1;
-const emptyStop = (): StopDraft => ({
+const emptyStop = (role: Role): StopDraft => ({
   key: nextKey++,
+  role,
   address: "",
   lat: "",
   lng: "",
@@ -91,7 +118,8 @@ export function NewOrderPage() {
   const create = useCreateOrder(team.id, mode);
 
   const [area, setArea] = React.useState("");
-  const [stops, setStops] = React.useState<StopDraft[]>(() => [emptyStop(), emptyStop()]);
+  const [type, setType] = React.useState<OrderType>("single");
+  const [stops, setStops] = React.useState<StopDraft[]>(() => [emptyStop("pickup"), emptyStop("dropoff")]);
   const [problems, setProblems] = React.useState<Problems>({});
   const [priced, setPriced] = React.useState<PublicQuoteDto | null>(null);
   const [reference, setReference] = React.useState("");
@@ -135,6 +163,8 @@ export function NewOrderPage() {
         found[`${i}.address`] ??= GOOGLE_MAPS_API_KEY
           ? "Pick the address from the list."
           : "Enter its latitude and longitude.";
+      // An errand pickup may leave the contact out, but half a contact is a mistake.
+      if (!contactRequired(type, s.role) && !hasContact(s)) return;
       if (!s.name.trim()) found[`${i}.name`] = "Who should the rider ask for?";
       if (!nationalNumber(s.phone)) found[`${i}.phone`] = `Enter a Nigerian mobile number, like ${COUNTRY.example}.`;
     });
@@ -142,13 +172,15 @@ export function NewOrderPage() {
   };
 
   const body = () => ({
-    type: (stops.length > 2 ? "batch" : "single") as "single" | "batch",
+    type,
     service_area: area,
     stops: stops.map((s) => ({
       address: s.address.trim(),
       lat: Number(s.lat),
       lng: Number(s.lng),
-      contact: { name: s.name.trim(), phone: `${COUNTRY.dial}${nationalNumber(s.phone)}` },
+      ...((contactRequired(type, s.role) || hasContact(s)) && {
+        contact: { name: s.name.trim(), phone: `${COUNTRY.dial}${nationalNumber(s.phone)}` },
+      }),
       ...(s.instructions.trim() && { instructions: s.instructions.trim() }),
     })),
   });
@@ -183,12 +215,16 @@ export function NewOrderPage() {
     }
   };
 
+  /** The role a batch or bulk delivery has several of. */
+  const many: Role | null = type === "batch" ? "dropoff" : type === "bulk" ? "pickup" : null;
+  const lastOfMany = many ? stops.map((s) => s.role).lastIndexOf(many) : -1;
+  const canAdd = Boolean(many) && stops.filter((s) => s.role === many).length < MAX_STOPS;
+
   const mapStops: MapStop[] = stops
-    .map((s, i) => ({ s, i }))
-    .filter(({ s }) => s.lat && s.lng && !Number.isNaN(Number(s.lat)) && !Number.isNaN(Number(s.lng)))
-    .map(({ s, i }) => ({
+    .filter((s) => s.lat && s.lng && !Number.isNaN(Number(s.lat)) && !Number.isNaN(Number(s.lng)))
+    .map((s) => ({
       id: String(s.key),
-      role: i === 0 ? ("pickup" as const) : ("dropoff" as const),
+      role: s.role,
       lat: Number(s.lat),
       lng: Number(s.lng),
       done: false,
@@ -243,38 +279,70 @@ export function NewOrderPage() {
             />
           </section>
 
-          {stops.map((stop, i) => (
-            <StopCard
-              key={stop.key}
-              index={i}
-              stop={stop}
-              problems={problems}
-              testMode={mode === "test"}
-              onChange={(patch) => update(stop.key, patch)}
-              onSample={() => fillSample(stop.key)}
-              onRemove={
-                i >= 2
-                  ? () => {
-                      setStops((current) => current.filter((s) => s.key !== stop.key));
-                      setPriced(null);
-                    }
-                  : undefined
-              }
-            />
-          ))}
+          <section className="space-y-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-fg-heading">Delivery type</p>
+                <p className="text-xs text-fg-subtle">{TYPES.find((t) => t.value === type)!.hint}</p>
+              </div>
+              <Segmented
+                label="Delivery type"
+                size="sm"
+                value={type}
+                options={TYPES}
+                onChange={(next) => {
+                  setType(next);
+                  setStops((current) => stopsFor(next, current));
+                  setProblems({});
+                  setPriced(null);
+                }}
+              />
+            </div>
+          </section>
 
-          {stops.length - 1 < MAX_DROPOFFS && (
-            <button
-              type="button"
-              onClick={() => {
-                setStops((current) => [...current, emptyStop()]);
-                setPriced(null);
-              }}
-              className="focus-ring flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line-strong py-3.5 text-sm font-semibold text-fg-muted transition-colors hover:border-brand hover:text-brand-fg"
-            >
-              <Plus className="size-4" aria-hidden /> Add another drop-off
-            </button>
-          )}
+          {stops.map((stop, i) => (
+            <React.Fragment key={stop.key}>
+              <StopCard
+                index={i}
+                stop={stop}
+                label={labelFor(stops, i, type)}
+                contactOptional={!contactRequired(type, stop.role)}
+                problems={problems}
+                testMode={mode === "test"}
+                onChange={(patch) => update(stop.key, patch)}
+                onSample={() => fillSample(stop.key)}
+                onRemove={
+                  stop.role === many && stops.filter((s) => s.role === many).length > 1
+                    ? () => {
+                        setStops((current) => current.filter((s) => s.key !== stop.key));
+                        setProblems({});
+                        setPriced(null);
+                      }
+                    : undefined
+                }
+              />
+              {/* Right after the last of the stops it adds to: the drop-offs of a batch, the pickups of a bulk. */}
+              {i === lastOfMany && canAdd && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Drop-offs go last; a bulk's pickups go before its one drop-off.
+                    setStops((current) =>
+                      many === "dropoff"
+                        ? [...current, emptyStop("dropoff")]
+                        : [...current.slice(0, -1), emptyStop("pickup"), current[current.length - 1]],
+                    );
+                    setProblems({});
+                    setPriced(null);
+                  }}
+                  className="focus-ring flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line-strong py-3.5 text-sm font-semibold text-fg-muted transition-colors hover:border-brand hover:text-brand-fg"
+                >
+                  <Plus className="size-4" aria-hidden />{" "}
+                  {many === "dropoff" ? "Add another drop-off" : "Add another pickup"}
+                </button>
+              )}
+            </React.Fragment>
+          ))}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -307,9 +375,22 @@ export function NewOrderPage() {
   );
 }
 
+const hasContact = (s: StopDraft) => Boolean(s.name.trim() || s.phone.trim());
+
+/** "Pickup", or "Pickup 2" when there are several; drop-offs are numbered unless there's one in a bulk. */
+function labelFor(stops: StopDraft[], index: number, type: OrderType) {
+  const stop = stops[index];
+  const same = stops.filter((s) => s.role === stop.role);
+  const n = same.indexOf(stop) + 1;
+  if (stop.role === "pickup") return same.length > 1 ? `Pickup ${n}` : "Pickup";
+  return type === "bulk" ? "Drop-off" : `Drop-off ${n}`;
+}
+
 function StopCard({
   index,
   stop,
+  label,
+  contactOptional,
   problems,
   testMode,
   onChange,
@@ -318,21 +399,20 @@ function StopCard({
 }: {
   index: number;
   stop: StopDraft;
+  label: string;
+  contactOptional: boolean;
   problems: Problems;
   testMode: boolean;
   onChange: (patch: Partial<StopDraft>) => void;
   onSample: () => void;
   onRemove?: () => void;
 }) {
-  const pickup = index === 0;
+  const pickup = stop.role === "pickup";
   const id = (field: string) => `stop-${index}-${field}`;
   const problem = (field: string) => problems[`${index}.${field}`];
 
   return (
-    <section
-      aria-label={pickup ? "Pickup" : `Drop-off ${index}`}
-      className="rounded-2xl border border-line bg-surface p-5 shadow-card"
-    >
+    <section aria-label={label} className="rounded-2xl border border-line bg-surface p-5 shadow-card">
       <div className="mb-4 flex items-center gap-3">
         <span
           aria-hidden
@@ -341,16 +421,16 @@ function StopCard({
             pickup ? "bg-plum" : "bg-brand-solid",
           )}
         >
-          {pickup ? "P" : index}
+          {pickup ? "P" : label.replace(/\D/g, "") || "D"}
         </span>
-        <h2 className="flex-1 text-base font-bold text-fg-heading">{pickup ? "Pickup" : `Drop-off ${index}`}</h2>
+        <h2 className="flex-1 text-base font-bold text-fg-heading">{label}</h2>
         {testMode && (
           <Button variant="ghost" size="sm" onClick={onSample}>
             <Sparkles /> Use a sample
           </Button>
         )}
         {onRemove && (
-          <Button variant="ghost" size="icon" aria-label={`Remove drop-off ${index}`} onClick={onRemove}>
+          <Button variant="ghost" size="icon" aria-label={`Remove ${label.toLowerCase()}`} onClick={onRemove}>
             <Trash2 />
           </Button>
         )}
@@ -412,7 +492,16 @@ function StopCard({
             </Field>
           </>
         )}
-        <Field id={id("name")} label="Contact name" error={problem("name")}>
+        {contactOptional && (
+          <p className="-mb-1 text-[13px] text-fg-subtle sm:col-span-2" id={id("errand")}>
+            An errand, like buying from a shop? Leave the contact empty and say what to get in the instructions.
+          </p>
+        )}
+        <Field
+          id={id("name")}
+          label={contactOptional ? <OptionalLabel>Contact name</OptionalLabel> : "Contact name"}
+          error={problem("name")}
+        >
           {(a11y) => (
             <Input
               {...a11y}
@@ -422,7 +511,11 @@ function StopCard({
             />
           )}
         </Field>
-        <Field id={id("phone")} label="Contact phone" error={problem("phone")}>
+        <Field
+          id={id("phone")}
+          label={contactOptional ? <OptionalLabel>Contact phone</OptionalLabel> : "Contact phone"}
+          error={problem("phone")}
+        >
           {(a11y) => (
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center gap-1.5 border-r border-line pl-3 pr-2.5 text-sm text-fg-muted">
@@ -456,13 +549,25 @@ function StopCard({
               value={stop.instructions}
               onChange={(e) => onChange({ instructions: e.target.value })}
               placeholder={
-                pickup ? "Gate 3, ask for Bola at the front desk" : "Leave with the security post if nobody's home"
+                contactOptional
+                  ? "Buy 2 bags of rice at the counter; the receipt goes in the bag"
+                  : pickup
+                    ? "Gate 3, ask for Bola at the front desk"
+                    : "Leave with the security post if nobody's home"
               }
             />
           )}
         </Field>
       </div>
     </section>
+  );
+}
+
+function OptionalLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {children} <span className="font-normal text-fg-subtle">(optional)</span>
+    </>
   );
 }
 
