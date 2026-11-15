@@ -699,6 +699,7 @@ const routes = {
       throw new ApiError(400, "parameter_invalid", "enabled_events should not be empty", "enabled_events");
     if (body.livemode && t.liveStatus !== "APPROVED")
       throw new ApiError(403, "live_access_required", "Live endpoints need approved live access.");
+    urlFree(t, !!body.livemode, body.url);
     const endpoint = {
       id: `we_${newId()}`,
       url: body.url.trim(),
@@ -1215,9 +1216,7 @@ const km = (a, b) => {
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 };
 const rolesFor = (type, n) =>
-  type === "bulk"
-    ? [...Array(n - 1).fill("pickup"), "dropoff"]
-    : ["pickup", ...Array(n - 1).fill("dropoff")];
+  type === "bulk" ? [...Array(n - 1).fill("pickup"), "dropoff"] : ["pickup", ...Array(n - 1).fill("dropoff")];
 
 function makeQuote(t, body, live) {
   const stops = body.stops ?? [];
@@ -1333,6 +1332,21 @@ const presentEndpoint = ({ secret, previousSecret, deliveries, ...endpoint }) =>
   object: "webhook_endpoint",
   ...endpoint,
 });
+/** As backend-api: one endpoint per URL in each mode. */
+function urlFree(t, livemode, raw, exceptId) {
+  const url = new URL(String(raw).trim()).toString();
+  const taken = t.endpoints.find(
+    (e) => e.livemode === livemode && e.id !== exceptId && new URL(e.url).toString() === url,
+  );
+  if (taken)
+    throw new ApiError(
+      409,
+      "webhook_endpoint_exists",
+      `You already have a ${livemode ? "live" : "test"} endpoint for this URL (${taken.id}). Change that one's events instead of adding another.`,
+      "url",
+    );
+}
+
 function checkUrl(raw) {
   try {
     const url = new URL(String(raw ?? "").trim());
