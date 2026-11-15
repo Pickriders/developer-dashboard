@@ -171,6 +171,57 @@ export interface State {
     etaEnabled?: boolean;
     /** @default 25 */
     etaAverageSpeedKmh?: number;
+    /** @default true */
+    handoffEnabled?: boolean;
+    /** @default 3 */
+    handoffRadiusKm?: number;
+    /** @default 6 */
+    handoffWidenRadiusKm?: number;
+    /** @default 180 */
+    handoffWidenAfterSec?: number;
+    /** @default 360 */
+    handoffAlertAfterSec?: number;
+    /** @default 30 */
+    handoffExpireAfterMin?: number;
+    /** @default 30 */
+    handoffRingSeconds?: number;
+    /** @default 30 */
+    handoffMinSharePct?: number;
+    /** @default 70 */
+    handoffMaxSharePct?: number;
+    /** @default 30000 */
+    handoffBonusAmount?: number;
+    /** @default 20000 */
+    handoffCancelCompensation?: number;
+    /** @default 150 */
+    handoffConfirmRadiusM?: number;
+    /** @default 2 */
+    handoffsPerOrder?: number;
+    supportWhatsappPhone?: string;
+    /** @default 2 */
+    releaseFreePerDay?: number;
+    /** @default 5 */
+    releaseAlertWeekly?: number;
+    /** @default 8 */
+    releasePauseWeekly?: number;
+    /** @default 3 */
+    releaseDeprioritizeWeekly?: number;
+    /** @default 20 */
+    releaseDeprioritizeDelaySec?: number;
+    /** @default false */
+    stackingEnabled?: boolean;
+    /** @default 2 */
+    maxStackedOrders?: number;
+    /** @default 3 */
+    stackDropoffRadiusKm?: number;
+    /** @default 1.5 */
+    stackMaxDetourKm?: number;
+    /** @default false */
+    nextNearbyEnabled?: boolean;
+    /** @default 2 */
+    nextPickupRadiusKm?: number;
+    /** @default 3 */
+    nextFinishWithinKm?: number;
   };
   _id: string;
   /** @format date-time */
@@ -286,6 +337,172 @@ export interface StateConfigDto {
    * @default 25
    */
   etaAverageSpeedKmh?: number;
+  /**
+   * Rider handoff (after pickup) on or off
+   * @default true
+   */
+  handoffEnabled?: boolean;
+  /**
+   * Handoff: first search radius (km) around the meeting point
+   * @min 0.1
+   * @max 50
+   * @default 3
+   */
+  handoffRadiusKm?: number;
+  /**
+   * Handoff: wider search radius (km) after handoffWidenAfterSec
+   * @min 0.1
+   * @max 50
+   * @default 6
+   */
+  handoffWidenRadiusKm?: number;
+  /**
+   * Handoff: seconds before the search widens
+   * @min 0
+   * @default 180
+   */
+  handoffWidenAfterSec?: number;
+  /**
+   * Handoff: seconds of searching before staff are alerted
+   * @min 0
+   * @default 360
+   */
+  handoffAlertAfterSec?: number;
+  /**
+   * Handoff: minutes before an untaken handoff expires
+   * @min 1
+   * @default 30
+   */
+  handoffExpireAfterMin?: number;
+  /**
+   * Handoff: seconds the ring shows on a candidate rider
+   * @min 5
+   * @default 30
+   */
+  handoffRingSeconds?: number;
+  /**
+   * Handoff: lowest share (%) of the fee for the handing-over rider
+   * @min 0
+   * @max 100
+   * @default 30
+   */
+  handoffMinSharePct?: number;
+  /**
+   * Handoff: highest share (%) of the fee for the handing-over rider
+   * @min 0
+   * @max 100
+   * @default 70
+   */
+  handoffMaxSharePct?: number;
+  /**
+   * Handoff: bonus (sub-units) for the rider who takes over
+   * @min 0
+   * @default 30000
+   */
+  handoffBonusAmount?: number;
+  /**
+   * Handoff: pay (sub-units) for a rider whose accepted handoff was called off
+   * @min 0
+   * @default 20000
+   */
+  handoffCancelCompensation?: number;
+  /**
+   * Handoff: metres between riders at the swap before it is flagged
+   * @min 1
+   * @default 150
+   */
+  handoffConfirmRadiusM?: number;
+  /**
+   * Handoff: completed handoffs allowed per order
+   * @min 0
+   * @default 2
+   */
+  handoffsPerOrder?: number;
+  /**
+   * Support WhatsApp number (E.164, e.g. +2348012345678) URGENT alerts escalate to. Empty clears it
+   * @pattern /^(\+[1-9]\d{7,14})?$/
+   */
+  supportWhatsappPhone?: string;
+  /**
+   * Rider releases: releases inside the free window that stay free per Lagos day (0: none)
+   * @min 0
+   * @max 10
+   * @default 2
+   */
+  releaseFreePerDay?: number;
+  /**
+   * Rider releases: counted releases in 7 days that raise a RIDER_FREQUENT_RELEASES alert
+   * @min 1
+   * @max 50
+   * @default 5
+   */
+  releaseAlertWeekly?: number;
+  /**
+   * Rider releases: counted releases in 7 days that pause the rider from dispatch for review
+   * @min 1
+   * @max 100
+   * @default 8
+   */
+  releasePauseWeekly?: number;
+  /**
+   * Rider releases: counted releases in 7 days that ring the rider after reliable riders
+   * @min 1
+   * @max 50
+   * @default 3
+   */
+  releaseDeprioritizeWeekly?: number;
+  /**
+   * Rider releases: seconds a frequent releaser waits behind reliable riders on an app or web order
+   * @min 1
+   * @max 300
+   * @default 20
+   */
+  releaseDeprioritizeDelaySec?: number;
+  /**
+   * Order stacking: let a rider at maxActiveOrders take one more order when it is on their way (already picked up, drop-offs close together, small detour)
+   * @default false
+   */
+  stackingEnabled?: boolean;
+  /**
+   * Order stacking: most orders a rider may hold when stacking
+   * @min 2
+   * @max 3
+   * @default 2
+   */
+  maxStackedOrders?: number;
+  /**
+   * Order stacking: km each new drop-off may be from a drop-off the rider still has
+   * @min 0.1
+   * @max 20
+   * @default 3
+   */
+  stackDropoffRadiusKm?: number;
+  /**
+   * Order stacking: most extra km the new pickup may add to the rider's way to their current drop-off
+   * @min 0
+   * @max 10
+   * @default 1.5
+   */
+  stackMaxDetourKm?: number;
+  /**
+   * Order stacking, next job: let a rider at maxActiveOrders take one more order whose pickup is close to where they finish (they drop what they hold first). Shares maxStackedOrders
+   * @default false
+   */
+  nextNearbyEnabled?: boolean;
+  /**
+   * Order stacking, next job: km the new pickup may be from the rider's last remaining drop-off
+   * @min 0.1
+   * @max 20
+   * @default 2
+   */
+  nextPickupRadiusKm?: number;
+  /**
+   * Order stacking, next job: km (straight line) the rider may still be from their last drop-off
+   * @min 0.1
+   * @max 30
+   * @default 3
+   */
+  nextFinishWithinKm?: number;
 }
 
 export interface UpdateStateDto {
@@ -538,7 +755,9 @@ export interface ProviderFeeRowDto {
     | "PROVIDER_PAYOUT_FEE"
     | "ORDER_SERVICE_CHARGE"
     | "PLATFORM_TRANSFER"
-    | "TEST_FUNDING";
+    | "TEST_FUNDING"
+    | "HANDOFF_BONUS"
+    | "HANDOFF_COMPENSATION";
   /** What Paystack took */
   fee: number;
   /** The payment or transfer amount; null if not found */
@@ -724,7 +943,9 @@ export interface Transaction {
     | "PROVIDER_PAYOUT_FEE"
     | "ORDER_SERVICE_CHARGE"
     | "PLATFORM_TRANSFER"
-    | "TEST_FUNDING";
+    | "TEST_FUNDING"
+    | "HANDOFF_BONUS"
+    | "HANDOFF_COMPENSATION";
   status: "PROCESSING" | "FAILED" | "SUCCESS" | "CANCELLED";
   /** @default {} */
   metadata?: object;
@@ -778,7 +999,9 @@ export interface AdminTransactionResponseDto {
     | "PROVIDER_PAYOUT_FEE"
     | "ORDER_SERVICE_CHARGE"
     | "PLATFORM_TRANSFER"
-    | "TEST_FUNDING";
+    | "TEST_FUNDING"
+    | "HANDOFF_BONUS"
+    | "HANDOFF_COMPENSATION";
   status: "PROCESSING" | "FAILED" | "SUCCESS" | "CANCELLED";
   /** @default {} */
   metadata?: object;
@@ -1044,6 +1267,24 @@ export interface AchievementDto {
 export interface AchievementsResponseDto {
   results: AchievementDto[];
   unlockedCount: number;
+}
+
+export interface RiderRequestStatsDto {
+  /** Orders the rider took in the window (accepted or offer accepted): performance.orders */
+  accepted: number;
+  /** Order requests the rider passed on ("Not now") in the window */
+  passed: number;
+  /** % of decided requests the rider took, accepted / (accepted + passed), one decimal; null when both are 0 */
+  acceptanceRate: number | null;
+}
+
+export interface RiderAdminInsightsOverviewResponseDto {
+  range: InsightsRangeDto;
+  earnings: EarningsSummaryDto;
+  performance: PerformanceSummaryDto;
+  activity: ActivitySummaryDto;
+  goal: GoalSummaryDto;
+  requests: RiderRequestStatsDto;
 }
 
 export interface CancellationReasonDto {
@@ -2430,6 +2671,145 @@ export interface OrderLastRiderRelease {
   at: string;
 }
 
+export interface OrderRiderChange {
+  /** @format date-time */
+  at: string;
+  /** The new rider's first name */
+  riderFirstname: string;
+}
+
+export enum HandoffStatus {
+  AWAITING_SUPPORT = "AWAITING_SUPPORT",
+  SEARCHING = "SEARCHING",
+  ACCEPTED = "ACCEPTED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+  EXPIRED = "EXPIRED",
+}
+
+/** FROM: you are handing over. TO: taking */
+export enum HandoffRole {
+  FROM = "FROM",
+  TO = "TO",
+}
+
+export enum HandoffReason {
+  BIKE_PROBLEM = "BIKE_PROBLEM",
+  STOPPED_BY_OFFICIALS = "STOPPED_BY_OFFICIALS",
+  ACCIDENT = "ACCIDENT",
+  EMERGENCY = "EMERGENCY",
+  OTHER = "OTHER",
+}
+
+export enum HandoffInitiator {
+  RIDER = "RIDER",
+  ADMIN = "ADMIN",
+}
+
+export interface HandoffViewPoint {
+  latitude: number;
+  longitude: number;
+}
+
+export interface HandoffViewRider {
+  id: string;
+  firstname: string;
+  lastname: string;
+  /** Only once the handoff is accepted, and only to the two riders in it */
+  phone?: string;
+  photo?: string;
+}
+
+export interface HandoffViewStop {
+  type: "PICKUP" | "DROPOFF";
+  address: string;
+}
+
+export interface HandoffEarningEstimate {
+  /** Estimated share of the trip fee (sub-units, before commission) */
+  share: number;
+  /** Handoff bonus (sub-units, no commission) */
+  bonus: number;
+}
+
+export interface HandoffViewDto {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  status: HandoffStatus;
+  /** FROM: you are handing over. TO: taking */
+  role: HandoffRole;
+  reason: HandoffReason;
+  note?: string;
+  initiatedBy: HandoffInitiator;
+  /** The 4-digit swap code. FROM only, and only while ACCEPTED */
+  code?: string;
+  /** Where to meet: the handing-over rider's position */
+  meetPoint: HandoffViewPoint;
+  /** Metres between the two riders now (once accepted) */
+  distanceBetweenM?: number;
+  /** Ring and nearby list only: km from you to the meeting point */
+  distanceKm?: number;
+  fromRider: HandoffViewRider;
+  toRider?: HandoffViewRider;
+  searchRadiusKm: number;
+  /** @format date-time */
+  searchingSince?: string;
+  /** @format date-time */
+  expiresAt?: string;
+  /** @format date-time */
+  acceptedAt?: string;
+  /** @format date-time */
+  completedAt?: string;
+  /** TO, while ACCEPTED: wrong codes left before the lock */
+  attemptsLeft?: number;
+  /**
+   * The swap is locked until then (too many wrong codes)
+   * @format date-time
+   */
+  lockedUntil?: string;
+  stopsRemaining: number;
+  remainingStops: HandoffViewStop[];
+  /** FROM: estimated share if the swap happened here (sub-units) */
+  fromShareEstimate?: number;
+  /** TO: estimated share and bonus */
+  toEarningEstimate?: HandoffEarningEstimate;
+  /** FROM's locked share after COMPLETED (sub-units) */
+  fromShare?: number;
+  /** TO's locked share after COMPLETED (sub-units) */
+  toShare?: number;
+  /** Bonus for the taking rider (sub-units) */
+  bonusAmount: number;
+  /** TO only (sub-units). While ACCEPTED: what you're paid for the trip if the handoff is called off before the swap. After it was called off: what you were paid. */
+  compensationAmount?: number;
+  /** FROM: nobody has taken it for a while and support was alerted; show "Chat with support" */
+  needsSupport?: boolean;
+}
+
+/** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+export enum OrderStackMode {
+  ON_THE_WAY = "ON_THE_WAY",
+  NEXT_NEARBY = "NEXT_NEARBY",
+}
+
+export interface OrderStackPosition {
+  /** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+  mode?: OrderStackMode;
+  /** Deliveries the rider is finishing before this order (at least 1) */
+  stopsFirst: number;
+  /** True once every pickup of this order is done (it is on the rider's bike) */
+  pickedUp: boolean;
+}
+
+export interface OrderChatStateDto {
+  /** Messages from the other person you have not read yet */
+  unread: number;
+  /** A rider is on the order and it is not over: messages can be sent */
+  open: boolean;
+  /** You can send now (show the composer) */
+  canSend: boolean;
+}
+
 export interface Order {
   userId?: string;
   riderId?: string;
@@ -2544,6 +2924,26 @@ export interface Order {
   releaseFreeUntil?: string | null;
   /** Rider view: counted releases the rider has left today */
   releasesLeftToday?: number;
+  handoffCount?: number;
+  /** Every time the order moved to another rider after pickup, oldest first */
+  riderChanges?: OrderRiderChange[];
+  /** Rider view: picked up and on the way, so the rider may hand it to another rider */
+  canHandoff?: boolean;
+  /** Rider view: the live (or latest) handoff on this order involving you, or null */
+  handoff?: HandoffViewDto | null;
+  /** Stacking: the orders the rider was already carrying when this order was assigned to them */
+  stackedWithOrderIds?: string[];
+  /**
+   * Stacking: when this order was assigned on top of other orders
+   * @format date-time
+   */
+  stackedAt?: string;
+  /** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+  stackMode?: OrderStackMode;
+  /** Stacking: present while deliveries the rider took before this order are still under way (stopsFirst of them come first). Absent otherwise */
+  stack?: OrderStackPosition;
+  /** The order chat for you: unread count and whether it is open. Null when the order has no chat */
+  chat?: OrderChatStateDto | null;
   paymentToken?: string;
   externalPaymentReference?: string;
   externalPaymentUrl?: string;
@@ -3561,6 +3961,26 @@ export interface OrderListItemResponseDto {
   releaseFreeUntil?: string | null;
   /** Rider view: counted releases the rider has left today */
   releasesLeftToday?: number;
+  handoffCount?: number;
+  /** Every time the order moved to another rider after pickup, oldest first */
+  riderChanges?: OrderRiderChange[];
+  /** Rider view: picked up and on the way, so the rider may hand it to another rider */
+  canHandoff?: boolean;
+  /** Rider view: the live (or latest) handoff on this order involving you, or null */
+  handoff?: HandoffViewDto | null;
+  /** Stacking: the orders the rider was already carrying when this order was assigned to them */
+  stackedWithOrderIds?: string[];
+  /**
+   * Stacking: when this order was assigned on top of other orders
+   * @format date-time
+   */
+  stackedAt?: string;
+  /** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+  stackMode?: OrderStackMode;
+  /** Stacking: present while deliveries the rider took before this order are still under way (stopsFirst of them come first). Absent otherwise */
+  stack?: OrderStackPosition;
+  /** The order chat for you: unread count and whether it is open. Null when the order has no chat */
+  chat?: OrderChatStateDto | null;
   paymentToken?: string;
   externalPaymentReference?: string;
   externalPaymentUrl?: string;
@@ -4165,6 +4585,26 @@ export interface ForceAssignRiderResponseDto {
   releaseFreeUntil?: string | null;
   /** Rider view: counted releases the rider has left today */
   releasesLeftToday?: number;
+  handoffCount?: number;
+  /** Every time the order moved to another rider after pickup, oldest first */
+  riderChanges?: OrderRiderChange[];
+  /** Rider view: picked up and on the way, so the rider may hand it to another rider */
+  canHandoff?: boolean;
+  /** Rider view: the live (or latest) handoff on this order involving you, or null */
+  handoff?: HandoffViewDto | null;
+  /** Stacking: the orders the rider was already carrying when this order was assigned to them */
+  stackedWithOrderIds?: string[];
+  /**
+   * Stacking: when this order was assigned on top of other orders
+   * @format date-time
+   */
+  stackedAt?: string;
+  /** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+  stackMode?: OrderStackMode;
+  /** Stacking: present while deliveries the rider took before this order are still under way (stopsFirst of them come first). Absent otherwise */
+  stack?: OrderStackPosition;
+  /** The order chat for you: unread count and whether it is open. Null when the order has no chat */
+  chat?: OrderChatStateDto | null;
   paymentToken?: string;
   externalPaymentReference?: string;
   externalPaymentUrl?: string;
@@ -4186,6 +4626,25 @@ export interface NearbyRidersCountResponseDto {
   nearestKm: number | null;
   /** True when served from the 60 s cache */
   cached: boolean;
+}
+
+export interface RiderOrderStackingDto {
+  /** True when a busy rider may still take an order that is on their way (ON_THE_WAY: stackingEnabled, and maxStackedOrders above max) */
+  enabled: boolean;
+  /** True when a busy rider finishing nearby may take their next job (NEXT_NEARBY: nextNearbyEnabled, and maxStackedOrders above max) */
+  nextNearby: boolean;
+  /** Most orders a rider may hold when stacking (maxStackedOrders: 2 or 3) */
+  maxOrders: number;
+}
+
+export interface RiderOrderCapacityResponseDto {
+  /** Orders the rider is handling now (accepted or on the way) */
+  active: number;
+  /** Most orders a rider may handle at once (the state's maxActiveOrders, at least 1) */
+  max: number;
+  /** True when active has reached max: bids are refused with RIDER_BUSY until one is done, except on an order that stacks for you (on your way, or next job) when stacking is on */
+  busy: boolean;
+  stacking: RiderOrderStackingDto;
 }
 
 export interface ArrivalCheckResponseDto {
@@ -4272,10 +4731,20 @@ export interface CancelLocationRequestDto {
 
 export interface RescheduleOrderRequestDto {
   /**
-   * The new pickup time: at least 1 hour away and at most 30 days ahead.
-   * @example "2026-11-12T09:30:00Z"
+   * New scheduled time (ISO). At least 1 h from now, at most 30 days ahead.
+   * @format date-time
    */
-  scheduled_for: string;
+  scheduledFor: string;
+  /**
+   * New title for the schedule
+   * @maxLength 60
+   */
+  title?: string;
+  /**
+   * New colour tag for the calendar
+   * @maxLength 20
+   */
+  color?: string;
 }
 
 /** @default "USER" */
@@ -4286,11 +4755,9 @@ export enum CancelledBy {
 }
 
 export interface CancelOrderRequestDto {
-  /**
-   * @maxLength 500
-   * @example "The customer cancelled"
-   */
-  reason?: string;
+  reason: string;
+  cancelledBy?: CancelledBy;
+  customerRefundMode?: "wallet" | "card";
 }
 
 export interface MakeOfferRequestDto {
@@ -4390,6 +4857,163 @@ export interface CompleteLocationRequestDto {
   recipientPhone?: string;
 }
 
+export interface QueuedOrderStackFitDto {
+  /** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+  mode: OrderStackMode;
+  /** True for ON_THE_WAY (on the way to a drop-off you already carry), false for NEXT_NEARBY */
+  onTheWay: boolean;
+  /** ON_THE_WAY only: km from this order's drop-off to your nearest current drop-off */
+  dropoffGapKm?: number;
+  /** ON_THE_WAY only: extra km the pickup adds to your way to your current drop-off */
+  detourKm?: number;
+  /** NEXT_NEARBY only: km from this order's pickup to your last remaining drop-off */
+  pickupGapKm?: number;
+}
+
+export interface QueuedOrderResponseDto {
+  userId?: string;
+  riderId?: string;
+  eligibleRiderIds?: string[];
+  vehicleId?: string;
+  couponId?: string;
+  businessId?: string;
+  teamId?: string;
+  /** @default true */
+  livemode?: boolean;
+  reference?: string;
+  metadata?: object;
+  quoteId?: string;
+  developerDispatch?: "auto" | "manual";
+  /** @format date-time */
+  developerDispatchedAt?: string;
+  testOptions?: object;
+  developerBidding?: object;
+  transactionIds?: string[];
+  type: "SINGLE" | "BATCH" | "BULK";
+  /** @default "INITIATED" */
+  status: "INITIATED" | "ACCEPTED" | "ON_GOING" | "COMPLETED" | "CANCELLED";
+  /** @default "PENDING" */
+  paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+  cancelledBy?: "USER" | "RIDER" | "ADMIN";
+  /** @default 0 */
+  totalAmount?: number;
+  /** @default 0 */
+  discount?: number;
+  /** @default 0 */
+  discountAmount?: number;
+  /** @default "PERCENTAGE" */
+  discountType?: "FIXED" | "PERCENTAGE";
+  /** @default 0 */
+  serviceCharge?: number;
+  /** @default 0 */
+  totalAmountPayable?: number;
+  totalLocations: number;
+  /** @default 0 */
+  confirmedLocations?: number;
+  /** @default 0 */
+  cancelledLocations?: number;
+  /** @default 0 */
+  ongoingLocations?: number;
+  /** @format date-time */
+  startedAt?: string;
+  /** @format date-time */
+  paidDate?: string;
+  /** @format date-time */
+  acceptedAt?: string;
+  /** @format date-time */
+  completedAt?: string;
+  /** @format date-time */
+  cancelledAt?: string;
+  cancellationReason?: string;
+  locations?: OrderLocation[];
+  orderNumber: string;
+  /** @default false */
+  isScheduled: boolean;
+  /** @default false */
+  autoAcceptOffer: boolean;
+  /** @default 0 */
+  minimumOfferPercentage: number;
+  /** @default 40 */
+  maxRiderSurgePercentage: number;
+  negotiatedAmount: number;
+  offers: Offer[];
+  locationUpdates?: OrderLocationUpdate[];
+  currency: string;
+  /** @format date-time */
+  scheduledFor?: string;
+  countryCode?: string;
+  stateCode?: string;
+  /** @format date-time */
+  scheduleDispatchedAt?: string;
+  /** @format date-time */
+  scheduleLastRungAt?: string;
+  scheduleRingCount?: number;
+  scheduleRemindersSent?: string[];
+  color?: string;
+  title?: string;
+  isQueued?: boolean;
+  /** @format date-time */
+  queuedAt?: string;
+  business?: Business;
+  user?: User;
+  vehicle?: Vehicle;
+  rider?: User;
+  coupon?: Coupon;
+  transactions?: Transaction[];
+  review?: Review;
+  channel?: string;
+  storefrontVendorId?: string;
+  /** @default 0 */
+  foodValue?: number;
+  /** @default 0 */
+  vendorCommissionRate?: number;
+  callbackUrl?: string;
+  dispatchState?: object;
+  /** @format date-time */
+  tripPaidAt?: string;
+  tripPayRiderId?: string;
+  tripPayAmount?: number;
+  riderReleaseCount?: number;
+  lastRiderRelease?: OrderLastRiderRelease;
+  /** Rider view: the order is accepted and the pickup is not done, so the rider may release it */
+  canRelease?: boolean;
+  /**
+   * Rider view: until when a release is free (2 minutes after accepting); null once it counts, including as soon as the rider has arrived at the pickup
+   * @format date-time
+   */
+  releaseFreeUntil?: string | null;
+  /** Rider view: counted releases the rider has left today */
+  releasesLeftToday?: number;
+  handoffCount?: number;
+  /** Every time the order moved to another rider after pickup, oldest first */
+  riderChanges?: OrderRiderChange[];
+  /** Rider view: picked up and on the way, so the rider may hand it to another rider */
+  canHandoff?: boolean;
+  /** Rider view: the live (or latest) handoff on this order involving you, or null */
+  handoff?: HandoffViewDto | null;
+  /** Stacking: the orders the rider was already carrying when this order was assigned to them */
+  stackedWithOrderIds?: string[];
+  /**
+   * Stacking: when this order was assigned on top of other orders
+   * @format date-time
+   */
+  stackedAt?: string;
+  /** Stacking: the mode that let the rider take this order on top of others. Unset when they held other orders but simply had room under maxActiveOrders */
+  stackMode?: OrderStackMode;
+  /** The order chat for you: unread count and whether it is open. Null when the order has no chat */
+  chat?: OrderChatStateDto | null;
+  paymentToken?: string;
+  externalPaymentReference?: string;
+  externalPaymentUrl?: string;
+  _id: string;
+  /** @format date-time */
+  createdAt: string;
+  /** @format date-time */
+  updatedAt: string;
+  /** Only for a rider at their active-order cap: present when this order stacks for them (on their way, or next job near where they finish), absent otherwise */
+  stack?: QueuedOrderStackFitDto;
+}
+
 export interface ListOrderResponseDto {
   nextPage?: number | null;
   previousPage?: number | null;
@@ -4398,6 +5022,99 @@ export interface ListOrderResponseDto {
   perPageLimit: number;
   totalRecords: number;
   totalPages: number;
+}
+
+export interface RiderRequestHandoffRequestDto {
+  reason: HandoffReason;
+  /**
+   * Optional note for support
+   * @maxLength 300
+   */
+  note?: string;
+  /**
+   * Where the rider is now (the meeting point)
+   * @example 6.4584
+   */
+  latitude: number;
+  /** @example 7.5464 */
+  longitude: number;
+}
+
+export interface RiderStartHandoffSearchRequestDto {
+  /**
+   * The rider's position now, if the app has it
+   * @example 6.4584
+   */
+  latitude?: number;
+  /** @example 7.5464 */
+  longitude?: number;
+}
+
+export interface RiderCancelHandoffRequestDto {
+  /**
+   * Optional note
+   * @maxLength 300
+   */
+  note?: string;
+}
+
+export interface RiderAcceptHandoffRequestDto {
+  /**
+   * The rider's position now, if the app has it
+   * @example 6.4584
+   */
+  latitude?: number;
+  /** @example 7.5464 */
+  longitude?: number;
+}
+
+export interface RiderDeclineHandoffRequestDto {
+  /**
+   * Optional note
+   * @maxLength 300
+   */
+  note?: string;
+}
+
+export interface RiderDeclineHandoffResponseDto {
+  handoffId: string;
+  orderId: string;
+  /** Always true: you will not be rung for this handoff again */
+  declined: boolean;
+}
+
+export interface RiderConfirmHandoffRequestDto {
+  /**
+   * The 4-digit code on the handing-over rider’s screen
+   * @pattern /^\d{4}$/
+   * @example "4821"
+   */
+  code: string;
+  /** @example 6.4584 */
+  latitude: number;
+  /** @example 7.5464 */
+  longitude: number;
+}
+
+/** Where the rider passed: the ring pop-up (RING) or their order queue (QUEUE) */
+export enum RiderPassSource {
+  RING = "RING",
+  QUEUE = "QUEUE",
+}
+
+export interface RiderPassOrderRequestDto {
+  /** Where the rider passed: the ring pop-up (RING) or their order queue (QUEUE) */
+  source?: RiderPassSource;
+}
+
+export interface RiderPassOrderResponseDto {
+  /** The order the rider passed on */
+  orderId: string;
+  /**
+   * Always true: the pass is recorded (a repeat pass changes nothing)
+   * @example true
+   */
+  passed: boolean;
 }
 
 /** Manual admin status override (audited). */
@@ -4476,6 +5193,114 @@ export interface AdminOrderRiderHistoryResponseDto {
   stints: OrderRiderStintDto[];
 }
 
+export interface AdminHandoffRiderDto {
+  id: string;
+  firstname?: string;
+  lastname?: string;
+  phone?: string;
+  photo?: string;
+}
+
+export enum HandoffEndedBy {
+  RIDER = "RIDER",
+  ADMIN = "ADMIN",
+  SYSTEM = "SYSTEM",
+}
+
+export enum HandoffBonusStatus {
+  PENDING = "PENDING",
+  HELD = "HELD",
+  PAID = "PAID",
+  FORFEITED = "FORFEITED",
+  VOID = "VOID",
+}
+
+export enum HandoffFlag {
+  REPEAT7D = "REPEAT_7D",
+  SAME_PAIR = "SAME_PAIR",
+  GPS_FAR = "GPS_FAR",
+  CODE_ATTEMPTS = "CODE_ATTEMPTS",
+}
+
+export enum HandoffCountDecision {
+  PENDING_REVIEW = "PENDING_REVIEW",
+  RULE_WAIVED = "RULE_WAIVED",
+  RULE_COUNTED = "RULE_COUNTED",
+  COUNTED = "COUNTED",
+  WAIVED = "WAIVED",
+}
+
+export interface AdminHandoffDto {
+  id: string;
+  orderId: string;
+  orderNumber?: string;
+  /** VENDOR_STOREFRONT, CUSTOMER_WEB, or none for the app */
+  channel?: string;
+  /** 1 for the first handoff on the order, 2 for the next */
+  sequence: number;
+  status: HandoffStatus;
+  reason: HandoffReason;
+  note?: string;
+  initiatedBy: HandoffInitiator;
+  fromRider: AdminHandoffRiderDto;
+  toRider?: AdminHandoffRiderDto;
+  meetPoint?: HandoffViewPoint;
+  searchRadiusKm: number;
+  /** Riders rung so far */
+  rungCount: number;
+  declinedCount: number;
+  /** Accepted riders staff dropped as no-shows */
+  droppedRiderIds: string[];
+  /** @format date-time */
+  createdAt: string;
+  /** @format date-time */
+  searchingSince?: string;
+  /** @format date-time */
+  expiresAt?: string;
+  /** @format date-time */
+  acceptedAt?: string;
+  /** @format date-time */
+  completedAt?: string;
+  /** @format date-time */
+  endedAt?: string;
+  endedBy?: HandoffEndedBy;
+  endNote?: string;
+  failedAttempts: number;
+  /** @format date-time */
+  lockedUntil?: string;
+  /** Metres between the riders at the swap */
+  confirmDistanceM?: number;
+  /** What the swap split (sub-units) */
+  splitBase?: number;
+  distanceCoveredKm?: number;
+  totalRouteKm?: number;
+  /** The handing-over rider's share (%), after the clamp */
+  sharePct?: number;
+  /** Sub-units, gross (commission applies when paid) */
+  fromShare?: number;
+  /** Sub-units, gross (commission applies when paid) */
+  toShare?: number;
+  /** Sub-units, no commission */
+  bonusAmount: number;
+  bonusStatus: HandoffBonusStatus;
+  /** @format date-time */
+  bonusPaidAt?: string;
+  /** Paid to the taking rider when the handoff was called off */
+  compensationAmount?: number;
+  /** @format date-time */
+  compensationPaidAt?: string;
+  flags: HandoffFlag[];
+  countRule?: HandoffCountDecision;
+  countDecision?: HandoffCountDecision;
+  /** Final: counts as the handing-over rider's cancellation */
+  counted: boolean;
+  reviewedBy?: string | null;
+  /** @format date-time */
+  reviewedAt?: string;
+  reviewResolution?: "ADMIN" | "AUTO";
+  reviewNote?: string;
+}
+
 export interface AdminCancelOrderRequestDto {
   /** Reason for cancelling the order (audited, refunds the customer). */
   reason: string;
@@ -4527,6 +5352,377 @@ export interface AdminRiderReleasesResponseDto {
   releasesLeftToday: number;
   /** Newest first, at most 100 */
   releases: RiderReleaseItemDto[];
+}
+
+export interface AdminListHandoffsResponseDto {
+  nextPage?: number | null;
+  previousPage?: number | null;
+  currentPage: number;
+  results: AdminHandoffDto[];
+  perPageLimit: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+export interface AdminHandoffsSummaryResponseDto {
+  /** Live searches */
+  searching: number;
+  /** Accident handoffs waiting for support to start the search */
+  awaitingSupport: number;
+  /** A rider accepted and is on the way to the swap */
+  accepted: number;
+  /** Completed handoffs waiting for a count decision */
+  pendingReview: number;
+  /** Bonuses held for review */
+  heldBonuses: number;
+  /** Swaps completed since Lagos midnight */
+  completedToday: number;
+}
+
+export interface AdminStartHandoffRequestDto {
+  /** The order (on the way, picked up) */
+  orderId: string;
+  reason: HandoffReason;
+  /** @maxLength 300 */
+  note?: string;
+}
+
+export enum HandoffReviewDecision {
+  COUNT = "COUNT",
+  WAIVE = "WAIVE",
+}
+
+/** For a HELD bonus: pay it (RELEASE) or drop it (FORFEIT). Omit to leave it held */
+export enum HandoffBonusAction {
+  RELEASE = "RELEASE",
+  FORFEIT = "FORFEIT",
+}
+
+export interface AdminBulkReviewHandoffsRequestDto {
+  decision: HandoffReviewDecision;
+  /** For a HELD bonus: pay it (RELEASE) or drop it (FORFEIT). Omit to leave it held */
+  bonus?: HandoffBonusAction;
+  /** @maxLength 300 */
+  note?: string;
+  /** @maxItems 100 */
+  ids: string[];
+}
+
+export interface AdminBulkReviewHandoffResultDto {
+  id: string;
+  ok: boolean;
+  error?: string;
+}
+
+export interface AdminBulkReviewHandoffsResponseDto {
+  updated: number;
+  results: AdminBulkReviewHandoffResultDto[];
+}
+
+export interface AdminStartHandoffSearchRequestDto {
+  /** @maxLength 300 */
+  note?: string;
+}
+
+export interface AdminAssignHandoffRiderRequestDto {
+  riderId: string;
+}
+
+export interface AdminCancelHandoffRequestDto {
+  /** @maxLength 300 */
+  note?: string;
+}
+
+export interface AdminDropHandoffRiderRequestDto {
+  /** @maxLength 300 */
+  note?: string;
+}
+
+export interface AdminRaiseHandoffBonusRequestDto {
+  /**
+   * The new bonus (sub-units). Must be higher than the current one
+   * @min 1
+   * @max 10000000
+   * @example 50000
+   */
+  amount: number;
+}
+
+export interface AdminReviewHandoffRequestDto {
+  decision: HandoffReviewDecision;
+  /** For a HELD bonus: pay it (RELEASE) or drop it (FORFEIT). Omit to leave it held */
+  bonus?: HandoffBonusAction;
+  /** @maxLength 300 */
+  note?: string;
+}
+
+export enum AdminAlertSeverity {
+  URGENT = "URGENT",
+  HIGH = "HIGH",
+}
+
+export enum AdminAlertStatus {
+  OPEN = "OPEN",
+  CLAIMED = "CLAIMED",
+  RESOLVED = "RESOLVED",
+}
+
+export enum AdminAlertResolution {
+  AUTO = "AUTO",
+  ADMIN = "ADMIN",
+}
+
+export interface AdminAlertDto {
+  id: string;
+  /** HANDOFF_ACCIDENT, HANDOFF_NO_RIDER, HANDOFF_CODE_LOCKOUT, RIDER_FREQUENT_RELEASES, RIDER_AUTO_PAUSED (open list) */
+  type: string;
+  severity: AdminAlertSeverity;
+  status: AdminAlertStatus;
+  title: string;
+  message: string;
+  /** How many times the same problem was raised while this alert was live */
+  occurrences: number;
+  /** @format date-time */
+  lastOccurredAt?: string;
+  orderId?: string;
+  orderNumber?: string;
+  handoffId?: string;
+  riderId?: string;
+  riderName?: string;
+  claimedBy?: string;
+  /** @format date-time */
+  claimedAt?: string;
+  /** Null when resolved automatically */
+  resolvedBy?: string | null;
+  /** @format date-time */
+  resolvedAt?: string;
+  resolution?: AdminAlertResolution;
+  resolutionNote?: string;
+  /**
+   * When the alert was escalated to the support WhatsApp number
+   * @format date-time
+   */
+  escalatedAt?: string;
+  /** @format date-time */
+  createdAt: string;
+}
+
+export interface AdminListAlertsResponseDto {
+  nextPage?: number | null;
+  previousPage?: number | null;
+  currentPage: number;
+  results: AdminAlertDto[];
+  perPageLimit: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+export interface AdminAlertTypeCountDto {
+  type: string;
+  severity: AdminAlertSeverity;
+  open: number;
+  claimed: number;
+}
+
+export interface AdminAlertsSummaryResponseDto {
+  /** Unclaimed live alerts */
+  open: number;
+  /** Claimed, not yet resolved */
+  claimed: number;
+  /** Live URGENT alerts (open or claimed) */
+  urgent: number;
+  /** Live HIGH alerts (open or claimed) */
+  high: number;
+  byType: AdminAlertTypeCountDto[];
+}
+
+export interface AdminResolveAlertRequestDto {
+  /**
+   * What was done
+   * @maxLength 500
+   */
+  note?: string;
+}
+
+export enum ChatParticipantRole {
+  CUSTOMER = "CUSTOMER",
+  RIDER = "RIDER",
+}
+
+export enum ChatClosedReason {
+  ENDED = "ENDED",
+  NOT_ELIGIBLE = "NOT_ELIGIBLE",
+  NO_RIDER = "NO_RIDER",
+}
+
+export interface ChatParticipantDto {
+  id: string;
+  firstname: string;
+  lastname: string;
+  photo?: string;
+  role: ChatParticipantRole;
+}
+
+export interface ChatQuickReplyDto {
+  /**
+   * Send it back as quickReplyKey
+   * @example "OUTSIDE"
+   */
+  key: string;
+  /** @example "I'm outside" */
+  text: string;
+  /** Put the text in the message box for the user to finish, instead of sending it */
+  prefill?: boolean;
+}
+
+export interface ChatThreadDto {
+  orderId: string;
+  orderNumber: string;
+  me: ChatParticipantRole;
+  /** Show the message box */
+  canSend: boolean;
+  /** A rider is on the order and it is not over */
+  open: boolean;
+  /**
+   * The order ended: the chat can be read until then, and is closed after
+   * @format date-time
+   */
+  readOnlyUntil?: string;
+  closedReason?: ChatClosedReason;
+  /** The person you chat with: the current rider, or the customer. Null while there is no rider */
+  other: ChatParticipantDto | null;
+  /** The seq of the latest message (0: none yet) */
+  lastSeq: number;
+  myLastReadSeq: number;
+  /** Seen ticks: the other side has read up to this seq */
+  otherLastReadSeq: number;
+  /** Messages from the other side you have not read */
+  unread: number;
+  /** Chips for your role. Empty when you cannot send */
+  quickReplies: ChatQuickReplyDto[];
+}
+
+export enum OrderMessageKind {
+  TEXT = "TEXT",
+  SYSTEM = "SYSTEM",
+}
+
+export enum ChatSenderRole {
+  CUSTOMER = "CUSTOMER",
+  RIDER = "RIDER",
+  SYSTEM = "SYSTEM",
+}
+
+export enum ChatSystemKey {
+  RIDER_ASSIGNED = "RIDER_ASSIGNED",
+  RIDER_ARRIVED_PICKUP = "RIDER_ARRIVED_PICKUP",
+  PICKED_UP = "PICKED_UP",
+  RIDER_ARRIVED_DROPOFF = "RIDER_ARRIVED_DROPOFF",
+  DELIVERED = "DELIVERED",
+  CANCELLED = "CANCELLED",
+  RIDER_CHANGED = "RIDER_CHANGED",
+}
+
+export interface OrderMessageDto {
+  id: string;
+  orderId: string;
+  /** Per-order position: 1, 2, 3... Render by it; a gap means catch up */
+  seq: number;
+  kind: OrderMessageKind;
+  senderRole: ChatSenderRole;
+  /** Unset for SYSTEM lines */
+  senderId?: string;
+  /** You sent it. REST only: socket messages leave it out, compare senderId with your id */
+  mine: boolean;
+  body: string;
+  quickReplyKey?: string;
+  systemKey?: ChatSystemKey;
+  /** The id your app gave the message */
+  clientId?: string;
+  /** @format date-time */
+  createdAt: string;
+}
+
+export interface ListOrderMessagesResponseDto {
+  /** Ascending by seq */
+  messages: OrderMessageDto[];
+  /** More in the same direction: older for the latest page and `before`, newer for `after` */
+  hasMore: boolean;
+}
+
+export interface SendOrderMessageRequestDto {
+  /**
+   * A UUID the app makes once per message and reuses on every retry of it
+   * @example "0b8a5d2e-4c1f-4f7a-9a43-6f1e2d9c7b10"
+   */
+  clientId: string;
+  /**
+   * 1 to 500 characters after trimming. Control characters are removed and 3+ line breaks become 2
+   * @maxLength 2000
+   * @example "I'm outside"
+   */
+  body: string;
+  /**
+   * The quick reply chip this came from (analytics only; body is the text shown)
+   * @pattern /^[A-Z0-9_]{1,40}$/
+   * @example "OUTSIDE"
+   */
+  quickReplyKey?: string;
+}
+
+export interface MarkOrderMessagesReadRequestDto {
+  /**
+   * The highest seq you have seen
+   * @min 0
+   * @example 12
+   */
+  upToSeq: number;
+}
+
+export interface MarkOrderMessagesReadResponseDto {
+  /** Your read marker now (never lower than before) */
+  upToSeq: number;
+}
+
+export interface AdminChatParticipantDto {
+  id: string;
+  firstname: string;
+  lastname: string;
+  photo?: string;
+  role: ChatParticipantRole;
+  phone?: string;
+  /** The order customer, or its rider now */
+  current: boolean;
+}
+
+export interface AdminOrderChatThreadDto {
+  orderId: string;
+  orderNumber: string;
+  /** A customer-app, live order: it has a chat */
+  eligible: boolean;
+  open: boolean;
+  closedReason?: ChatClosedReason;
+  /** @format date-time */
+  readOnlyUntil?: string;
+  lastSeq: number;
+  customerLastReadSeq: number;
+  riderLastReadSeq: number;
+  /** @format date-time */
+  lastMessageAt?: string;
+  /** @format date-time */
+  closedAt?: string;
+  /** @format date-time */
+  createdAt?: string;
+  /** The customer and every rider who was on the order (oldest first) */
+  participants: AdminChatParticipantDto[];
+}
+
+export interface AdminOrderChatResponseDto {
+  thread: AdminOrderChatThreadDto;
+  /** Ascending by seq. `mine` is always false here */
+  messages: OrderMessageDto[];
+  /** Only the newest 1,000 messages are included */
+  truncated: boolean;
 }
 
 export interface AuditLog {
@@ -5447,7 +6643,8 @@ export interface StopInputDto {
    * @example "1 Admiralty Way, Lekki, Lagos"
    */
   address: string;
-  contact: StopContactDto;
+  /** Who the rider meets. Required at every drop-off, and at the pickup of a batch. A single or bulk pickup may leave it out: an errand, where the rider buys or collects from a shop with no one to call. */
+  contact?: StopContactDto;
   /**
    * @maxLength 500
    * @example "Gate 3, ask for Bola"
@@ -5489,8 +6686,11 @@ export interface QuoteStopDto {
   address: string;
   lat: number;
   lng: number;
-  /** @example {"name":"Bola Ade","phone":"+2348031234567"} */
-  contact: object;
+  /**
+   * Null at an errand pickup with no one to meet.
+   * @example {"name":"Bola Ade","phone":"+2348031234567"}
+   */
+  contact: object | null;
   instructions: string | null;
   /** @example {"description":"Shoes","value":2500000} */
   package: object | null;
@@ -5836,6 +7036,22 @@ export interface PublicOrderDto {
   livemode: boolean;
   created: string;
   updated: string;
+}
+
+export interface DeveloperCancelOrderRequestDto {
+  /**
+   * @maxLength 500
+   * @example "The customer cancelled"
+   */
+  reason?: string;
+}
+
+export interface DeveloperRescheduleOrderRequestDto {
+  /**
+   * The new pickup time: at least 1 hour away and at most 30 days ahead.
+   * @example "2026-11-12T09:30:00Z"
+   */
+  scheduled_for: string;
 }
 
 export interface UpdateStopContactDto {
@@ -7427,7 +8643,7 @@ export interface AdminGetRiderInsightsOverviewParams {
   riderId: string;
 }
 
-export type AdminGetRiderInsightsOverviewData = InsightsOverviewResponseDto;
+export type AdminGetRiderInsightsOverviewData = RiderAdminInsightsOverviewResponseDto;
 
 export interface AdminGetRiderEarningsSeriesParams {
   /**
@@ -8178,6 +9394,8 @@ export interface GetNearbyRidersCountParams {
 
 export type GetNearbyRidersCountData = NearbyRidersCountResponseDto;
 
+export type RiderOrderCapacityData = RiderOrderCapacityResponseDto;
+
 export type GetArrivalCheckData = ArrivalCheckResponseDto;
 
 export type GetRidersLeaderboardData = RiderListItemResponseDto[];
@@ -8254,7 +9472,7 @@ export type CompleteOrderData = Order;
 
 export type QueueOrderData = Order;
 
-export type GetQueuedOrdersData = Order[];
+export type GetQueuedOrdersData = QueuedOrderResponseDto[];
 
 export type GetActiveOffersData = Offer[];
 
@@ -8323,6 +9541,26 @@ export interface GetOrderTypeChartParams {
 
 export type GetOrderTypeChartData = GetOrderTypeChartResponseDto[];
 
+export type RiderNearbyHandoffsData = HandoffViewDto[];
+
+export type RiderMyHandoffsData = HandoffViewDto[];
+
+export type RiderRequestHandoffData = HandoffViewDto;
+
+export type RiderGetHandoffData = HandoffViewDto;
+
+export type RiderStartHandoffSearchData = HandoffViewDto;
+
+export type RiderCancelHandoffData = HandoffViewDto;
+
+export type RiderAcceptHandoffData = HandoffViewDto;
+
+export type RiderDeclineHandoffData = RiderDeclineHandoffResponseDto;
+
+export type RiderConfirmHandoffData = HandoffViewDto;
+
+export type RiderPassOrderData = RiderPassOrderResponseDto;
+
 export interface GetOrdersParams {
   /** true: only orders a rider was released from at least once (riderReleaseCount > 0) */
   releasedOnly?: boolean;
@@ -8357,6 +9595,8 @@ export type GetOrderOffersData = any;
 
 export type AdminOrderRiderHistoryData = AdminOrderRiderHistoryResponseDto;
 
+export type AdminListOrderHandoffsData = AdminHandoffDto[];
+
 export type RingRidersData = any;
 
 export type AdminCancelOrderData = Order;
@@ -8364,6 +9604,128 @@ export type AdminCancelOrderData = Order;
 export type UpdateOrderStatusData = Order;
 
 export type AdminListRiderReleasesData = AdminRiderReleasesResponseDto;
+
+export interface AdminListHandoffsParams {
+  /**
+   * Comma-separated HandoffStatus values
+   * @example "SEARCHING,ACCEPTED"
+   */
+  status?: string;
+  /** true: only handoffs with review flags */
+  flagged?: "true" | "false";
+  /** pending: waiting for a count decision or holding a bonus */
+  review?: "pending";
+  /** Either rider (handing over or taking) */
+  riderId?: string;
+  /**
+   * Created on or after (ISO date)
+   * @example "2026-11-01"
+   */
+  from?: string;
+  /**
+   * Created on or before (ISO date)
+   * @example "2026-11-30"
+   */
+  to?: string;
+  /**
+   * @min 1
+   * @default 1
+   */
+  page?: number;
+  /**
+   * @min 1
+   * @max 200
+   * @default 50
+   */
+  limit?: number;
+}
+
+export type AdminListHandoffsData = AdminListHandoffsResponseDto;
+
+export type AdminHandoffsSummaryData = AdminHandoffsSummaryResponseDto;
+
+export type AdminStartHandoffData = AdminHandoffDto;
+
+export type AdminBulkReviewHandoffsData = AdminBulkReviewHandoffsResponseDto;
+
+export type AdminGetHandoffData = AdminHandoffDto;
+
+export type AdminStartHandoffSearchData = AdminHandoffDto;
+
+export type AdminAssignHandoffRiderData = AdminHandoffDto;
+
+export type AdminCancelHandoffData = AdminHandoffDto;
+
+export type AdminDropHandoffRiderData = AdminHandoffDto;
+
+export type AdminRaiseHandoffBonusData = AdminHandoffDto;
+
+export type AdminReviewHandoffData = AdminHandoffDto;
+
+export interface AdminListAlertsParams {
+  /**
+   * Comma-separated statuses (OPEN, CLAIMED, RESOLVED). Default: OPEN,CLAIMED
+   * @example "OPEN,CLAIMED"
+   */
+  status?: string;
+  /**
+   * Alert type, e.g. HANDOFF_ACCIDENT
+   * @maxLength 64
+   * @example "HANDOFF_NO_RIDER"
+   */
+  type?: string;
+  /** true: only alerts I claimed */
+  mine?: "true" | "false";
+  /**
+   * @min 1
+   * @default 1
+   */
+  page?: number;
+  /**
+   * @min 1
+   * @max 200
+   * @default 50
+   */
+  limit?: number;
+}
+
+export type AdminListAlertsData = AdminListAlertsResponseDto;
+
+export type AdminAlertsSummaryData = AdminAlertsSummaryResponseDto;
+
+export type AdminClaimAlertData = AdminAlertDto;
+
+export type AdminResolveAlertData = AdminAlertDto;
+
+export type GetOrderChatData = ChatThreadDto;
+
+export interface ListOrderMessagesParams {
+  /**
+   * Messages after this seq (catch-up)
+   * @min 0
+   */
+  after?: number;
+  /**
+   * Messages before this seq (older page)
+   * @min 1
+   */
+  before?: number;
+  /**
+   * @min 1
+   * @max 100
+   * @default 50
+   */
+  limit?: number;
+  orderId: string;
+}
+
+export type ListOrderMessagesData = ListOrderMessagesResponseDto;
+
+export type SendOrderMessageData = OrderMessageDto;
+
+export type MarkOrderMessagesReadData = MarkOrderMessagesReadResponseDto;
+
+export type AdminListOrderMessagesData = AdminOrderChatResponseDto;
 
 export interface FindAllParams {
   order?: "ASC" | "DESC";

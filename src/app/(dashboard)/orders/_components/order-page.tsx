@@ -289,7 +289,9 @@ function StopsCard({ order }: { order: PublicOrderDto }) {
               <div className="min-w-0 flex-1 text-sm">
                 <p className="font-semibold text-fg">{stop.address}</p>
                 <p className="text-fg-muted">
-                  {stop.contact.name} · {formatPhone(stop.contact.phone)}
+                  {stop.contact.phone
+                    ? [stop.contact.name, formatPhone(stop.contact.phone)].filter(Boolean).join(" · ")
+                    : "Errand: no one to meet"}
                 </p>
                 {stop.instructions && <p className="mt-1 text-xs text-fg-subtle">{stop.instructions}</p>}
                 {stop.confirmation_code && (
