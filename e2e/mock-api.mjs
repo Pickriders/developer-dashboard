@@ -685,13 +685,12 @@ const routes = {
   "GET /webhook-endpoints": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "webhooks.read");
     const live = url.searchParams.get("livemode");
-    return [
-      200,
-      t.endpoints
-        .filter((e) => live === null || e.livemode === (live === "true"))
-        .map(presentEndpoint)
-        .reverse(),
-    ];
+    // A list object, as backend-api sends every paginated list.
+    const data = t.endpoints
+      .filter((e) => live === null || e.livemode === (live === "true"))
+      .map(presentEndpoint)
+      .reverse();
+    return [200, { object: "list", data, has_more: false, url: `${D}/webhook-endpoints` }];
   },
   "POST /webhook-endpoints": (req, body) => {
     const { team: t } = requireTeam(req, "webhooks.write");
@@ -749,7 +748,16 @@ const routes = {
     const newest = [...endpoint.deliveries].reverse();
     const after = url.searchParams.get("starting_after");
     const from = after ? newest.findIndex((d) => d.id === after) + 1 : 0;
-    return [200, newest.slice(from, from + Number(url.searchParams.get("limit") ?? 20)).map(presentDelivery)];
+    const limit = Number(url.searchParams.get("limit") ?? 20);
+    return [
+      200,
+      {
+        object: "list",
+        data: newest.slice(from, from + limit).map(presentDelivery),
+        has_more: newest.length > from + limit,
+        url: `${D}/webhook-endpoints/${id}/deliveries`,
+      },
+    ];
   },
   "POST /webhook-endpoints/:id/test": async (req, body, { id }) => {
     const endpoint = findEndpoint(req, id, "webhooks.write");
