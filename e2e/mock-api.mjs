@@ -1021,7 +1021,9 @@ const routes = {
   "POST /orders": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "orders.write");
     const live = liveFor(t, url);
-    const quote = body.quote_id ? t.quotes.find((q) => q.id === body.quote_id) : makeQuote(t, body, live);
+    // Straight from stops: price it first, then use the stored quote (it keeps the stops).
+    const quoteId = body.quote_id ?? makeQuote(t, body, live).id;
+    const quote = t.quotes.find((q) => q.id === quoteId);
     if (!quote) throw new ApiError(404, "resource_missing", "No quote with that id.", "quote_id");
     if (!quote.usable)
       throw new ApiError(400, "quote_used", "That quote was already used or has expired. Get a new one.", "quote_id");
@@ -1712,7 +1714,19 @@ createServer(async (req, res) => {
     const [status, data] = await handler(req, body, params, url);
     send(status, data);
   } catch (error) {
-    if (!(error instanceof ApiError)) throw error;
+    if (!(error instanceof ApiError)) {
+      // A bug in the mock answers 500, as the API would, instead of taking every later test down.
+      console.error(error);
+      return send(500, {
+        error: {
+          type: "api_error",
+          code: "internal_error",
+          message: String(error),
+          param: null,
+          request_id: requestId,
+        },
+      });
+    }
     send(error.status, {
       error: {
         type: typeFor(error.status),

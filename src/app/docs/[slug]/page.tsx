@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { AllEndpoints } from "../_content/api";
 import { Authentication, Money, TestAndLive } from "../_content/basics";
 import { Errors } from "../_content/errors";
 import { Quickstart } from "../_content/quickstart";
@@ -16,12 +15,12 @@ const CONTENT: Record<string, () => JSX.Element> = {
   webhooks: Webhooks,
   errors: Errors,
   money: Money,
-  api: AllEndpoints,
 };
 
 // Every page is built ahead of time: fast, and crawlable without JavaScript.
 export const dynamicParams = false;
-export const generateStaticParams = () => DOC_PAGES.filter((p) => p.slug).map((p) => ({ slug: p.slug }));
+export const generateStaticParams = () =>
+  DOC_PAGES.filter((p) => p.slug && !p.slug.startsWith("api")).map((p) => ({ slug: p.slug }));
 export const generateMetadata = ({ params }: { params: { slug: string } }) => docMetadata(params.slug);
 
 export default function Page({ params }: { params: { slug: string } }) {

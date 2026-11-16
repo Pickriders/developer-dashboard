@@ -52,6 +52,32 @@ jobs:
       - name: Build
         run: yarn build
 
+  api-contract:
+    # Step 12.2: the API the docs describe, against the API that's deployed. backend-api serves its
+    # public OpenAPI document at /developer/docs/openapi.json; a breaking change against the copy
+    # the reference was built from (src/lib/docs/openapi.json) fails here with what broke. Additive
+    # changes pass: refresh the copy with `yarn docs:sync` to document them.
+    name: API contract (breaking changes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Download the deployed Developer API document
+        run: node scripts/fetch-openapi.mjs "$RUNNER_TEMP/developer-openapi.json"
+
+      - name: Compare with the published reference
+        run: yarn jest src/lib/docs/openapi-contract.test.ts --ci
+        env:
+          OPENAPI_NEXT: ${{ runner.temp }}/developer-openapi.json
+
   e2e:
     name: End-to-end (Playwright)
     runs-on: ubuntu-latest

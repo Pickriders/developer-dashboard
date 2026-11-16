@@ -116,6 +116,14 @@ step 12.6) sends real requests from the browser straight to the API (it allows a
 reader's **test** key: `sk_live_` keys are refused, and the key lives in memory only, never storage,
 URLs or logs (§2). `e2e/mock-api.mjs` answers the public routes (`/developer/api/v1/…`, with CORS) by
 mapping them onto its dashboard routes; a docs example that calls a new route needs it there too.
+The **API reference** (`/docs/api`, one page per tag, step 12.2) is generated from
+`lib/docs/openapi.json`, a copy of backend-api's public OpenAPI document: refresh it with
+`yarn docs:sync` (or `node scripts/fetch-openapi.mjs src/lib/docs/openapi.json <local dump>`), never by
+hand. CI's **API contract** job downloads the deployed document and fails on a breaking change
+against that copy (`lib/docs/openapi-diff.ts`). The OpenAPI file and the Postman collection
+(`lib/docs/postman.ts`) are served from `/docs/openapi.json` and
+`/docs/pickriders.postman_collection.json` (step 12.9). Try it's example bodies are in
+`lib/docs/endpoints.ts`.
 `lib/docs/errors.ts` must list every Developer API error code: API errors link to
 `/docs/errors#<code>`, so codes are added, never removed. Facts in the docs (paths, fields, limits,
 retry times) come from backend-api's source, never from memory. `NEXT_PUBLIC_SITE_URL` sets the

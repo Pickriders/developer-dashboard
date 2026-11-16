@@ -1,0 +1,3901 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/developer/api/v1/ping": {
+      "get": {
+        "operationId": "developerPing",
+        "summary": "Check that the Developer API is reachable",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Ping"]
+      }
+    },
+    "/developer/api/v1/account": {
+      "get": {
+        "operationId": "developerRetrieveAccount",
+        "summary": "Retrieve your account: profile, verification and live status",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAccountDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Account"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/wallet": {
+      "get": {
+        "operationId": "developerRetrieveWallet",
+        "summary": "Retrieve your wallet balance",
+        "description": "The wallet of the key's mode: live keys see real money, test keys play money.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWalletDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Wallet"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/wallet/funding-sessions": {
+      "post": {
+        "operationId": "developerCreateFundingSession",
+        "summary": "Top up your live wallet by card",
+        "description": "A hosted card checkout that tops up the live wallet. Send the payer to `url`; the wallet is credited once Paystack confirms.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFundingSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingSessionDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingSessionDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Wallet"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/wallet/transactions": {
+      "get": {
+        "operationId": "developerListWalletTransactions",
+        "summary": "List wallet transactions",
+        "description": "Every movement of the key's wallet, newest first: top-ups, order charges.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "starting_after",
+            "required": false,
+            "in": "query",
+            "description": "Id of the last object on the previous page; returns the objects after it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ending_before",
+            "required": false,
+            "in": "query",
+            "description": "Id of the first object on the next page; returns the objects before it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": ["credit", "debit"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "created",
+            "required": false,
+            "in": "query",
+            "description": "created[gte] and/or created[lte]: ISO 8601 dates or Unix seconds.",
+            "schema": {
+              "example": {
+                "gte": "2026-11-01T00:00:00Z"
+              },
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list object: { object, data, has_more, url }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicWalletTransactionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Wallet"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/wallet/funding-account": {
+      "get": {
+        "operationId": "developerRetrieveFundingAccount",
+        "summary": "Retrieve your bank transfer account",
+        "description": "The live wallet's permanent bank transfer account, once set up in the dashboard.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicFundingAccountDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Wallet"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/test/wallet/fund": {
+      "post": {
+        "operationId": "developerFundTestWallet",
+        "summary": "Add play money to your test wallet (test keys only)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTestWalletRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWalletDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Test helpers"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/service-areas": {
+      "get": {
+        "operationId": "developerListServiceAreas",
+        "summary": "List where Pickriders delivers",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAreaListDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Service areas"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/quotes": {
+      "post": {
+        "operationId": "developerCreateQuote",
+        "summary": "Quote a delivery",
+        "description": "The price of a delivery, before you create it. Held for 15 minutes; one order can use it.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateQuoteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicQuoteDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicQuoteDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Quotes"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/quotes/{id}": {
+      "get": {
+        "operationId": "developerRetrieveQuote",
+        "summary": "Retrieve a quote",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "quo_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicQuoteDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Quotes"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/riders/availability": {
+      "get": {
+        "operationId": "developerRiderAvailability",
+        "summary": "Check rider availability near a point",
+        "description": "How many riders an order from a point would reach now, and how soon one could pick up. No rider details.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lat",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "6.4281",
+              "type": "string"
+            }
+          },
+          {
+            "name": "lng",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "3.4216",
+              "type": "string"
+            }
+          },
+          {
+            "name": "service_area",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "NG-LA",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiderAvailabilityDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Riders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders": {
+      "post": {
+        "operationId": "developerCreateOrder",
+        "summary": "Create an order",
+        "description": "Creates a delivery: holds its price in your wallet and, unless it is scheduled or dispatched\nmanually, rings riders at once. Send an Idempotency-Key to retry safely.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "developerListOrders",
+        "summary": "List orders",
+        "description": "Your orders in this key's mode, newest first.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "starting_after",
+            "required": false,
+            "in": "query",
+            "description": "Id of the last object on the previous page; returns the objects after it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ending_before",
+            "required": false,
+            "in": "query",
+            "description": "Id of the first object on the next page; returns the objects before it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "scheduled",
+                "awaiting_dispatch",
+                "searching",
+                "rider_assigned",
+                "picking_up",
+                "in_transit",
+                "delivered",
+                "cancelled",
+                "failed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": ["single", "batch", "bulk"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "reference",
+            "required": false,
+            "in": "query",
+            "description": "Your reference for the order: returns the one order that has it.",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "created",
+            "required": false,
+            "in": "query",
+            "description": "created[gte] and/or created[lte]: ISO 8601 dates or Unix seconds.",
+            "schema": {
+              "example": {
+                "gte": "2026-11-01T00:00:00Z"
+              },
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list object: { object, data, has_more, url }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicOrderDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}": {
+      "get": {
+        "operationId": "developerRetrieveOrder",
+        "summary": "Retrieve an order",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/cancel": {
+      "post": {
+        "operationId": "developerCancelOrder",
+        "summary": "Cancel an order",
+        "description": "Cancels an order that isn't delivered. Before a rider has it, everything held goes back; once a\nrider is on the way, the service charge and the rider's share for the trip so far are charged.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeveloperCancelOrderRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cancelled order; cancellation shows what was charged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/reschedule": {
+      "post": {
+        "operationId": "developerRescheduleOrder",
+        "summary": "Reschedule an order",
+        "description": "Moves a scheduled order to a new time, or schedules an order still waiting for a rider. The\nprice and what is held stay the same.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeveloperRescheduleOrderRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/dispatch": {
+      "post": {
+        "operationId": "developerDispatchOrder",
+        "summary": "Dispatch an order",
+        "description": "Rings riders: starts a manual-dispatch order, or rings again for an order still searching (at\nmost once a minute). Riders are offered the order's fixed price.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/stops/{stop_id}": {
+      "patch": {
+        "operationId": "developerUpdateOrderStop",
+        "summary": "Change a stop",
+        "description": "Changes a stop until the rider completes it. Contact, instructions and package changes apply\nat once. Moving a stop (lat, lng and address together) needs a rider: they accept or decline\nit, and any extra cost is held from your wallet until they answer.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stop_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "stop_6560f0c2a1b2c3d4e5f60719",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStopRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The order; a move waiting on the rider shows as the stop's pending_change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/offers": {
+      "get": {
+        "operationId": "developerListOrderOffers",
+        "summary": "List an order's offers",
+        "description": "Riders' offers on a bidding order (pricing.mode bidding), oldest first. Accept one before it\nexpires; until then, no rider has your order.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list object: { object, data, has_more, url }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicOfferDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/offers/{offer_id}/accept": {
+      "post": {
+        "operationId": "developerAcceptOrderOffer",
+        "summary": "Accept an offer",
+        "description": "Gives the order to the rider who made this offer, at their price: you pay the offer plus the\nservice charge, and the rest of the maximum held goes back to your wallet. Every other open\noffer is declined. Only a pending offer can be accepted, and only one accept wins.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          },
+          {
+            "name": "offer_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "off_6560f0c2a1b2c3d4e5f60719",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The accepted offer. GET the order for its rider.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOfferDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/offers/{offer_id}/decline": {
+      "post": {
+        "operationId": "developerDeclineOrderOffer",
+        "summary": "Decline an offer",
+        "description": "Turns an offer down. The rider is told, and may offer again; the order keeps searching.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          },
+          {
+            "name": "offer_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "off_6560f0c2a1b2c3d4e5f60719",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The declined offer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOfferDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/tracking": {
+      "get": {
+        "operationId": "developerTrackOrder",
+        "summary": "Track an order",
+        "description": "Where the rider is and when they reach each remaining stop.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderTrackingDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/tracking/{token}": {
+      "get": {
+        "operationId": "developerPublicTracking",
+        "summary": "Follow a tracking link",
+        "description": "No API key: the token is the credential.",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token at the end of a tracking_url.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicTrackingDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"]
+      }
+    },
+    "/developer/api/v1/test/orders/{id}/advance": {
+      "post": {
+        "operationId": "developerAdvanceTestOrder",
+        "summary": "Move a test order along (test keys only)",
+        "description": "Moves a test-mode order along as a rider would: one step (the test rider accepts, starts,\nreaches and completes each stop, then delivers), or straight to `to`. Delivery charges your\ntest wallet as a live order would. Test keys only.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceOrderRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Test helpers"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/webhook_endpoints": {
+      "post": {
+        "operationId": "developerCreateWebhookEndpoint",
+        "summary": "Create a webhook endpoint",
+        "description": "Adds an endpoint. The response is the only time its signing secret is shown.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpointRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWebhookEndpointWithSecretDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "developerListWebhookEndpoints",
+        "summary": "List webhook endpoints",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "starting_after",
+            "required": false,
+            "in": "query",
+            "description": "Id of the last object on the previous page; returns the objects after it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ending_before",
+            "required": false,
+            "in": "query",
+            "description": "Id of the first object on the next page; returns the objects before it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list object: { object, data, has_more, url }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicWebhookEndpointDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/webhook_endpoints/{id}": {
+      "get": {
+        "operationId": "developerRetrieveWebhookEndpoint",
+        "summary": "Retrieve a webhook endpoint",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "we_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWebhookEndpointDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "developerUpdateWebhookEndpoint",
+        "summary": "Update a webhook endpoint",
+        "description": "Changes the URL, events or description, or turns the endpoint off and on (`disabled`).",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "we_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookEndpointRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWebhookEndpointDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "developerDeleteWebhookEndpoint",
+        "summary": "Delete a webhook endpoint",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "we_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ object: \"webhook_endpoint\", id, deleted: true }"
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/webhook_endpoints/{id}/roll_secret": {
+      "post": {
+        "operationId": "developerRollWebhookSecret",
+        "summary": "Roll a webhook signing secret",
+        "description": "Replaces the signing secret; the new one is shown once. Events are signed with both secrets\nfor 24 hours, so your receiver can switch over without missing any.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "we_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWebhookEndpointWithSecretDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/webhook_endpoints/{id}/test": {
+      "post": {
+        "operationId": "developerTestWebhookEndpoint",
+        "summary": "Send a test event",
+        "description": "Sends a `ping` event to the endpoint now and returns how it went: the status code, the time it\ntook and the start of the response. Not retried. Check its signature as you would any event.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "we_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDeliveryDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Webhook endpoints"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/events": {
+      "get": {
+        "operationId": "developerListEvents",
+        "summary": "List events",
+        "description": "Newest first. The same objects webhooks send.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "starting_after",
+            "required": false,
+            "in": "query",
+            "description": "Id of the last object on the previous page; returns the objects after it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ending_before",
+            "required": false,
+            "in": "query",
+            "description": "Id of the first object on the next page; returns the objects before it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "One event type, or a group ending in .* (order.*, order.stop.*).",
+            "schema": {
+              "pattern": "/^[a-z_]+(\\.[a-z_]+)*(\\.\\*)?$/",
+              "example": "order.delivered",
+              "type": "string"
+            }
+          },
+          {
+            "name": "created",
+            "required": false,
+            "in": "query",
+            "description": "created[gte] and/or created[lte]: ISO 8601 dates or Unix seconds.",
+            "schema": {
+              "example": {
+                "gte": "2026-11-01T00:00:00Z"
+              },
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list object: { object, data, has_more, url }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicEventDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Events"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/events/{id}": {
+      "get": {
+        "operationId": "developerRetrieveEvent",
+        "summary": "Retrieve an event",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "evt_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicEventDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Events"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/events/{id}/resend": {
+      "post": {
+        "operationId": "developerResendEvent",
+        "summary": "Resend an event",
+        "description": "Sends an event to your webhook endpoints again, as it was when it happened: to one endpoint,\nor to every enabled endpoint that receives its type. Retried on failure like any delivery.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "evt_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendEventRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResendEventResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Events"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/developer/api/v1/orders/{id}/events": {
+      "get": {
+        "operationId": "developerListOrderEvents",
+        "summary": "List an order's events",
+        "description": "The order's events, oldest first: its timeline. Kept for 30 days.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "POST only. A unique value (e.g. a UUID) so a retry within 24 hours replays the first response.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "ord_6560f0c2a1b2c3d4e5f60718",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list object, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicEventDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Orders"],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Pickriders Developer API",
+    "description": "Send and track deliveries with Pickriders: quotes, single, batch, bulk and scheduled orders, rider tracking and webhooks. Authenticate with a secret API key: `sk_test_…` keys use test mode, `sk_live_…` keys use live mode. Guides: https://developers.pickriders.com",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Ping",
+      "description": "Check that the Developer API is reachable"
+    },
+    {
+      "name": "Account",
+      "description": "Your account: profile, verification and live status"
+    },
+    {
+      "name": "Wallet",
+      "description": "Your prefunded wallet: balance, funding and transactions"
+    },
+    {
+      "name": "Quotes",
+      "description": "The price of a delivery before you create it, held for 15 minutes"
+    },
+    {
+      "name": "Orders",
+      "description": "Create, track and cancel deliveries"
+    },
+    {
+      "name": "Riders",
+      "description": "How many riders are near a point, without who or where"
+    },
+    {
+      "name": "Service areas",
+      "description": "Where Pickriders delivers, with the minimum price in each"
+    },
+    {
+      "name": "Webhook endpoints",
+      "description": "Where Pickriders sends events, and the secrets that sign them"
+    },
+    {
+      "name": "Events",
+      "description": "What happened to your orders, wallet and account in the last 30 days"
+    },
+    {
+      "name": "Test helpers",
+      "description": "Test-mode only: play money and simulations for building your integration"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "ApiKey": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Your secret API key (sk_test_… or sk_live_…)"
+      }
+    },
+    "schemas": {
+      "PingResponseDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "ping",
+            "description": "Always \"ping\"."
+          },
+          "ok": {
+            "type": "boolean",
+            "example": true,
+            "description": "True when the Developer API is reachable."
+          }
+        },
+        "required": ["object", "ok"]
+      },
+      "PublicAccountDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "account",
+            "description": "Always \"account\"."
+          },
+          "id": {
+            "type": "string",
+            "example": "team_6560f0c2a1b2c3d4e5f60718"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Logistics"
+          },
+          "company_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "support_email": {
+            "type": "string",
+            "nullable": true
+          },
+          "support_phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Whether the account owner's email is verified."
+          },
+          "phone_verified": {
+            "type": "boolean",
+            "description": "Whether the account owner's phone is verified."
+          },
+          "live_status": {
+            "type": "string",
+            "enum": ["not_requested", "pending", "approved", "rejected", "suspended"],
+            "description": "Live mode works only while this is approved. Test mode always works."
+          },
+          "livemode": {
+            "type": "boolean",
+            "description": "true when this request used a live key."
+          },
+          "created": {
+            "type": "string",
+            "example": "2026-11-09T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "name",
+          "company_name",
+          "website",
+          "support_email",
+          "support_phone",
+          "email_verified",
+          "phone_verified",
+          "live_status",
+          "livemode",
+          "created"
+        ]
+      },
+      "PublicWalletDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "wallet",
+            "description": "Always \"wallet\"."
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "available": {
+            "type": "number",
+            "example": 100000000,
+            "description": "What the team can spend now: balance minus held. Kobo."
+          },
+          "held": {
+            "type": "number",
+            "example": 0,
+            "description": "Reserved for orders in progress. Kobo."
+          },
+          "livemode": {
+            "type": "boolean",
+            "description": "false for the test-mode wallet (play money)."
+          }
+        },
+        "required": ["object", "currency", "available", "held", "livemode"]
+      },
+      "CreateFundingSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 5000000,
+            "description": "Kobo to add to the live wallet (₦50,000 here)."
+          },
+          "success_url": {
+            "type": "string",
+            "example": "https://acme.com/billing/funded",
+            "description": "Where the payer lands after paying."
+          },
+          "cancel_url": {
+            "type": "string",
+            "example": "https://acme.com/billing",
+            "description": "Where the payer lands on cancel."
+          }
+        },
+        "required": ["amount", "success_url"]
+      },
+      "FundingSessionDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "funding_session"
+          },
+          "reference": {
+            "type": "string",
+            "description": "The payment reference; the wallet transaction carries it too."
+          },
+          "url": {
+            "type": "string",
+            "description": "Send the payer here to pay by card."
+          },
+          "amount": {
+            "type": "number",
+            "description": "Kobo."
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "livemode": {
+            "type": "boolean",
+            "example": true
+          },
+          "created": {
+            "type": "string"
+          }
+        },
+        "required": ["object", "reference", "url", "amount", "currency", "livemode", "created"]
+      },
+      "PublicWalletTransactionDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "transaction"
+          },
+          "id": {
+            "type": "string",
+            "example": "txn_6560f0c2a1b2c3d4e5f60718"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["credit", "debit"]
+          },
+          "purpose": {
+            "type": "string",
+            "example": "order_payment",
+            "description": "wallet_funding, test_funding, order_payment, …"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["processing", "success", "failed", "cancelled"]
+          },
+          "amount": {
+            "type": "number",
+            "example": 250000
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "balance_after": {
+            "type": "number",
+            "nullable": true,
+            "description": "The balance once this transaction landed."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "order": {
+            "type": "string",
+            "nullable": true,
+            "example": "ord_6560f0c2a1b2c3d4e5f60718"
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "created": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "type",
+          "purpose",
+          "status",
+          "amount",
+          "currency",
+          "balance_after",
+          "description",
+          "order",
+          "livemode",
+          "created"
+        ]
+      },
+      "PublicFundingAccountDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "funding_account"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "active", "failed"],
+            "description": "pending while Paystack checks the BVN."
+          },
+          "bank_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Wema Bank"
+          },
+          "account_number": {
+            "type": "string",
+            "nullable": true,
+            "example": "9930000000"
+          },
+          "account_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "bvn_last4": {
+            "type": "string",
+            "example": "5678",
+            "description": "The last four digits of the BVN it was set up with."
+          },
+          "failure_reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why Paystack could not issue it, when it failed."
+          }
+        },
+        "required": ["object", "status", "bank_name", "account_number", "account_name", "bvn_last4", "failure_reason"]
+      },
+      "FundTestWalletRequestDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1,
+            "example": 50000000,
+            "description": "Kobo to add to the test wallet (₦500,000 here).",
+            "maximum": 1000000000
+          }
+        },
+        "required": ["amount"]
+      },
+      "PublicServiceAreaDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "service_area"
+          },
+          "id": {
+            "type": "string",
+            "example": "NG-LA",
+            "description": "Send this as service_area when you quote or order."
+          },
+          "country_code": {
+            "type": "string",
+            "example": "NG"
+          },
+          "country_name": {
+            "type": "string",
+            "example": "Nigeria"
+          },
+          "state_code": {
+            "type": "string",
+            "example": "LA"
+          },
+          "state_name": {
+            "type": "string",
+            "example": "Lagos"
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "minimum_price": {
+            "type": "number",
+            "example": 2000000,
+            "description": "The lowest price of a delivery here, in minor units."
+          },
+          "rider_search_radius_km": {
+            "type": "number",
+            "example": 20,
+            "description": "How far from a pickup riders are looked for."
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "country_code",
+          "country_name",
+          "state_code",
+          "state_name",
+          "currency",
+          "minimum_price",
+          "rider_search_radius_km"
+        ]
+      },
+      "ServiceAreaListDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "list"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicServiceAreaDto"
+            }
+          }
+        },
+        "required": ["object", "data"]
+      },
+      "StopContactDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "example": "Bola Ade"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 20,
+            "example": "+2348031234567",
+            "description": "The person the rider calls at this stop."
+          }
+        },
+        "required": ["name", "phone"]
+      },
+      "StopPackageDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Two pairs of shoes"
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0,
+            "example": 2500000,
+            "description": "What it is worth, in minor units."
+          }
+        },
+        "required": ["description"]
+      },
+      "StopInputDto": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "example": 6.4281
+          },
+          "lng": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "example": 3.4216
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300,
+            "example": "1 Admiralty Way, Lekki, Lagos"
+          },
+          "contact": {
+            "description": "Who the rider meets. Required at every drop-off, and at the pickup of a batch. A single or bulk pickup may leave it out: an errand, where the rider buys or collects from a shop with no one to call.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StopContactDto"
+              }
+            ]
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Gate 3, ask for Bola"
+          },
+          "package": {
+            "$ref": "#/components/schemas/StopPackageDto"
+          }
+        },
+        "required": ["lat", "lng", "address"]
+      },
+      "CreateQuoteRequestDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["single", "batch", "bulk"],
+            "description": "single: [pickup, drop-off]. batch: [pickup, drop-off, drop-off…] (up to 20). bulk: [pickup, pickup…, drop-off] (up to 20 pickups)."
+          },
+          "service_area": {
+            "type": "string",
+            "example": "NG-LA",
+            "description": "Where the delivery is, from GET /service-areas."
+          },
+          "stops": {
+            "description": "In the order the rider visits them.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StopInputDto"
+            }
+          },
+          "scheduled_for": {
+            "type": "string",
+            "example": "2026-11-12T09:30:00Z",
+            "description": "For a scheduled delivery."
+          }
+        },
+        "required": ["type", "service_area", "stops"]
+      },
+      "QuoteBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "delivery_fee": {
+            "type": "number",
+            "description": "What the rider is paid for the route."
+          },
+          "service_charge": {
+            "type": "number",
+            "description": "Pickriders' service charge."
+          }
+        },
+        "required": ["delivery_fee", "service_charge"]
+      },
+      "QuoteStopDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["pickup", "dropoff"]
+          },
+          "address": {
+            "type": "string",
+            "example": "1 Admiralty Way, Lekki, Lagos, Nigeria",
+            "description": "The normalized address."
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "contact": {
+            "type": "object",
+            "nullable": true,
+            "example": {
+              "name": "Bola Ade",
+              "phone": "+2348031234567"
+            },
+            "description": "Null at an errand pickup with no one to meet."
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true
+          },
+          "package": {
+            "type": "object",
+            "nullable": true,
+            "example": {
+              "description": "Shoes",
+              "value": 2500000
+            }
+          }
+        },
+        "required": ["role", "address", "lat", "lng", "contact", "instructions", "package"]
+      },
+      "PublicQuoteDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "quote"
+          },
+          "id": {
+            "type": "string",
+            "example": "quo_6560f0c2a1b2c3d4e5f60718",
+            "description": "Send it as quote_id when you create the order."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["single", "batch", "bulk"]
+          },
+          "service_area": {
+            "type": "string",
+            "example": "NG-LA"
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "recommended_price": {
+            "type": "number",
+            "example": 350000,
+            "description": "What a fixed-price order costs."
+          },
+          "min_price": {
+            "type": "number",
+            "example": 280000,
+            "description": "The lowest a rider may offer, when you let riders bid."
+          },
+          "max_price": {
+            "type": "number",
+            "example": 420000,
+            "description": "The highest a rider may bid (the surge cap)."
+          },
+          "breakdown": {
+            "$ref": "#/components/schemas/QuoteBreakdownDto"
+          },
+          "distance_m": {
+            "type": "number",
+            "example": 8400,
+            "description": "Road distance of the whole route, in metres."
+          },
+          "duration_s": {
+            "type": "number",
+            "example": 1870,
+            "description": "Estimated time from pickup to the last drop-off, in seconds."
+          },
+          "stops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuoteStopDto"
+            }
+          },
+          "scheduled_for": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "The price holds until then."
+          },
+          "usable": {
+            "type": "boolean",
+            "description": "false once an order has used it, or it has expired."
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "created": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "type",
+          "service_area",
+          "currency",
+          "recommended_price",
+          "min_price",
+          "max_price",
+          "breakdown",
+          "distance_m",
+          "duration_s",
+          "stops",
+          "expires_at",
+          "usable",
+          "livemode",
+          "created"
+        ]
+      },
+      "RiderAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "rider_availability"
+          },
+          "service_area": {
+            "type": "string",
+            "example": "NG-LA"
+          },
+          "nearby_count": {
+            "type": "number",
+            "example": 4,
+            "description": "Riders an order from this point would reach now."
+          },
+          "at_least": {
+            "type": "boolean",
+            "description": "True when the count hit the area's search cap: there may be more."
+          },
+          "estimated_pickup_s": {
+            "type": "number",
+            "nullable": true,
+            "example": 420,
+            "description": "Rough time to pickup, in seconds."
+          },
+          "radius_km": {
+            "type": "number",
+            "example": 20
+          }
+        },
+        "required": ["object", "service_area", "nearby_count", "at_least", "estimated_pickup_s", "radius_km"]
+      },
+      "OrderPricingRequestDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["fixed", "bidding"],
+            "default": "fixed",
+            "description": "fixed: the quote's price; the first rider to accept it takes the order. bidding: riders send offers (GET /orders/{id}/offers) and you accept one."
+          },
+          "max_amount": {
+            "type": "number",
+            "minimum": 1,
+            "example": 450000,
+            "description": "Bidding only, and required for it: the most you pay in all (the rider's fee plus the service charge), in kobo. At least the quote's price. Your wallet holds it until you accept an offer."
+          },
+          "min_offer_percentage": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100,
+            "example": 80,
+            "description": "Bidding only: riders can't offer less than this percentage of the quoted delivery fee. Defaults to the service area's floor."
+          },
+          "auto_accept_after_s": {
+            "type": "number",
+            "minimum": 15,
+            "maximum": 3600,
+            "example": 120,
+            "description": "Bidding only: this many seconds after riders are first rung, the lowest standing offer is accepted for you. With no offer by then, the order goes out at the quoted price, as a fixed-price order. Without it, offers wait for you."
+          }
+        },
+        "required": ["mode"]
+      },
+      "TestOptionsDto": {
+        "type": "object",
+        "properties": {
+          "auto_advance": {
+            "type": "boolean",
+            "description": "Move the order along by itself, one step about every 15 seconds, until it is delivered."
+          },
+          "scenario": {
+            "type": "string",
+            "enum": ["no_riders", "rider_cancels", "delivery_fails"],
+            "description": "Act out a failure as the order is advanced. no_riders: no rider accepts and Pickriders cancels it (failed). rider_cancels: the first rider drops out before pickup and the search starts again. delivery_fails: the rider reaches the first drop-off and the delivery fails (failed, with the trip so far charged)."
+          }
+        }
+      },
+      "CreateOrderRequestDto": {
+        "type": "object",
+        "properties": {
+          "quote_id": {
+            "type": "string",
+            "example": "quo_6560f0c2a1b2c3d4e5f60718",
+            "description": "A quote from POST /quotes that has not expired or been used. Its stops and price are used."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["single", "batch", "bulk"],
+            "description": "Required without quote_id. With one, it must match the quote."
+          },
+          "service_area": {
+            "type": "string",
+            "example": "NG-LA",
+            "description": "Required without quote_id."
+          },
+          "stops": {
+            "description": "Required without quote_id, in the order the rider visits them (see POST /quotes).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StopInputDto"
+            }
+          },
+          "scheduled_for": {
+            "type": "string",
+            "example": "2026-11-12T09:30:00Z",
+            "description": "Without quote_id, for a scheduled delivery."
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "cart-981",
+            "description": "Your own id for the order, unique per mode. Find the order by it with GET /orders?reference=."
+          },
+          "metadata": {
+            "type": "object",
+            "example": {
+              "cart_id": "c_981"
+            },
+            "description": "Up to 20 keys of your own (keys up to 40 characters, string values up to 500), returned with the order."
+          },
+          "dispatch": {
+            "type": "string",
+            "enum": ["auto", "manual"],
+            "default": "auto",
+            "description": "auto rings riders now (or at the scheduled time). manual waits for POST /orders/{id}/dispatch."
+          },
+          "pricing": {
+            "description": "Fixed price unless you choose bidding.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderPricingRequestDto"
+              }
+            ]
+          },
+          "test_options": {
+            "description": "Test keys only.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TestOptionsDto"
+              }
+            ]
+          }
+        }
+      },
+      "OrderPricingDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["fixed", "bidding"],
+            "description": "fixed: the quote's price. bidding: riders send offers and you accept one (GET /orders/{id}/offers). A bidding order whose auto-accept found no offer becomes fixed: it goes out at the quoted price."
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "amount": {
+            "type": "number",
+            "example": 350000,
+            "description": "What the order costs you: the delivery fee plus the service charge. For bidding, the quoted price until you accept an offer, then the offer plus the service charge."
+          },
+          "delivery_fee": {
+            "type": "number",
+            "example": 300000,
+            "description": "What the rider is paid."
+          },
+          "service_charge": {
+            "type": "number",
+            "example": 50000
+          },
+          "max_amount": {
+            "type": "number",
+            "nullable": true,
+            "example": 450000,
+            "description": "Bidding only: the most you pay in all, held in your wallet until you accept an offer."
+          },
+          "min_offer_percentage": {
+            "type": "number",
+            "nullable": true,
+            "example": 80,
+            "description": "Bidding only: riders can't offer less than this percentage of the quoted delivery fee."
+          },
+          "auto_accept_after_s": {
+            "type": "number",
+            "nullable": true,
+            "example": 120,
+            "description": "Bidding only: seconds after riders are first rung when the lowest offer is accepted for you."
+          }
+        },
+        "required": [
+          "mode",
+          "currency",
+          "amount",
+          "delivery_fee",
+          "service_charge",
+          "max_amount",
+          "min_offer_percentage",
+          "auto_accept_after_s"
+        ]
+      },
+      "OrderStopContactDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Bola Ade"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+2348031234567"
+          }
+        },
+        "required": ["name", "phone"]
+      },
+      "OrderStopPackageDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "Two pairs of shoes"
+          },
+          "value": {
+            "type": "number",
+            "nullable": true,
+            "example": 2500000,
+            "description": "In minor units."
+          }
+        },
+        "required": ["description", "value"]
+      },
+      "OrderStopProofLocationDto": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          }
+        },
+        "required": ["lat", "lng"]
+      },
+      "OrderStopProofDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["confirmation_code", "rider_confirmed"],
+            "description": "confirmation_code: the recipient gave the rider the drop-off's code. rider_confirmed: the rider confirmed a pickup."
+          },
+          "completed_at": {
+            "type": "string"
+          },
+          "location": {
+            "nullable": true,
+            "description": "Where the rider was, from the rider app's last reported position.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderStopProofLocationDto"
+              }
+            ]
+          },
+          "recipient_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who handed over or received the package."
+          }
+        },
+        "required": ["method", "completed_at", "location", "recipient_name"]
+      },
+      "OrderStopPendingChangeDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "example": "3 Bourdillon Road, Ikoyi, Lagos"
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "extra_amount": {
+            "type": "number",
+            "example": 50000,
+            "description": "What the move adds to the price, held until the rider answers."
+          },
+          "expires_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "If the rider has not answered by then, the move is dropped."
+          }
+        },
+        "required": ["address", "lat", "lng", "extra_amount", "expires_at"]
+      },
+      "OrderStopDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "stop_6560f0c2a1b2c3d4e5f60718"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["pickup", "dropoff"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "en_route", "arrived", "completed", "cancelled"]
+          },
+          "address": {
+            "type": "string",
+            "example": "1 Admiralty Way, Lekki, Lagos"
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/OrderStopContactDto"
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true
+          },
+          "package": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderStopPackageDto"
+              }
+            ]
+          },
+          "confirmation_code": {
+            "type": "string",
+            "nullable": true,
+            "example": "4821",
+            "description": "Drop-offs only: the code the recipient gives the rider on delivery. Share it with the recipient."
+          },
+          "arrived_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelled_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "proof": {
+            "nullable": true,
+            "description": "Once the stop is completed.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderStopProofDto"
+              }
+            ]
+          },
+          "pending_change": {
+            "nullable": true,
+            "description": "A move waiting for the rider to accept (PATCH /orders/{id}/stops/{stop_id}).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderStopPendingChangeDto"
+              }
+            ]
+          },
+          "tracking_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Drop-offs only: a tracking page for this stop's recipient. It shows no other stop's address."
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "status",
+          "address",
+          "lat",
+          "lng",
+          "contact",
+          "instructions",
+          "package",
+          "confirmation_code",
+          "arrived_at",
+          "completed_at",
+          "cancelled_at",
+          "proof",
+          "pending_change",
+          "tracking_url"
+        ]
+      },
+      "OrderRiderVehicleDto": {
+        "type": "object",
+        "properties": {
+          "make": {
+            "type": "string",
+            "nullable": true,
+            "example": "Honda"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ace 125"
+          },
+          "color": {
+            "type": "string",
+            "nullable": true,
+            "example": "Red"
+          },
+          "plate_number": {
+            "type": "string",
+            "nullable": true,
+            "example": "LND-123-XY"
+          }
+        },
+        "required": ["make", "model", "color", "plate_number"]
+      },
+      "OrderRiderDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Tunde A.",
+            "description": "First name and last initial."
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true,
+            "example": "+2348031234567"
+          },
+          "photo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "rating": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.8
+          },
+          "vehicle": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderRiderVehicleDto"
+              }
+            ]
+          }
+        },
+        "required": ["name", "phone", "photo_url", "rating", "vehicle"]
+      },
+      "OrderCancellationDto": {
+        "type": "object",
+        "properties": {
+          "cancelled_by": {
+            "type": "string",
+            "enum": ["developer", "pickriders"]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelled_at": {
+            "type": "string"
+          },
+          "charged_amount": {
+            "type": "number",
+            "nullable": true,
+            "example": 50000,
+            "description": "What the cancellation cost you, from what was held: the service charge and the rider share once a rider is on the way."
+          },
+          "refunded_amount": {
+            "type": "number",
+            "nullable": true,
+            "example": 300000,
+            "description": "What went back to your available balance."
+          }
+        },
+        "required": ["cancelled_by", "reason", "cancelled_at", "charged_amount", "refunded_amount"]
+      },
+      "PublicOrderDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "order"
+          },
+          "id": {
+            "type": "string",
+            "example": "ord_6560f0c2a1b2c3d4e5f60718"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["single", "batch", "bulk"]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "awaiting_dispatch",
+              "searching",
+              "rider_assigned",
+              "picking_up",
+              "in_transit",
+              "delivered",
+              "cancelled",
+              "failed"
+            ]
+          },
+          "number": {
+            "type": "string",
+            "example": "PR-1042",
+            "description": "Our order number, shown to riders and support."
+          },
+          "reference": {
+            "type": "string",
+            "nullable": true,
+            "description": "Your own id for the order, unique per mode."
+          },
+          "metadata": {
+            "type": "object",
+            "example": {
+              "cart_id": "c_981"
+            }
+          },
+          "quote_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "quo_6560f0c2a1b2c3d4e5f60718"
+          },
+          "service_area": {
+            "type": "string",
+            "example": "NG-LA"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/OrderPricingDto"
+          },
+          "stops": {
+            "description": "Pickups first, then drop-offs, in route order.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderStopDto"
+            }
+          },
+          "rider": {
+            "nullable": true,
+            "description": "Set once a rider accepts.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderRiderDto"
+              }
+            ]
+          },
+          "tracking_url": {
+            "type": "string",
+            "description": "A tracking page for the whole order, without addresses or phones. Each drop-off has its own link too."
+          },
+          "dispatch": {
+            "type": "string",
+            "enum": ["auto", "manual"]
+          },
+          "scheduled_for": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellation": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderCancellationDto"
+              }
+            ]
+          },
+          "delivered_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "created": {
+            "type": "string"
+          },
+          "updated": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "type",
+          "status",
+          "number",
+          "reference",
+          "metadata",
+          "quote_id",
+          "service_area",
+          "pricing",
+          "stops",
+          "rider",
+          "tracking_url",
+          "dispatch",
+          "cancellation",
+          "delivered_at",
+          "livemode",
+          "created",
+          "updated"
+        ]
+      },
+      "DeveloperCancelOrderRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "The customer cancelled"
+          }
+        }
+      },
+      "DeveloperRescheduleOrderRequestDto": {
+        "type": "object",
+        "properties": {
+          "scheduled_for": {
+            "type": "string",
+            "example": "2026-11-12T09:30:00Z",
+            "description": "The new pickup time: at least 1 hour away and at most 30 days ahead."
+          }
+        },
+        "required": ["scheduled_for"]
+      },
+      "UpdateStopContactDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "example": "Bola Ade"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 20,
+            "example": "+2348031234567"
+          }
+        }
+      },
+      "UpdateStopPackageDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Two pairs of shoes"
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0,
+            "example": 2500000,
+            "description": "In minor units."
+          }
+        }
+      },
+      "UpdateStopRequestDto": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "example": 6.4281
+          },
+          "lng": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "example": 3.4216
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300,
+            "example": "1 Admiralty Way, Lekki, Lagos"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/UpdateStopContactDto"
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "package": {
+            "$ref": "#/components/schemas/UpdateStopPackageDto"
+          }
+        }
+      },
+      "OfferRiderDto": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "example": "Tunde"
+          },
+          "rating": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.8,
+            "description": "Average rating out of 5; null before any."
+          },
+          "completed_trips": {
+            "type": "number",
+            "example": 312,
+            "description": "Deliveries the rider has completed on Pickriders."
+          }
+        },
+        "required": ["first_name", "rating", "completed_trips"]
+      },
+      "PublicOfferDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "offer"
+          },
+          "id": {
+            "type": "string",
+            "example": "off_6560f0c2a1b2c3d4e5f60718"
+          },
+          "order": {
+            "type": "string",
+            "example": "ord_6560f0c2a1b2c3d4e5f60718"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "accepted", "declined", "expired"],
+            "description": "pending: you can accept it until expires_at. declined: you declined it, or accepted another. expired: it lapsed unanswered."
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN"
+          },
+          "amount": {
+            "type": "number",
+            "example": 330000,
+            "description": "What you pay if you accept: the delivery fee plus the service charge."
+          },
+          "delivery_fee": {
+            "type": "number",
+            "example": 280000,
+            "description": "What the rider asks to be paid."
+          },
+          "rider": {
+            "$ref": "#/components/schemas/OfferRiderDto"
+          },
+          "eta_to_pickup_seconds": {
+            "type": "number",
+            "nullable": true,
+            "example": 420,
+            "description": "Roughly how long the rider would take to reach the pickup, from where they last were. Null when that isn't known."
+          },
+          "expires_at": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-11-12T09:35:00.000Z"
+          },
+          "created": {
+            "type": "string",
+            "example": "2026-11-12T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "order",
+          "status",
+          "currency",
+          "amount",
+          "delivery_fee",
+          "rider",
+          "eta_to_pickup_seconds",
+          "expires_at",
+          "created"
+        ]
+      },
+      "TrackingLocationDto": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "heading": {
+            "type": "number",
+            "nullable": true,
+            "description": "Degrees, 0 = north, when the rider app reports it."
+          },
+          "updated_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the rider app last reported this position."
+          }
+        },
+        "required": ["lat", "lng", "heading", "updated_at"]
+      },
+      "TrackingRiderDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Tunde A."
+          },
+          "photo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderRiderVehicleDto"
+              }
+            ]
+          },
+          "location": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackingLocationDto"
+              }
+            ]
+          }
+        },
+        "required": ["name", "photo_url", "vehicle", "location"]
+      },
+      "TrackingStopDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "stop_6560f0c2a1b2c3d4e5f60719"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["pickup", "dropoff"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "en_route", "arrived", "completed", "cancelled"]
+          },
+          "address": {
+            "type": "string"
+          },
+          "eta_s": {
+            "type": "number",
+            "nullable": true,
+            "example": 540,
+            "description": "Seconds until the rider reaches it; null once it is done or while no rider position is known."
+          },
+          "completed_at": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["id", "role", "status", "address", "eta_s", "completed_at"]
+      },
+      "OrderTrackingDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "order_tracking"
+          },
+          "order_id": {
+            "type": "string",
+            "example": "ord_6560f0c2a1b2c3d4e5f60718"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "awaiting_dispatch",
+              "searching",
+              "rider_assigned",
+              "picking_up",
+              "in_transit",
+              "delivered",
+              "cancelled",
+              "failed"
+            ]
+          },
+          "rider": {
+            "nullable": true,
+            "description": "While a rider has the order and it is not done.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackingRiderDto"
+              }
+            ]
+          },
+          "stops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackingStopDto"
+            }
+          },
+          "tracking_url": {
+            "type": "string",
+            "description": "The page your customer can open, without an API key."
+          }
+        },
+        "required": ["object", "order_id", "status", "rider", "stops", "tracking_url"]
+      },
+      "PublicTrackingDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "tracking"
+          },
+          "number": {
+            "type": "string",
+            "example": "PR-1042"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "awaiting_dispatch",
+              "searching",
+              "rider_assigned",
+              "picking_up",
+              "in_transit",
+              "delivered",
+              "cancelled",
+              "failed"
+            ]
+          },
+          "rider": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackingRiderDto"
+              }
+            ]
+          },
+          "stop": {
+            "nullable": true,
+            "description": "The link's drop-off; null for the order's own link, which shows no addresses.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrackingStopDto"
+              }
+            ]
+          },
+          "eta_s": {
+            "type": "number",
+            "nullable": true,
+            "description": "Seconds until the rider reaches the link's drop-off, or the next stop for the order's link."
+          }
+        },
+        "required": ["object", "number", "status", "rider", "stop", "eta_s"]
+      },
+      "AdvanceOrderRequestDto": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": ["rider_assigned", "picking_up", "in_transit", "delivered"],
+            "description": "Keep going until the order reaches this status. Without it, the order takes one step."
+          }
+        }
+      },
+      "CreateWebhookEndpointRequestDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "example": "https://api.acme.test/pickriders/webhooks",
+            "description": "An https URL on the public internet."
+          },
+          "enabled_events": {
+            "type": "array",
+            "example": ["order.delivered", "order.failed"],
+            "description": "The events to send, or [\"*\"] for all of them, including events added later.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "*",
+                "order.created",
+                "order.searching",
+                "order.offer.created",
+                "order.offer.expired",
+                "order.rider_assigned",
+                "order.rider_changed",
+                "order.picked_up",
+                "order.stop.arrived",
+                "order.stop.completed",
+                "order.delivered",
+                "order.cancelled",
+                "order.failed",
+                "wallet.funded",
+                "wallet.balance_low",
+                "account.updated"
+              ]
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 0,
+            "example": "Production order updates"
+          }
+        },
+        "required": ["url", "enabled_events"]
+      },
+      "PublicWebhookEndpointWithSecretDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "webhook_endpoint"
+          },
+          "id": {
+            "type": "string",
+            "example": "we_6560f0c2a1b2c3d4e5f60718"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://api.acme.test/pickriders/webhooks"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "enabled_events": {
+            "example": ["order.delivered"],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["enabled", "disabled"]
+          },
+          "disabled_reason": {
+            "type": "string",
+            "enum": ["manual", "failing"],
+            "nullable": true,
+            "description": "Why it is disabled: manual (you turned it off) or failing (every delivery failed for 3 days)."
+          },
+          "failing_since": {
+            "type": "string",
+            "nullable": true,
+            "description": "Since when every delivery has failed. At 3 days the endpoint is turned off."
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "previous_secret_expires_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "After a secret roll, events are signed with the old secret too until this time."
+          },
+          "created": {
+            "type": "string",
+            "example": "2026-11-11T09:30:00.000Z"
+          },
+          "secret": {
+            "type": "string",
+            "example": "whsec_Vd3XKqmWw0q9oD1yQm6m0pN5yJ0bX6v2a5r8cT4uHkE",
+            "description": "Check each event’s Pickriders-Signature with it. Shown only now; store it safely."
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "url",
+          "description",
+          "enabled_events",
+          "status",
+          "disabled_reason",
+          "failing_since",
+          "livemode",
+          "previous_secret_expires_at",
+          "created",
+          "secret"
+        ]
+      },
+      "PublicWebhookEndpointDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "webhook_endpoint"
+          },
+          "id": {
+            "type": "string",
+            "example": "we_6560f0c2a1b2c3d4e5f60718"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://api.acme.test/pickriders/webhooks"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "enabled_events": {
+            "example": ["order.delivered"],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["enabled", "disabled"]
+          },
+          "disabled_reason": {
+            "type": "string",
+            "enum": ["manual", "failing"],
+            "nullable": true,
+            "description": "Why it is disabled: manual (you turned it off) or failing (every delivery failed for 3 days)."
+          },
+          "failing_since": {
+            "type": "string",
+            "nullable": true,
+            "description": "Since when every delivery has failed. At 3 days the endpoint is turned off."
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "previous_secret_expires_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "After a secret roll, events are signed with the old secret too until this time."
+          },
+          "created": {
+            "type": "string",
+            "example": "2026-11-11T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "url",
+          "description",
+          "enabled_events",
+          "status",
+          "disabled_reason",
+          "failing_since",
+          "livemode",
+          "previous_secret_expires_at",
+          "created"
+        ]
+      },
+      "UpdateWebhookEndpointRequestDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "example": "https://api.acme.test/pickriders/webhooks"
+          },
+          "enabled_events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "*",
+                "order.created",
+                "order.searching",
+                "order.offer.created",
+                "order.offer.expired",
+                "order.rider_assigned",
+                "order.rider_changed",
+                "order.picked_up",
+                "order.stop.arrived",
+                "order.stop.completed",
+                "order.delivered",
+                "order.cancelled",
+                "order.failed",
+                "wallet.funded",
+                "wallet.balance_low",
+                "account.updated"
+              ]
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 0,
+            "description": "An empty string clears it."
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "true stops sending events to the endpoint; false starts again."
+          }
+        }
+      },
+      "WebhookDeliveryAttemptDto": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "example": "2026-11-11T09:30:01.000Z"
+          },
+          "status_code": {
+            "type": "number",
+            "nullable": true,
+            "description": "Null when no response came back."
+          },
+          "duration_ms": {
+            "type": "number",
+            "example": 182
+          },
+          "response_body": {
+            "type": "string",
+            "nullable": true,
+            "description": "The first 2 KB of the response."
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "example": "The endpoint answered 500."
+          }
+        },
+        "required": ["at", "status_code", "duration_ms", "response_body", "error"]
+      },
+      "WebhookDeliveryDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "webhook_delivery"
+          },
+          "id": {
+            "type": "string",
+            "example": "whd_6560f0c2a1b2c3d4e5f60718"
+          },
+          "endpoint_id": {
+            "type": "string",
+            "example": "we_6560f0c2a1b2c3d4e5f60718"
+          },
+          "event_id": {
+            "type": "string",
+            "example": "evt_6560f0c2a1b2c3d4e5f60718"
+          },
+          "event_type": {
+            "type": "string",
+            "example": "order.delivered"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "delivering", "succeeded", "failed"],
+            "description": "pending: waiting for its first try or a retry. failed: retries are over."
+          },
+          "attempt_count": {
+            "type": "number"
+          },
+          "next_attempt_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When it is tried next, while pending."
+          },
+          "delivered_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "created": {
+            "type": "string"
+          },
+          "request_body": {
+            "type": "string",
+            "nullable": true,
+            "description": "The JSON body sent; null once the event is gone."
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookDeliveryAttemptDto"
+            }
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "endpoint_id",
+          "event_id",
+          "event_type",
+          "status",
+          "attempt_count",
+          "next_attempt_at",
+          "delivered_at",
+          "created",
+          "request_body",
+          "attempts"
+        ]
+      },
+      "PublicEventDataDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The object the event is about, as it was when the event happened: an order (order.*), a wallet (wallet.*) or your account (account.updated)."
+          },
+          "stop_id": {
+            "type": "string",
+            "example": "stop_6560f0c2a1b2c3d4e5f60719",
+            "description": "For order.stop.arrived, order.stop.completed and order.picked_up: the stop."
+          },
+          "offer": {
+            "description": "For order.offer.created and order.offer.expired: the offer.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicOfferDto"
+              }
+            ]
+          },
+          "transaction": {
+            "description": "For wallet.funded: the credit that funded the wallet. data.object is the wallet after it.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicWalletTransactionDto"
+              }
+            ]
+          },
+          "threshold": {
+            "type": "number",
+            "example": 500000,
+            "description": "For wallet.balance_low: the threshold the available balance dropped below, in kobo."
+          }
+        },
+        "required": ["object"]
+      },
+      "PublicEventDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "event"
+          },
+          "id": {
+            "type": "string",
+            "example": "evt_6560f0c2a1b2c3d4e5f60718"
+          },
+          "type": {
+            "type": "string",
+            "example": "order.delivered"
+          },
+          "created": {
+            "type": "string",
+            "example": "2026-11-11T09:30:00.000Z"
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PublicEventDataDto"
+          }
+        },
+        "required": ["object", "id", "type", "created", "livemode", "data"]
+      },
+      "ResendEventRequestDto": {
+        "type": "object",
+        "properties": {
+          "webhook_endpoint": {
+            "type": "string",
+            "example": "we_6560f0c2a1b2c3d4e5f60718",
+            "description": "Send only to this endpoint. Without it, every enabled endpoint that receives this event type."
+          }
+        }
+      },
+      "ResentDeliveryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "whd_6560f0c2a1b2c3d4e5f60718"
+          },
+          "webhook_endpoint": {
+            "type": "string",
+            "example": "we_6560f0c2a1b2c3d4e5f60718"
+          }
+        },
+        "required": ["id", "webhook_endpoint"]
+      },
+      "ResendEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "example": "event_resend"
+          },
+          "event_id": {
+            "type": "string",
+            "example": "evt_6560f0c2a1b2c3d4e5f60718"
+          },
+          "deliveries": {
+            "description": "One new delivery per endpoint, sent at once and retried on failure.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResentDeliveryDto"
+            }
+          }
+        },
+        "required": ["object", "event_id", "deliveries"]
+      }
+    }
+  }
+}
