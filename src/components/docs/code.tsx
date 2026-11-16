@@ -18,6 +18,15 @@ const COLOURS: Record<TokenType, string> = {
   variable: "text-[var(--code-variable)]",
 };
 
+/**
+ * Values to put into the examples in place of the samples, e.g. the reader's own quote id in place of
+ * quo_6560f0c2a1b2c3d4e5f60718. The quickstart walkthrough provides them as the reader goes.
+ */
+export const CodeFill = React.createContext<Record<string, string>>({});
+
+const fill = (code: string, values: Record<string, string>) =>
+  Object.entries(values).reduce((text, [sample, mine]) => text.split(sample).join(mine), code);
+
 /** The language a reader picked last (curl, Node…), shared by every tabbed block on every page. */
 const STORE_KEY = "pr-docs-lang";
 const listeners = new Set<() => void>();
@@ -64,7 +73,9 @@ export function Code({
     0,
     tabs.findIndex((t) => t.label === choice),
   );
-  const active = tabs[index];
+  const values = React.useContext(CodeFill);
+  const active = { ...tabs[index], code: fill(tabs[index].code, values) };
+  const filled = active.code !== tabs[index].code;
   const id = React.useId();
 
   return (
@@ -97,6 +108,11 @@ export function Code({
           </div>
         ) : (
           <span className="pl-2 text-xs font-medium text-white/55">{title ?? active.label}</span>
+        )}
+        {filled && (
+          <span className="ml-auto shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-[var(--code-string)]">
+            Your ids filled in
+          </span>
         )}
         <CopyButton
           value={active.code}

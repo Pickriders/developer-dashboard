@@ -14,7 +14,7 @@ export function OnThisPage() {
   React.useEffect(() => {
     const found = Array.from(document.querySelectorAll<HTMLHeadingElement>("article h2[id]")).map((h) => ({
       id: h.id,
-      text: h.childNodes[0]?.textContent?.trim() ?? h.textContent ?? "",
+      text: h.dataset.toc ?? h.childNodes[0]?.textContent?.trim() ?? h.textContent ?? "",
     }));
     setHeadings(found);
     setCurrent(found[0]?.id ?? null);
