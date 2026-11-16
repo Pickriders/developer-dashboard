@@ -6,7 +6,7 @@ import { Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth";
 import { EmptyState } from "@/components/kit/empty-state";
 import { TestModeBanner } from "@/components/kit/test-mode-banner";
-import { DashboardShell, ModeSwitch } from "@/components/shell";
+import { AccountNotice, DashboardShell, ModeSwitch } from "@/components/shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkspace, WorkspaceProvider } from "@/lib/workspace";
 
@@ -19,11 +19,15 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The shell in the current mode: the amber bar across the top whenever it's test. */
+/**
+ * The shell in the current mode: the amber bar across the top whenever it's test, and the red
+ * notice above every page while the team is suspended or its live request wasn't approved.
+ */
 function Shell({ children }: { children: React.ReactNode }) {
   const { mode } = useWorkspace();
   return (
     <DashboardShell banner={mode === "test" ? <TestModeBanner /> : null} headerActions={<ModeSwitch />}>
+      <AccountNotice />
       {children}
     </DashboardShell>
   );

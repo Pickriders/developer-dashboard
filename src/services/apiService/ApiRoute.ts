@@ -54,6 +54,9 @@ import {
   AdminDropHandoffRiderRequestDto,
   AdminGetAnnouncementData,
   AdminGetDeveloperData,
+  AdminGetDeveloperMonitoringData,
+  AdminGetDeveloperRequestLogData,
+  AdminGetDeveloperUsageData,
   AdminGetHandoffData,
   AdminGetMyProfileData,
   AdminGetRiderAchievementsData,
@@ -70,6 +73,11 @@ import {
   AdminListAnnouncementReceiptsData,
   AdminListAnnouncementScreensData,
   AdminListAnnouncementsData,
+  AdminListDeveloperActivityData,
+  AdminListDeveloperRequestLogsData,
+  AdminListDeveloperTransactionsData,
+  AdminListDeveloperWebhookDeliveriesData,
+  AdminListDeveloperWebhookEndpointsData,
   AdminListDevelopersData,
   AdminListHandoffsData,
   AdminListOrderHandoffsData,
@@ -83,14 +91,17 @@ import {
   AdminRemoveUserPhotoData,
   AdminResolveAlertData,
   AdminResolveAlertRequestDto,
+  AdminRestoreDeveloperTeamData,
   AdminReviewHandoffData,
   AdminReviewHandoffRequestDto,
+  AdminRevokeDeveloperKeyData,
   AdminSetWithdrawalRestrictionData,
   AdminStartHandoffData,
   AdminStartHandoffRequestDto,
   AdminStartHandoffSearchData,
   AdminStartHandoffSearchRequestDto,
   AdminSuspendDeveloperLiveData,
+  AdminSuspendDeveloperTeamData,
   AdminUnsuspendDeveloperLiveData,
   AdminUpdateAnnouncementData,
   AdminUpdateAnnouncementStatusData,
@@ -5529,6 +5540,12 @@ export namespace Api {
   export namespace GetOrders {
     export type RequestParams = {};
     export type RequestQuery = {
+      /** false for Developer API test orders only; true leaves them out */
+      livemode?: "true" | "false";
+      /** One developer team's orders */
+      teamId?: string;
+      /** Where orders came from: DEVELOPER_API for orders created with a developer API key */
+      channel?: string;
       /** true: only orders a rider was released from at least once (riderReleaseCount > 0) */
       releasedOnly?: boolean;
       /** date filter for scheduled orders - provide this if filtering for scheduled orders */
@@ -7201,6 +7218,61 @@ export namespace Api {
   }
 
   /**
+   * @description Suspends the whole team: every key, test and live, stops on its next request. Reason required.
+   * @tags admins/developers
+   * @name AdminSuspendDeveloperTeam
+   * @request POST:/api/v1/admins/developers/{teamId}/team/suspend
+   * @secure
+   * @response `200` `AdminSuspendDeveloperTeamData`
+   */
+  export namespace AdminSuspendDeveloperTeam {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperLiveDecisionRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminSuspendDeveloperTeamData;
+  }
+
+  /**
+   * @description Lifts a team suspension.
+   * @tags admins/developers
+   * @name AdminRestoreDeveloperTeam
+   * @request POST:/api/v1/admins/developers/{teamId}/team/restore
+   * @secure
+   * @response `200` `AdminRestoreDeveloperTeamData`
+   */
+  export namespace AdminRestoreDeveloperTeam {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminRestoreDeveloperTeamData;
+  }
+
+  /**
+   * @description Revokes one of the team's API keys at once. Reason required; the key stores it.
+   * @tags admins/developers
+   * @name AdminRevokeDeveloperKey
+   * @request POST:/api/v1/admins/developers/{teamId}/keys/{keyId}/revoke
+   * @secure
+   * @response `200` `AdminRevokeDeveloperKeyData`
+   */
+  export namespace AdminRevokeDeveloperKey {
+    export type RequestParams = {
+      teamId: string;
+      keyId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperLiveDecisionRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminRevokeDeveloperKeyData;
+  }
+
+  /**
    * @description SUSPENDED → APPROVED.
    * @tags admins/developers
    * @name AdminUnsuspendDeveloperLive
@@ -7216,5 +7288,250 @@ export namespace Api {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = AdminUnsuspendDeveloperLiveData;
+  }
+
+  /**
+   * @description The team's audit trail, newest first, with the staff member behind each staff action.
+   * @tags admins/developers
+   * @name AdminListDeveloperActivity
+   * @request GET:/api/v1/admins/developers/{teamId}/activity
+   * @secure
+   * @response `200` `AdminListDeveloperActivityData`
+   */
+  export namespace AdminListDeveloperActivity {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+      /**
+       * One event (`member.removed`) or an area ending in a dot (`member.`).
+       * @pattern /^[a-z_]+\.([a-z_]+)?$/
+       * @example "member."
+       */
+      event?: string;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminListDeveloperActivityData;
+  }
+
+  /**
+   * @description Orders per day and how they ended, spend, API errors and webhook success, for one mode.
+   * @tags admins/developers
+   * @name AdminGetDeveloperUsage
+   * @request GET:/api/v1/admins/developers/{teamId}/usage
+   * @secure
+   * @response `200` `AdminGetDeveloperUsageData`
+   */
+  export namespace AdminGetDeveloperUsage {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+      /**
+       * The last 7, 30 or 90 days.
+       * @default "30d"
+       */
+      period?: "7d" | "30d" | "90d";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminGetDeveloperUsageData;
+  }
+
+  /**
+   * @description Every API request the team's keys made in the last 30 days, newest first, with filters.
+   * @tags admins/developers
+   * @name AdminListDeveloperRequestLogs
+   * @request GET:/api/v1/admins/developers/{teamId}/request-logs
+   * @secure
+   * @response `200` `AdminListDeveloperRequestLogsData`
+   */
+  export namespace AdminListDeveloperRequestLogs {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+      /** Only live or only test requests. */
+      livemode?: "true" | "false";
+      /** succeeded (below 400), failed (400 and up), or a status class. */
+      status?: "succeeded" | "failed" | "2xx" | "4xx" | "5xx";
+      method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+      /**
+       * Requests whose path contains this, e.g. /orders.
+       * @maxLength 200
+       * @example "/orders"
+       */
+      path?: string;
+      /** Requests made with this API key (its id). */
+      key?: string;
+      /** From this time (ISO 8601). */
+      created_gte?: string;
+      /** Up to this time (ISO 8601). */
+      created_lte?: string;
+      /**
+       * The request id from a response (Request-Id header or error.request_id). Finds it in either mode.
+       * @maxLength 64
+       * @example "req_kE72slxdyzWzqil0NpGahJCb"
+       */
+      request_id?: string;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminListDeveloperRequestLogsData;
+  }
+
+  /**
+   * @description One request in full: query, IP, user agent and the (redacted) bodies.
+   * @tags admins/developers
+   * @name AdminGetDeveloperRequestLog
+   * @request GET:/api/v1/admins/developers/{teamId}/request-logs/{logId}
+   * @secure
+   * @response `200` `AdminGetDeveloperRequestLogData`
+   */
+  export namespace AdminGetDeveloperRequestLog {
+    export type RequestParams = {
+      teamId: string;
+      logId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminGetDeveloperRequestLogData;
+  }
+
+  /**
+   * @description Webhook endpoints, newest first, each with a week of delivery counts. Both modes without `livemode`.
+   * @tags admins/developers
+   * @name AdminListDeveloperWebhookEndpoints
+   * @request GET:/api/v1/admins/developers/{teamId}/webhook-endpoints
+   * @secure
+   * @response `200` `AdminListDeveloperWebhookEndpointsData`
+   */
+  export namespace AdminListDeveloperWebhookEndpoints {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+      /** true for live mode, false for test. */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminListDeveloperWebhookEndpointsData;
+  }
+
+  /**
+   * @description One endpoint's deliveries, newest first, each with the body sent and every attempt.
+   * @tags admins/developers
+   * @name AdminListDeveloperWebhookDeliveries
+   * @request GET:/api/v1/admins/developers/{teamId}/webhook-endpoints/{endpointId}/deliveries
+   * @secure
+   * @response `200` `AdminListDeveloperWebhookDeliveriesData`
+   */
+  export namespace AdminListDeveloperWebhookDeliveries {
+    export type RequestParams = {
+      teamId: string;
+      /** The endpoint id (we_…). */
+      endpointId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminListDeveloperWebhookDeliveriesData;
+  }
+
+  /**
+   * @description The wallet's transactions in one mode (test without `livemode=true`), newest first.
+   * @tags admins/developers
+   * @name AdminListDeveloperTransactions
+   * @request GET:/api/v1/admins/developers/{teamId}/wallet/transactions
+   * @secure
+   * @response `200` `AdminListDeveloperTransactionsData`
+   */
+  export namespace AdminListDeveloperTransactions {
+    export type RequestParams = {
+      teamId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * @min 1
+       * @max 100
+       * @default 20
+       */
+      limit?: number;
+      /** Id of the last object on the previous page; returns the objects after it. */
+      starting_after?: string;
+      /** Id of the first object on the next page; returns the objects before it. */
+      ending_before?: string;
+      /** true for live mode, false for test. */
+      livemode?: "true" | "false";
+      type?: "credit" | "debit";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminListDeveloperTransactionsData;
+  }
+
+  /**
+   * @description Error, latency, 429 and webhook rates for the alert window, the last hour and day, and the webhook queue.
+   * @tags admins/developers
+   * @name AdminGetDeveloperMonitoring
+   * @request GET:/api/v1/admins/developer-monitoring
+   * @secure
+   * @response `200` `AdminGetDeveloperMonitoringData`
+   */
+  export namespace AdminGetDeveloperMonitoring {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminGetDeveloperMonitoringData;
   }
 }
