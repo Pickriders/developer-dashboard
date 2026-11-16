@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { Authentication, Money, TestAndLive } from "../_content/basics";
+import { Changelog, Ids, Idempotency, Pagination, RateLimits, Versioning } from "../_content/concepts";
 import { Errors } from "../_content/errors";
 import { Quickstart } from "../_content/quickstart";
 import { Webhooks } from "../_content/webhooks";
@@ -15,6 +16,12 @@ const CONTENT: Record<string, () => JSX.Element> = {
   webhooks: Webhooks,
   errors: Errors,
   money: Money,
+  idempotency: Idempotency,
+  pagination: Pagination,
+  "rate-limits": RateLimits,
+  ids: Ids,
+  changelog: Changelog,
+  versioning: Versioning,
 };
 
 // Every page is built ahead of time: fast, and crawlable without JavaScript.

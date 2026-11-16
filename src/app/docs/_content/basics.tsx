@@ -136,6 +136,13 @@ export function Money() {
         ]}
       />
 
+      <H2>Currencies</H2>
+      <P>
+        Today every amount is in naira (<C>NGN</C>), and every amount comes with its <C>currency</C>. If we add a
+        country, its amounts will use that currency&apos;s smallest unit in the same way, so read <C>currency</C> rather
+        than assuming naira.
+      </P>
+
       <H2>Your wallet</H2>
       <P>
         Orders are paid from a wallet you top up in advance. When you book an order, its price is <strong>held</strong>:

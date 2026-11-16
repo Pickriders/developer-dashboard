@@ -11,7 +11,7 @@ export type DocPage = {
   title: string;
   /** One plain sentence: the search result, the meta description and the social card. */
   description: string;
-  section: "Get started" | "The basics" | "Reference";
+  section: "Get started" | "The basics" | "Reference" | "Updates";
   /** Words people search with that aren't in the title or description. */
   keywords: string[];
 };
@@ -93,6 +93,35 @@ export const DOC_PAGES: DocPage[] = [
     keywords: ["kobo", "naira", "ngn", "currency", "amounts", "wallet", "price"],
   },
   {
+    slug: "idempotency",
+    title: "Retrying safely",
+    description: "Send an Idempotency-Key and a retried request is never done twice, even if the network fails.",
+    section: "The basics",
+    keywords: ["idempotency", "idempotency-key", "retry", "duplicate", "timeout", "Idempotent-Replayed"],
+  },
+  {
+    slug: "pagination",
+    title: "Pages of results",
+    description: "Lists come a page at a time, newest first. Here's how to get the next page, or all of them.",
+    section: "The basics",
+    keywords: ["pagination", "paging", "limit", "starting_after", "ending_before", "has_more", "list"],
+  },
+  {
+    slug: "rate-limits",
+    title: "Rate limits",
+    description:
+      "How many requests each key can send, the headers that say where you stand, and what to do at the limit.",
+    section: "The basics",
+    keywords: ["rate limit", "429", "throttle", "Retry-After", "RateLimit-Remaining", "too many requests"],
+  },
+  {
+    slug: "ids",
+    title: "IDs",
+    description: "Every object has an id whose first letters say what it is, like ord_ for an order.",
+    section: "The basics",
+    keywords: ["id", "ids", "prefix", "ord_", "quo_", "evt_", "reference", "identifier"],
+  },
+  {
     slug: "api",
     title: "API reference",
     description: "Every request the Pickriders API accepts, with Try it, the OpenAPI file and a Postman collection.",
@@ -107,9 +136,24 @@ export const DOC_PAGES: DocPage[] = [
     section: "Reference",
     keywords: group.endpoints.flatMap((e) => [e.path, e.op.summary ?? "", e.op.operationId ?? ""]),
   })),
+  {
+    slug: "changelog",
+    title: "Changelog",
+    description: "Every change to the Pickriders API and these docs, newest first.",
+    section: "Updates",
+    keywords: ["changelog", "release notes", "what's new", "updates", "changes"],
+  },
+  {
+    slug: "versioning",
+    title: "Versioning and deprecation",
+    description:
+      "What can change at any time, what needs a new version, and the 6 months' notice before anything breaks.",
+    section: "Updates",
+    keywords: ["versioning", "deprecation", "breaking changes", "v1", "v2", "policy", "sunset"],
+  },
 ];
 
-export const SECTIONS = ["Get started", "The basics", "Reference"] as const;
+export const SECTIONS = ["Get started", "The basics", "Reference", "Updates"] as const;
 
 export const docHref = (slug: string) => (slug ? `/docs/${slug}` : "/docs");
 
