@@ -8,6 +8,29 @@ import { ADA, MOCK_API, signIn } from "./helpers";
  * label, and ids are unique (labels and aria references point at the right thing).
  */
 const PAGES = ["/", "/usage", "/orders", "/orders/new", "/wallet", "/keys", "/webhooks", "/logs", "/team", "/settings"];
+/** The public docs, held to the same bar. */
+const DOCS = [
+  "/docs",
+  "/docs/quickstart",
+  "/docs/test-and-live",
+  "/docs/authentication",
+  "/docs/webhooks",
+  "/docs/errors",
+  "/docs/money",
+  "/docs/api",
+  "/docs/api/orders",
+  "/docs/api/quotes",
+  "/docs/idempotency",
+  "/docs/pagination",
+  "/docs/rate-limits",
+  "/docs/ids",
+  "/docs/changelog",
+  "/docs/versioning",
+  "/docs/guides/delivery-types",
+  "/docs/guides/go-live-checklist",
+  "/docs/events",
+  "/docs/events/order-delivered",
+];
 
 async function audit(page: Page) {
   return page.evaluate(() => {
@@ -71,13 +94,15 @@ for (const [device, viewport] of [
 ] as const) {
   for (const scheme of ["light", "dark"] as const) {
     test(`every page passes on a ${device} in ${scheme} mode`, async ({ browser, request }) => {
+      // Two dozen pages, each loaded and audited: more than the default 30 seconds.
+      test.setTimeout(180_000);
       await request.post(`${MOCK_API}/__test/reset`);
       await request.post(`${MOCK_API}/__test/requests?email=${ADA.email}&n=5`);
       const context = await browser.newContext({ viewport, colorScheme: scheme });
       const page = await context.newPage();
       await signIn(page);
       const found: string[] = [];
-      for (const path of PAGES) {
+      for (const path of [...PAGES, ...DOCS]) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await page.waitForLoadState("networkidle");

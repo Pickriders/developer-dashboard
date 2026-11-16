@@ -3,7 +3,7 @@
 The Pickriders **developer dashboard** — the console developers use alongside the public
 Developer API. They sign up, verify their email and phone, create API keys, manage webhook
 endpoints, read request logs, create and track orders, fund their wallet, manage their team,
-and request live access. Served at `dashboard.pickriders.com`.
+and request live access. Served at `dashboard.pickriders.com`, with the public API docs at `/docs`.
 
 **Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3 and **our own
 components in the Pickriders storefront's design** (**DESIGN.md**: tokens, Urbanist and Geist Mono,
@@ -68,6 +68,9 @@ src/
 │   ├── (dashboard)/      every signed-in page, in the shell: home (get-started checklist) and,
 │   │                     as they land, keys, webhooks, orders, wallet, logs, team, settings,
 │   │                     usage — each with `_components/`. Its layout wraps them in the workspace
+│   ├── docs/             the public API docs (/docs, no sign-in): layout, start page, [slug] pages,
+│   │                     _content/ (each page's body), opengraph-image. See "Docs" below
+│   ├── sitemap.ts, robots.ts   what search engines may crawl: the docs and sign-up only
 │   ├── auth/             login, signup, verify (email then phone), forgot-password, invite
 │   ├── api/backend/      the proxy to the API: session cookie → bearer token (lib/session/proxy.ts)
 │   ├── api/session/      DELETE signs out (clears the cookie)
@@ -99,6 +102,38 @@ src/
 │                         test/live `mode` (per team; live only once approved)
 └── middleware.ts         the auth gate
 ```
+
+**Docs** (`/docs`, step 12.1) replace the old `developer-docs` site. They're public (an open path in
+`lib/session/paths.ts`), pre-rendered, and written for someone who has never used an API: short
+sentences, one idea per paragraph, the next step always visible. `lib/docs/pages.ts` lists every page
+once (sidebar, search, sitemap, Next links and metadata come from it); a new page joins that list,
+the `CONTENT` map in `docs/[slug]/page.tsx` and `DOCS` in `e2e/quality.spec.ts`. Building blocks are
+in `components/docs/` (`Code` with remembered language tabs, `Steps`, `Callout`, `H2` with anchors).
+The quickstart is a walkthrough (`components/docs/walkthrough.tsx`): one step open at a time, a to-do
+list gating **Done**, and a paste-or-run check (`lib/docs/walkthrough.ts`) whose ids flow into later
+examples; every step stays in the server HTML for search engines. **Try it** (`components/docs/try-it.tsx`,
+step 12.6) sends real requests from the browser straight to the API (it allows any origin) with the
+reader's **test** key: `sk_live_` keys are refused, and the key lives in memory only, never storage,
+URLs or logs (§2). `e2e/mock-api.mjs` answers the public routes (`/developer/api/v1/…`, with CORS) by
+mapping them onto its dashboard routes; a docs example that calls a new route needs it there too.
+The **API reference** (`/docs/api`, one page per tag, step 12.2) is generated from
+`lib/docs/openapi.json`, a copy of backend-api's public OpenAPI document: refresh it with
+`yarn docs:sync` (or `node scripts/fetch-openapi.mjs src/lib/docs/openapi.json <local dump>`), never by
+hand. CI's **API contract** job downloads the deployed document and fails on a breaking change
+against that copy (`lib/docs/openapi-diff.ts`). The OpenAPI file and the Postman collection
+(`lib/docs/postman.ts`) are served from `/docs/openapi.json` and
+`/docs/pickriders.postman_collection.json` (step 12.9). Try it's example bodies are in
+`lib/docs/endpoints.ts`.
+**Guides** (`/docs/guides/*`, step 12.5) write their requests as data in `lib/docs/guides.ts`: the
+same object becomes the four code tabs, is validated against the API document in CI
+(`examples.test.ts`), runs against the mock in `e2e/docs.spec.ts`, and against the dev API in CI's
+contract job when the `PICKRIDERS_TEST_KEY` secret is set. **Events** (`/docs/events/*`, step 12.7)
+are in `lib/docs/events.ts`; examples are generated from the API document and validated, and a new
+event type in the API fails CI until it's documented.
+`lib/docs/errors.ts` must list every Developer API error code: API errors link to
+`/docs/errors#<code>`, so codes are added, never removed. Facts in the docs (paths, fields, limits,
+retry times) come from backend-api's source, never from memory. `NEXT_PUBLIC_SITE_URL` sets the
+canonical origin (default `https://developers.pickriders.com`, where backend-api's `doc_url`s point).
 
 **Auth is global, in `src/middleware.ts`.** Signed out, every page but the guest pages (login,
 signup, forgot-password) and the open ones (`/auth/invite`, `/design`) redirects to

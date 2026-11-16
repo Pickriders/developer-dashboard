@@ -1,8 +1,17 @@
 /** The backend's origin, e.g. https://pickriders-api-dev.onrender.com. Public: it ships to the browser. */
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
-/** The public docs (developer-docs). Error bodies link here too (`doc_url`). */
-export const DOCS_URL = "https://developers.pickriders.com/docs";
+/** The docs, served by this app at /docs. API errors link to them too (`doc_url`). */
+export const DOCS_URL = "/docs";
+
+/**
+ * Where this site lives, for canonical links, the sitemap and social cards. backend-api's error
+ * `doc_url`s point at developers.pickriders.com/docs, so production serves this app there.
+ */
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://developers.pickriders.com").replace(/\/$/, "");
+
+/** The Developer API's base URL, as the docs show it. */
+export const PUBLIC_API_BASE = "https://api.pickriders.com/developer/api/v1";
 
 /** Google Maps for the order map and address search, as pickrider-admin uses. Optional: without it
  * the order page draws the route itself and addresses take coordinates. Public by design (browser key,

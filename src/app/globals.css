@@ -10,6 +10,13 @@
  */
 @layer base {
   :root {
+    /* Syntax colours in the docs' code blocks, which are plum in both themes. */
+    --code-string: #8fe3cf;
+    --code-number: #f5c48a;
+    --code-keyword: #c9b8ff;
+    --code-key: #9cc9ff;
+    --code-variable: #ffb3c7;
+
     /* Surfaces */
     --canvas: 244 247 247; /* #f4f7f7 — the page behind everything */
     --surface: 255 255 255; /* #ffffff — cards, tables, inputs, the auth form column */

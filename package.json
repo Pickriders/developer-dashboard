@@ -15,6 +15,7 @@
     "prepare": "husky",
     "generate-types": "npx swagger-typescript-api@13.0.23 -p https://pickriders-api-dev.onrender.com/docs/api-json -o ./src/services/apiService --responses --axios --route-types --extract-request-params --extract-request-body --extract-response-body --modular --default-response any --patch --unwrap-response-data",
     "generate-types:local": "npx swagger-typescript-api@13.0.23 -p ../backend-api/swagger.json -o ./src/services/apiService --responses --axios --route-types --extract-request-params --extract-request-body --extract-response-body --modular --default-response any --patch --unwrap-response-data",
+    "docs:sync": "node scripts/fetch-openapi.mjs src/lib/docs/openapi.json",
     "e2e": "playwright test"
   },
   "dependencies": {

@@ -205,3 +205,18 @@ test("opening a live endpoint's link in test mode switches to live", async ({ pa
   await expect(page.getByRole("radio", { name: "Live" })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByRole("status", { name: "Test mode" })).toBeHidden();
 });
+
+test("won't add a second endpoint for the same URL", async ({ page }) => {
+  await signIn(page);
+  await addEndpoint(page);
+
+  await page.goto("/webhooks");
+  await page.getByRole("button", { name: "Add endpoint" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Add a test endpoint" });
+  await dialog.getByLabel("Endpoint URL").fill(receiver.url);
+  await dialog.getByRole("button", { name: "Add endpoint" }).click();
+
+  await expect(dialog.getByText(/You already have a test endpoint for this URL \(we_\w+\)/)).toBeVisible();
+  await expect(dialog.getByLabel("Endpoint URL")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("dialog", { name: "Endpoint added" })).toHaveCount(0);
+});

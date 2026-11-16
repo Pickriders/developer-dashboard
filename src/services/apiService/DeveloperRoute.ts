@@ -11,7 +11,6 @@
 
 import {
   AdvanceOrderRequestDto,
-  CancelOrderRequestDto,
   ConfigureAutoTopUpRequestDto,
   CreateDeveloperApiKeyRequestDto,
   CreateDeveloperTeamRequestDto,
@@ -41,6 +40,7 @@ import {
   DeveloperAcceptInvitationData,
   DeveloperAddTestFundsData,
   DeveloperCancelEmailChangeData,
+  DeveloperCancelOrderRequestDto,
   DeveloperCancelPhoneChangeData,
   DeveloperChangeEmailRequestDto,
   DeveloperChangePhoneRequestDto,
@@ -1597,7 +1597,7 @@ export namespace Developer {
        */
       livemode?: "true" | "false";
     };
-    export type RequestBody = CancelOrderRequestDto;
+    export type RequestBody = DeveloperCancelOrderRequestDto;
     export type RequestHeaders = {
       /** The team to act on (from the teams list). */
       "X-Team-Id": string;

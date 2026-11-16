@@ -21,6 +21,7 @@ import { createServer } from "node:http";
 import { createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
 
 const PORT = Number(process.env.MOCK_API_PORT ?? 4010);
+const PUBLIC = "/developer/api/v1";
 const D = "/developer/api/v1/dashboard";
 const RESEND_S = 60;
 const TTL_S = 300;
@@ -685,13 +686,12 @@ const routes = {
   "GET /webhook-endpoints": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "webhooks.read");
     const live = url.searchParams.get("livemode");
-    return [
-      200,
-      t.endpoints
-        .filter((e) => live === null || e.livemode === (live === "true"))
-        .map(presentEndpoint)
-        .reverse(),
-    ];
+    // A list object, as backend-api sends every paginated list.
+    const data = t.endpoints
+      .filter((e) => live === null || e.livemode === (live === "true"))
+      .map(presentEndpoint)
+      .reverse();
+    return [200, { object: "list", data, has_more: false, url: `${D}/webhook-endpoints` }];
   },
   "POST /webhook-endpoints": (req, body) => {
     const { team: t } = requireTeam(req, "webhooks.write");
@@ -700,6 +700,7 @@ const routes = {
       throw new ApiError(400, "parameter_invalid", "enabled_events should not be empty", "enabled_events");
     if (body.livemode && t.liveStatus !== "APPROVED")
       throw new ApiError(403, "live_access_required", "Live endpoints need approved live access.");
+    urlFree(t, !!body.livemode, body.url);
     const endpoint = {
       id: `we_${newId()}`,
       url: body.url.trim(),
@@ -749,7 +750,16 @@ const routes = {
     const newest = [...endpoint.deliveries].reverse();
     const after = url.searchParams.get("starting_after");
     const from = after ? newest.findIndex((d) => d.id === after) + 1 : 0;
-    return [200, newest.slice(from, from + Number(url.searchParams.get("limit") ?? 20)).map(presentDelivery)];
+    const limit = Number(url.searchParams.get("limit") ?? 20);
+    return [
+      200,
+      {
+        object: "list",
+        data: newest.slice(from, from + limit).map(presentDelivery),
+        has_more: newest.length > from + limit,
+        url: `${D}/webhook-endpoints/${id}/deliveries`,
+      },
+    ];
   },
   "POST /webhook-endpoints/:id/test": async (req, body, { id }) => {
     const endpoint = findEndpoint(req, id, "webhooks.write");
@@ -1011,7 +1021,9 @@ const routes = {
   "POST /orders": (req, body, params, url) => {
     const { team: t } = requireTeam(req, "orders.write");
     const live = liveFor(t, url);
-    const quote = body.quote_id ? t.quotes.find((q) => q.id === body.quote_id) : makeQuote(t, body, live);
+    // Straight from stops: price it first, then use the stored quote (it keeps the stops).
+    const quoteId = body.quote_id ?? makeQuote(t, body, live).id;
+    const quote = t.quotes.find((q) => q.id === quoteId);
     if (!quote) throw new ApiError(404, "resource_missing", "No quote with that id.", "quote_id");
     if (!quote.usable)
       throw new ApiError(400, "quote_used", "That quote was already used or has expired. Get a new one.", "quote_id");
@@ -1040,23 +1052,23 @@ const routes = {
         min_offer_percentage: null,
         auto_accept_after_s: null,
       },
-      stops: quote.input.map((s, i) => ({
+      stops: quote.input.map((s) => ({
         id: `stop_${newId()}`,
-        role: i === 0 ? "pickup" : "dropoff",
+        role: s.role,
         status: "pending",
         address: s.address,
         lat: s.lat,
         lng: s.lng,
-        contact: s.contact,
+        contact: s.contact ?? { name: null, phone: null },
         instructions: s.instructions ?? null,
         package: null,
-        confirmation_code: i === 0 ? null : String(4821 + ++drop),
+        confirmation_code: s.role === "pickup" ? null : String(4821 + ++drop),
         arrived_at: null,
         completed_at: null,
         cancelled_at: null,
         proof: null,
         pending_change: null,
-        tracking_url: i === 0 ? null : `https://track.pickriders.test/s/${newId()}`,
+        tracking_url: s.role === "pickup" ? null : `https://track.pickriders.test/s/${newId()}`,
       })),
       rider: null,
       tracking_url: `https://track.pickriders.test/o/${newId()}`,
@@ -1134,6 +1146,28 @@ const routes = {
       },
     ];
   },
+  "GET /quotes/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "orders.read");
+    const quote = t.quotes.find((q) => q.id === id);
+    if (!quote) throw new ApiError(404, "quote_not_found", "No quote with that id.", "id");
+    const { input, ...publicQuote } = quote;
+    return [200, publicQuote];
+  },
+  "POST /orders/:id/reschedule": (req, body, { id }, url) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const order = findOrder(req, id, url, "orders.write");
+    if (!["scheduled", "searching"].includes(order.status))
+      throw new ApiError(409, "order_not_reschedulable", "Only an order that hasn't started can move.");
+    if (!body.scheduled_for || Number.isNaN(Date.parse(body.scheduled_for)))
+      throw new ApiError(400, "parameter_invalid", "scheduled_for must be a date and time.", "scheduled_for");
+    Object.assign(order, { status: "scheduled", scheduled_for: new Date(body.scheduled_for).toISOString() });
+    void t;
+    return [200, order];
+  },
+  "GET /orders/:id/offers": (req, body, { id }, url) => {
+    findOrder(req, id, url, "orders.read");
+    return [200, { object: "list", data: [], has_more: false, url: `${PUBLIC}/orders/${id}/offers` }];
+  },
   "POST /orders/:id/cancel": (req, body, { id }, url) => {
     const order = findOrder(req, id, url, "orders.write");
     if (["delivered", "cancelled", "failed"].includes(order.status))
@@ -1206,19 +1240,34 @@ const km = (a, b) => {
     Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 };
+const rolesFor = (type, n) =>
+  type === "bulk" ? [...Array(n - 1).fill("pickup"), "dropoff"] : ["pickup", ...Array(n - 1).fill("dropoff")];
+
 function makeQuote(t, body, live) {
   const stops = body.stops ?? [];
   if (stops.length < 2)
     throw new ApiError(400, "parameter_invalid", "stops needs a pickup and at least one drop-off.", "stops");
   if (body.service_area !== AREA.id)
     throw new ApiError(400, "service_area_invalid", "Pickriders doesn't deliver there yet.", "service_area");
+  const type = body.type ?? (stops.length > 2 ? "batch" : "single");
+  const roles = rolesFor(type, stops.length);
+  // As backend-api: every drop-off has a contact, and a batch pickup; a single or bulk pickup may be an errand.
+  stops.forEach((s, i) => {
+    if (!s.contact && (roles[i] === "dropoff" || type === "batch"))
+      throw new ApiError(
+        400,
+        "parameter_missing",
+        "Give this stop a contact: the name and phone number of the person the rider meets.",
+        `stops.${i}.contact`,
+      );
+  });
   let distance = 0;
   for (let i = 1; i < stops.length; i++) distance += km(stops[i - 1], stops[i]);
   const fee = Math.max(300000, Math.round((distance * 15000) / 1000) * 1000);
   const quote = {
     object: "quote",
     id: `quo_${newId()}`,
-    type: body.type ?? (stops.length > 2 ? "batch" : "single"),
+    type,
     service_area: AREA.id,
     currency: "NGN",
     recommended_price: fee + 50000,
@@ -1233,7 +1282,7 @@ function makeQuote(t, body, live) {
     usable: true,
     livemode: live,
     created: new Date().toISOString(),
-    input: stops,
+    input: stops.map((s, i) => ({ ...s, role: roles[i] })),
   };
   t.quotes.push(quote);
   const { input, ...publicQuote } = quote;
@@ -1308,6 +1357,21 @@ const presentEndpoint = ({ secret, previousSecret, deliveries, ...endpoint }) =>
   object: "webhook_endpoint",
   ...endpoint,
 });
+/** As backend-api: one endpoint per URL in each mode. */
+function urlFree(t, livemode, raw, exceptId) {
+  const url = new URL(String(raw).trim()).toString();
+  const taken = t.endpoints.find(
+    (e) => e.livemode === livemode && e.id !== exceptId && new URL(e.url).toString() === url,
+  );
+  if (taken)
+    throw new ApiError(
+      409,
+      "webhook_endpoint_exists",
+      `You already have a ${livemode ? "live" : "test"} endpoint for this URL (${taken.id}). Change that one's events instead of adding another.`,
+      "url",
+    );
+}
+
 function checkUrl(raw) {
   try {
     const url = new URL(String(raw ?? "").trim());
@@ -1443,6 +1507,38 @@ createServer(async (req, res) => {
   };
 
   if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), failing.clear(), send(204, null));
+
+  // The public Developer API (what the docs' Try it calls from the browser): any origin may call it,
+  // as backend-api allows, and each route is the dashboard route of the same name, as the key's team.
+  if (url.pathname.startsWith(PUBLIC) && !url.pathname.startsWith(D)) {
+    res.setHeader("access-control-allow-origin", "*");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-methods": "GET,POST,PATCH,DELETE",
+        "access-control-allow-headers": req.headers["access-control-request-headers"] ?? "authorization,content-type",
+      });
+      return res.end();
+    }
+    const error = (status, type, code, message) =>
+      send(status, { error: { type, code, message, param: null, request_id: requestId } });
+    const secret = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    if (!secret) return error(401, "authentication_error", "api_key_required", "Send your API key.");
+    const owner = [...teams.values()].find((t) => t.keys.some((k) => k.secret === secret));
+    const key = owner?.keys.find((k) => k.secret === secret);
+    if (!key || key.status === "REVOKED")
+      return error(401, "authentication_error", "api_key_invalid", "Invalid API key.");
+    const path = url.pathname.slice(PUBLIC.length);
+    if (req.method === "GET" && path === "/ping") return send(200, { object: "ping", ok: true });
+    const mapped = path
+      .replace(/^\/test\/orders\/([^/]+)\/advance$/, "/orders/$1/advance")
+      .replace(/^\/test\/wallet\/fund$/, "/wallet/test-funds")
+      .replace(/^\/webhook_endpoints/, "/webhook-endpoints");
+    url.pathname = `${D}${mapped}`;
+    url.searchParams.set("livemode", String(key.livemode));
+    if (mapped === "/webhook-endpoints" && req.method === "POST") body.livemode = key.livemode;
+    req.headers.authorization = `Bearer tok_${owner.owner.id}`;
+    req.headers["x-team-id"] = owner.id;
+  }
   if (url.pathname === "/__test/fail") return (failing.add(url.searchParams.get("route")), send(204, null));
   if (url.pathname === "/__test/code") return send(200, { code: lastSent.get(url.searchParams.get("to")) ?? null });
   if (url.pathname === "/__test/event") {
@@ -1640,7 +1736,19 @@ createServer(async (req, res) => {
     const [status, data] = await handler(req, body, params, url);
     send(status, data);
   } catch (error) {
-    if (!(error instanceof ApiError)) throw error;
+    if (!(error instanceof ApiError)) {
+      // A bug in the mock answers 500, as the API would, instead of taking every later test down.
+      console.error(error);
+      return send(500, {
+        error: {
+          type: "api_error",
+          code: "internal_error",
+          message: String(error),
+          param: null,
+          request_id: requestId,
+        },
+      });
+    }
     send(error.status, {
       error: {
         type: typeFor(error.status),
