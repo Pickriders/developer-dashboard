@@ -18,7 +18,7 @@ export function H2({ children, id }: { children: string; id?: string }) {
   return (
     <h2
       id={anchor}
-      className="group mt-12 scroll-mt-24 text-[1.4rem] font-extrabold tracking-tight text-fg-heading first:mt-0"
+      className="group mb-4 mt-14 scroll-mt-24 text-[1.4rem] font-extrabold leading-tight tracking-tight text-fg-heading"
     >
       {children}
       <a
@@ -34,7 +34,7 @@ export function H2({ children, id }: { children: string; id?: string }) {
 
 export function H3({ children, id }: { children: string; id?: string }) {
   return (
-    <h3 id={id ?? slugify(children)} className="mt-8 scroll-mt-24 text-lg font-bold text-fg-heading">
+    <h3 id={id ?? slugify(children)} className="mb-3 mt-10 scroll-mt-24 text-lg font-bold leading-snug text-fg-heading">
       {children}
     </h3>
   );
@@ -177,20 +177,22 @@ export function NextCard({ href, title, children }: { href: string; title: strin
   );
 }
 
-/** A plain table: headers across the top. */
+/** A plain table: headers across the top, or none when every header is empty (a list of facts). */
 export function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   return (
     <div className="my-6 overflow-x-auto rounded-xl border border-line">
       <table className="w-full text-left text-[0.95rem]">
-        <thead className="bg-surface-subtle text-xs font-bold uppercase tracking-wide text-fg-muted">
-          <tr>
-            {head.map((h) => (
-              <th key={h} scope="col" className="px-4 py-2.5">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
+        {head.some(Boolean) && (
+          <thead className="bg-surface-subtle text-xs font-bold uppercase tracking-wide text-fg-muted">
+            <tr>
+              {head.map((h, i) => (
+                <th key={`${h}-${i}`} scope="col" className="px-4 py-2.5">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
         <tbody className="divide-y divide-line bg-surface">
           {rows.map((row, i) => (
             <tr key={i}>

@@ -206,7 +206,15 @@ export function Webhooks() {
       </P>
 
       <H2>Every event</H2>
-      <Table head={["Type", "When"]} rows={EVENTS.map(([type, when]) => [<C key={type}>{type}</C>, when])} />
+      <Table
+        head={["Type", "When"]}
+        rows={EVENTS.map(([type, when]) => [
+          <A key={type} href={`/docs/events/${type.replace(/\./g, "-")}`}>
+            {type}
+          </A>,
+          when,
+        ])}
+      />
       <P>
         Events are kept for 30 days. You can list them with <C>GET /events</C> and send one again from the dashboard, or
         with <C>POST /events/{"{id}"}/resend</C>. More in <A href="/docs/api">all endpoints</A>.

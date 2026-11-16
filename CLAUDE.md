@@ -124,6 +124,12 @@ against that copy (`lib/docs/openapi-diff.ts`). The OpenAPI file and the Postman
 (`lib/docs/postman.ts`) are served from `/docs/openapi.json` and
 `/docs/pickriders.postman_collection.json` (step 12.9). Try it's example bodies are in
 `lib/docs/endpoints.ts`.
+**Guides** (`/docs/guides/*`, step 12.5) write their requests as data in `lib/docs/guides.ts`: the
+same object becomes the four code tabs, is validated against the API document in CI
+(`examples.test.ts`), runs against the mock in `e2e/docs.spec.ts`, and against the dev API in CI's
+contract job when the `PICKRIDERS_TEST_KEY` secret is set. **Events** (`/docs/events/*`, step 12.7)
+are in `lib/docs/events.ts`; examples are generated from the API document and validated, and a new
+event type in the API fails CI until it's documented.
 `lib/docs/errors.ts` must list every Developer API error code: API errors link to
 `/docs/errors#<code>`, so codes are added, never removed. Facts in the docs (paths, fields, limits,
 retry times) come from backend-api's source, never from memory. `NEXT_PUBLIC_SITE_URL` sets the

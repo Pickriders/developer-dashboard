@@ -1146,6 +1146,28 @@ const routes = {
       },
     ];
   },
+  "GET /quotes/:id": (req, body, { id }) => {
+    const { team: t } = requireTeam(req, "orders.read");
+    const quote = t.quotes.find((q) => q.id === id);
+    if (!quote) throw new ApiError(404, "quote_not_found", "No quote with that id.", "id");
+    const { input, ...publicQuote } = quote;
+    return [200, publicQuote];
+  },
+  "POST /orders/:id/reschedule": (req, body, { id }, url) => {
+    const { team: t } = requireTeam(req, "orders.write");
+    const order = findOrder(req, id, url, "orders.write");
+    if (!["scheduled", "searching"].includes(order.status))
+      throw new ApiError(409, "order_not_reschedulable", "Only an order that hasn't started can move.");
+    if (!body.scheduled_for || Number.isNaN(Date.parse(body.scheduled_for)))
+      throw new ApiError(400, "parameter_invalid", "scheduled_for must be a date and time.", "scheduled_for");
+    Object.assign(order, { status: "scheduled", scheduled_for: new Date(body.scheduled_for).toISOString() });
+    void t;
+    return [200, order];
+  },
+  "GET /orders/:id/offers": (req, body, { id }, url) => {
+    findOrder(req, id, url, "orders.read");
+    return [200, { object: "list", data: [], has_more: false, url: `${PUBLIC}/orders/${id}/offers` }];
+  },
   "POST /orders/:id/cancel": (req, body, { id }, url) => {
     const order = findOrder(req, id, url, "orders.write");
     if (["delivered", "cancelled", "failed"].includes(order.status))

@@ -37,7 +37,7 @@ export function Errors() {
       {ERROR_GROUPS.map((group) => (
         <section key={group.type} aria-labelledby={group.type}>
           <H2 id={group.type}>{group.title}</H2>
-          <P className="-mt-2 text-fg-muted">
+          <P className="text-fg-muted">
             <C>{group.type}</C> · {group.summary.replace(/`/g, "")}
           </P>
           <dl className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
