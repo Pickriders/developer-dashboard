@@ -7,7 +7,7 @@
 export const GUEST_PATHS = ["/auth/login", "/auth/signup", "/auth/forgot-password"];
 
 /** Pages anyone can open, signed in or not. */
-export const OPEN_PATHS = ["/auth/invite", "/design"];
+export const OPEN_PATHS = ["/auth/invite", "/design", "/docs"];
 
 const matches = (pathname: string, paths: string[]) =>
   paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));

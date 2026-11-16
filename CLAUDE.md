@@ -3,7 +3,7 @@
 The Pickriders **developer dashboard** — the console developers use alongside the public
 Developer API. They sign up, verify their email and phone, create API keys, manage webhook
 endpoints, read request logs, create and track orders, fund their wallet, manage their team,
-and request live access. Served at `dashboard.pickriders.com`.
+and request live access. Served at `dashboard.pickriders.com`, with the public API docs at `/docs`.
 
 **Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3 and **our own
 components in the Pickriders storefront's design** (**DESIGN.md**: tokens, Urbanist and Geist Mono,
@@ -68,6 +68,9 @@ src/
 │   ├── (dashboard)/      every signed-in page, in the shell: home (get-started checklist) and,
 │   │                     as they land, keys, webhooks, orders, wallet, logs, team, settings,
 │   │                     usage — each with `_components/`. Its layout wraps them in the workspace
+│   ├── docs/             the public API docs (/docs, no sign-in): layout, start page, [slug] pages,
+│   │                     _content/ (each page's body), opengraph-image. See "Docs" below
+│   ├── sitemap.ts, robots.ts   what search engines may crawl: the docs and sign-up only
 │   ├── auth/             login, signup, verify (email then phone), forgot-password, invite
 │   ├── api/backend/      the proxy to the API: session cookie → bearer token (lib/session/proxy.ts)
 │   ├── api/session/      DELETE signs out (clears the cookie)
@@ -99,6 +102,17 @@ src/
 │                         test/live `mode` (per team; live only once approved)
 └── middleware.ts         the auth gate
 ```
+
+**Docs** (`/docs`, step 12.1) replace the old `developer-docs` site. They're public (an open path in
+`lib/session/paths.ts`), pre-rendered, and written for someone who has never used an API: short
+sentences, one idea per paragraph, the next step always visible. `lib/docs/pages.ts` lists every page
+once (sidebar, search, sitemap, Next links and metadata come from it); a new page joins that list,
+the `CONTENT` map in `docs/[slug]/page.tsx` and `DOCS` in `e2e/quality.spec.ts`. Building blocks are
+in `components/docs/` (`Code` with remembered language tabs, `Steps`, `Callout`, `H2` with anchors).
+`lib/docs/errors.ts` must list every Developer API error code: API errors link to
+`/docs/errors#<code>`, so codes are added, never removed. Facts in the docs (paths, fields, limits,
+retry times) come from backend-api's source, never from memory. `NEXT_PUBLIC_SITE_URL` sets the
+canonical origin (default `https://developers.pickriders.com`, where backend-api's `doc_url`s point).
 
 **Auth is global, in `src/middleware.ts`.** Signed out, every page but the guest pages (login,
 signup, forgot-password) and the open ones (`/auth/invite`, `/design`) redirects to
