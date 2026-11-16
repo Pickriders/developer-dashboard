@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import { MOCK_API, signIn } from "./helpers";
+// A static import, which Playwright compiles on every Node version (a dynamic one fails on Node 20, as CI runs).
+import { runGuides } from "../src/lib/docs/sandbox";
 
 /** Step 12.1: the docs are public, simple to follow, findable and searchable. */
 test("anyone can read the docs, signed out, and the next step is obvious", async ({ page }) => {
@@ -388,7 +390,6 @@ test("every page links to the changelog and the versioning policy", async ({ pag
 });
 
 test("every guide's requests run, in order, against the API", async ({ request }) => {
-  const { runGuides } = await import("../src/lib/docs/sandbox");
   const key = await testKey(request);
   expect(await runGuides(`${MOCK_API}/developer/api/v1`, key)).toEqual([]);
 });
