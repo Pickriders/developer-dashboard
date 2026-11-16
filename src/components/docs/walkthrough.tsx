@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Play,
   ArrowRight,
   Check,
   CircleAlert,
@@ -13,8 +14,17 @@ import {
 } from "lucide-react";
 
 import { CodeFill } from "./code";
+import { sendWithTestKey, StatusBadge, TestKeyField, useTestKey } from "./try-it";
 import { Button } from "@/components/ui/button";
-import { check, type Carried, type CheckKind, type CheckResult } from "@/lib/docs/walkthrough";
+import { buildUrl } from "@/lib/docs/try-it";
+import {
+  check,
+  SAMPLE_ORDER,
+  SAMPLE_QUOTE,
+  type Carried,
+  type CheckKind,
+  type CheckResult,
+} from "@/lib/docs/walkthrough";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,10 +38,6 @@ import { cn } from "@/lib/utils";
 type Progress = { done: string[]; ticks: Record<string, boolean>; carry: Carried; reopened: string[] };
 const EMPTY: Progress = { done: [], ticks: {}, carry: {}, reopened: [] };
 const STORE_KEY = "pr-docs-quickstart-v1";
-
-/** The ids in the examples that the reader's own replace. */
-export const SAMPLE_QUOTE = "quo_6560f0c2a1b2c3d4e5f60718";
-export const SAMPLE_ORDER = "ord_6560f0c2a1b2c3d4e5f60718";
 
 type Ctx = {
   ready: boolean;
@@ -207,6 +213,7 @@ export function WalkStep({
   tasks,
   checkKind,
   checkPrompt,
+  run,
   children,
 }: {
   id: string;
@@ -218,6 +225,8 @@ export function WalkStep({
   /** Read a pasted answer; passing it ticks the task whose id is `${id}:worked`. */
   checkKind?: CheckKind;
   checkPrompt?: string;
+  /** The step's request, to send from the page with the reader's test key. Sample ids become theirs. */
+  run?: { method: string; path: string; body?: unknown };
   children: React.ReactNode;
 }) {
   const walk = useWalk();
@@ -306,7 +315,13 @@ export function WalkStep({
             {children}
 
             {checkKind && (
-              <PasteCheck kind={checkKind} prompt={checkPrompt} onPass={() => walk.tick(`${id}:worked`, true)} />
+              <PasteCheck
+                kind={checkKind}
+                prompt={checkPrompt}
+                run={run}
+                onRan={() => walk.tick(`${id}:run`, true)}
+                onPass={() => walk.tick(`${id}:worked`, true)}
+              />
             )}
 
             <fieldset className="mt-6 rounded-xl border border-line bg-surface-subtle/60 p-4">
@@ -354,9 +369,25 @@ export function WalkStep({
 }
 
 /** Paste what the API answered; we say whether it worked, or what to do about the error. */
-function PasteCheck({ kind, prompt, onPass }: { kind: CheckKind; prompt?: string; onPass: () => void }) {
+function PasteCheck({
+  kind,
+  prompt,
+  run: request,
+  onRan,
+  onPass,
+}: {
+  kind: CheckKind;
+  prompt?: string;
+  run?: { method: string; path: string; body?: unknown };
+  /** Running the request here counts as running the example. */
+  onRan?: () => void;
+  onPass: () => void;
+}) {
   const walk = useWalk();
+  const key = useTestKey();
   const [text, setText] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [sent, setSent] = React.useState<{ status: number; ms: number } | null>(null);
   const [result, setResult] = React.useState<CheckResult>({ state: "empty" });
   const id = React.useId();
 
@@ -369,8 +400,51 @@ function PasteCheck({ kind, prompt, onPass }: { kind: CheckKind; prompt?: string
     }
   };
 
+  /** The reader's own ids in place of the samples, in the path and the body. */
+  const mine = (value: string) =>
+    value
+      .split(SAMPLE_QUOTE)
+      .join(walk.progress.carry.quoteId ?? SAMPLE_QUOTE)
+      .split(SAMPLE_ORDER)
+      .join(walk.progress.carry.orderId ?? SAMPLE_ORDER);
+
+  const sendHere = async () => {
+    if (!request) return;
+    setSending(true);
+    setSent(null);
+    try {
+      const body = request.body === undefined ? undefined : JSON.parse(mine(JSON.stringify(request.body)));
+      const answer = await sendWithTestKey(key, request.method, buildUrl(mine(request.path), {}), body);
+      const shown = typeof answer.body === "string" ? answer.text : JSON.stringify(answer.body, null, 2);
+      setSent({ status: answer.status, ms: answer.ms });
+      onRan?.();
+      setText(shown);
+      run(shown);
+    } catch (e) {
+      setResult({ state: "problem", title: "It didn't send.", detail: (e as Error).message });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="mt-6 rounded-xl border border-dashed border-line-strong p-4">
+      {request && (
+        <div className="mb-4 space-y-3 border-b border-line pb-4">
+          <p className="text-sm font-bold text-fg-heading">Run it here, no terminal needed</p>
+          <TestKeyField compact />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="sm" onClick={sendHere} loading={sending} disabled={!walk.ready || !key}>
+              <Play /> Run it here
+            </Button>
+            {sent && (
+              <span className="flex items-center gap-2 text-xs text-fg-muted">
+                <StatusBadge status={sent.status} /> in {sent.ms} ms
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       <label htmlFor={id} className="flex items-center gap-2 text-sm font-bold text-fg-heading">
         <ClipboardPaste className="size-4 text-fg-subtle" aria-hidden />
         {prompt ?? "Paste what you got back, and we'll check it"}

@@ -5,6 +5,10 @@ import { ERROR_CODES } from "./errors";
  * here, in the browser, and say whether the step worked, or what the error means and what to do.
  * Nothing pasted is sent anywhere or stored, except the ids we carry into the next step.
  */
+/** The ids in the examples that the reader's own replace as they go. */
+export const SAMPLE_QUOTE = "quo_6560f0c2a1b2c3d4e5f60718";
+export const SAMPLE_ORDER = "ord_6560f0c2a1b2c3d4e5f60718";
+
 export type CheckKind = "ping" | "quote" | "order" | "delivered";
 export type Carried = { quoteId?: string; orderId?: string };
 export type CheckResult =

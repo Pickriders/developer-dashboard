@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signIn } from "./helpers";
+import { MOCK_API, signIn } from "./helpers";
 
 /** Step 12.1: the docs are public, simple to follow, findable and searchable. */
 test("anyone can read the docs, signed out, and the next step is obvious", async ({ page }) => {
@@ -157,7 +157,7 @@ test.describe("the first-delivery walkthrough", () => {
 
     const ping = step(page, "check-it-works");
     await ping
-      .getByRole("textbox")
+      .getByRole("textbox", { name: /Paste what you got/ })
       .fill('{"error":{"type":"authentication_error","code":"api_key_invalid","message":"Invalid API key."}}');
     await ping.getByRole("button", { name: "Check it" }).click();
     await expect(ping.getByText("The API said no: The key doesn't exist.")).toBeVisible();
@@ -166,7 +166,7 @@ test.describe("the first-delivery walkthrough", () => {
       "/docs/errors#api_key_invalid",
     );
 
-    await ping.getByRole("textbox").fill('HTTP/2 200\n\n{"object":"ping","ok":true}');
+    await ping.getByRole("textbox", { name: /Paste what you got/ }).fill('HTTP/2 200\n\n{"object":"ping","ok":true}');
     await ping.getByRole("button", { name: "Check it" }).click();
     await expect(ping.getByText("Your key works.", { exact: true })).toBeVisible();
     await expect(ping.getByRole("checkbox", { name: /It printed/ })).toBeChecked();
@@ -180,7 +180,7 @@ test.describe("the first-delivery walkthrough", () => {
     }
     const quote = step(page, "ask-for-a-price");
     await quote
-      .getByRole("textbox")
+      .getByRole("textbox", { name: /Paste what you got/ })
       .fill(
         '{"object":"quote","id":"quo_mine1","recommended_price":350000,"expires_at":"2026-11-16T12:15:00Z","livemode":false}',
       );
@@ -195,17 +195,23 @@ test.describe("the first-delivery walkthrough", () => {
     await expect(book.getByText("Your ids filled in")).toBeVisible();
 
     // A live answer is turned away: the tutorial is for test mode.
-    await book.getByRole("textbox").fill('{"object":"order","id":"ord_mine2","status":"searching","livemode":true}');
+    await book
+      .getByRole("textbox", { name: /Paste what you got/ })
+      .fill('{"object":"order","id":"ord_mine2","status":"searching","livemode":true}');
     await book.getByRole("button", { name: "Check it" }).click();
     await expect(book.getByText("That came from a live key.")).toBeVisible();
-    await book.getByRole("textbox").fill('{"object":"order","id":"ord_mine2","status":"searching","livemode":false}');
+    await book
+      .getByRole("textbox", { name: /Paste what you got/ })
+      .fill('{"object":"order","id":"ord_mine2","status":"searching","livemode":false}');
     await book.getByRole("button", { name: "Check it" }).click();
     await tickAll(page, "book-the-delivery");
     await book.getByRole("button", { name: "Done, next step" }).click();
 
     const arrive = step(page, "watch-it-arrive");
     await expect(arrive.getByRole("tabpanel")).toContainText("/test/orders/ord_mine2/advance");
-    await arrive.getByRole("textbox").fill('{"object":"order","id":"ord_mine2","status":"delivered","livemode":false}');
+    await arrive
+      .getByRole("textbox", { name: /Paste what you got/ })
+      .fill('{"object":"order","id":"ord_mine2","status":"delivered","livemode":false}');
     await arrive.getByRole("button", { name: "Check it" }).click();
     await tickAll(page, "watch-it-arrive");
     await arrive.getByRole("button", { name: "Finish" }).click();
@@ -256,5 +262,88 @@ test.describe("for search engines, without JavaScript", () => {
       "Book the delivery",
       "Watch it arrive",
     ]);
+  });
+});
+
+/** A real test key for Ada's team, from the mock's dashboard API (as creating one in the dashboard would). */
+async function testKey(request: import("@playwright/test").APIRequestContext) {
+  await request.post(`${MOCK_API}/__test/reset`);
+  const D = `${MOCK_API}/developer/api/v1/dashboard`;
+  const { accessToken } = await (
+    await request.post(`${D}/auth/login`, { data: { email: "ada@acme.test", password: "correct-horse-1" } })
+  ).json();
+  const auth = { Authorization: `Bearer ${accessToken}` };
+  const { teams } = await (await request.get(`${D}/auth/me`, { headers: auth })).json();
+  const key = await (
+    await request.post(`${D}/api-keys`, {
+      headers: { ...auth, "x-team-id": teams[0].id },
+      data: { label: "Docs", livemode: false },
+    })
+  ).json();
+  return key.secret as string;
+}
+
+test.describe("Try it", () => {
+  test("sends a real request from the endpoints page and shows the answer", async ({ page, request }) => {
+    const key = await testKey(request);
+    await page.goto("/docs/api");
+    await page.getByLabel("Your test key").first().fill("sk_live_abcdefghijk");
+    await expect(page.getByText(/That's a live key/).first()).toBeVisible();
+    await page.getByLabel("Your test key").first().fill(key);
+
+    const quotes = page.locator('[data-endpoint="POST /quotes"]');
+    await quotes.getByRole("button", { name: "Try POST /quotes" }).click();
+    await quotes.getByRole("button", { name: "Send request" }).click();
+    await expect(quotes.getByText(/^20[01]$/)).toBeVisible();
+    await expect(quotes.getByRole("tabpanel").or(quotes.locator("pre")).first()).toContainText('"object": "quote"');
+
+    // The key is shared by every Try it on the page, and path values are asked for.
+    const order = page.locator('[data-endpoint="GET /orders/{id}"]');
+    await order.getByRole("button", { name: "Try GET /orders/{id}" }).click();
+    await expect(order.getByLabel("Your test key")).toHaveValue(key);
+    await order.getByRole("button", { name: "Send request" }).click();
+    await expect(order.getByText("Fill in id first.")).toBeVisible();
+    await order.getByRole("textbox", { name: "id" }).fill("ord_nothere");
+    await order.getByRole("button", { name: "Send request" }).click();
+    await expect(order.getByText("404")).toBeVisible();
+  });
+
+  test("runs every step of the walkthrough from the page, no terminal needed", async ({ page, request }) => {
+    const key = await testKey(request);
+    await page.goto("/docs/quickstart");
+    const step = (id: string) => page.locator(`[data-step="${id}"]`);
+    for (const box of await step("get-your-test-key").getByRole("checkbox").all()) await box.check();
+    await step("get-your-test-key").getByRole("button", { name: "Done, next step" }).click();
+
+    await step("check-it-works").getByLabel("Your test key").fill(key);
+    for (const [id, says] of [
+      ["check-it-works", "Your key works."],
+      ["ask-for-a-price", /You have a price: ₦/],
+      ["book-the-delivery", "Your order is booked."],
+      ["watch-it-arrive", "Delivered!"],
+    ] as const) {
+      await step(id).getByRole("button", { name: "Run it here" }).click();
+      await expect(step(id).getByText(says, { exact: typeof says === "string" })).toBeVisible();
+      await expect(step(id).getByRole("checkbox", { name: /printed|got|status says/ })).toBeChecked();
+      // Running it here counts as running the example.
+      await expect(step(id).getByRole("checkbox").first()).toBeChecked();
+      await step(id)
+        .getByRole("button", { name: /Done, next step|Finish/ })
+        .click();
+    }
+    await expect(page.getByRole("heading", { name: "You sent your first delivery." })).toBeVisible();
+  });
+
+  test("keeps the key in memory only: never in storage, gone after a reload", async ({ page, request }) => {
+    const key = await testKey(request);
+    await page.goto("/docs/api");
+    await page.getByLabel("Your test key").first().fill(key);
+    await page.getByRole("link", { name: "Webhooks" }).first().click();
+    await page.goto("/docs/api");
+    const stored = await page.evaluate(
+      () => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }),
+    );
+    expect(stored).not.toContain("sk_test_");
+    await expect(page.getByLabel("Your test key").first()).toHaveValue("");
   });
 });
