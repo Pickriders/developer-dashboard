@@ -16,7 +16,7 @@ export function DocsNav({ onNavigate }: { onNavigate?: () => void }) {
         <div key={section}>
           <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.12em] text-fg-subtle">{section}</p>
           <ul className="space-y-0.5">
-            {DOC_PAGES.filter((p) => p.section === section).map((page) => {
+            {DOC_PAGES.filter((p) => p.section === section && !p.hidden).map((page) => {
               const href = docHref(page.slug);
               const current = pathname === href;
               return (

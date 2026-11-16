@@ -26,6 +26,10 @@ const DOCS = [
   "/docs/ids",
   "/docs/changelog",
   "/docs/versioning",
+  "/docs/guides/delivery-types",
+  "/docs/guides/go-live-checklist",
+  "/docs/events",
+  "/docs/events/order-delivered",
 ];
 
 async function audit(page: Page) {

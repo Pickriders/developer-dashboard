@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import { MOCK_API, signIn } from "./helpers";
+// A static import, which Playwright compiles on every Node version (a dynamic one fails on Node 20, as CI runs).
+import { runGuides } from "../src/lib/docs/sandbox";
 
 /** Step 12.1: the docs are public, simple to follow, findable and searchable. */
 test("anyone can read the docs, signed out, and the next step is obvious", async ({ page }) => {
@@ -385,4 +387,48 @@ test("every page links to the changelog and the versioning policy", async ({ pag
   await expect(page.getByText(/6 months.{1,2}notice/).first()).toBeVisible();
   await page.goto("/docs/changelog");
   await expect(page.locator("time").first()).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("every guide's requests run, in order, against the API", async ({ request }) => {
+  const key = await testKey(request);
+  expect(await runGuides(`${MOCK_API}/developer/api/v1`, key)).toEqual([]);
+});
+
+test("events: every type has its page and example, reached from webhooks", async ({ page }) => {
+  await page.goto("/docs/webhooks");
+  await page.getByRole("link", { name: "order.delivered", exact: true }).click();
+  await expect(page).toHaveURL("/docs/events/order-delivered");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("order.delivered");
+  await expect(page.locator("pre").first()).toContainText('"type": "order.delivered"');
+
+  await page.goto("/docs/events");
+  const links = page.locator("main ul").getByRole("link", { name: /^(order|wallet|account)\./ });
+  await expect(links).toHaveCount(15);
+});
+
+test("guides have their own section, each with examples in four languages", async ({ page }) => {
+  await page.goto("/docs/guides/bidding");
+  const nav = page.getByRole("navigation", { name: "Docs" }).first();
+  await expect(nav.getByText("Guides", { exact: true })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Bidding" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("tablist", { name: "Language" }).first().getByRole("tab")).toHaveText([
+    "curl",
+    "Node.js",
+    "Python",
+    "PHP",
+  ]);
+  // Event pages are searchable, but kept out of the sidebar.
+  await expect(nav.getByRole("link", { name: "order.delivered" })).toHaveCount(0);
+});
+
+test("every page in the sitemap opens", async ({ request }) => {
+  const sitemap = await (await request.get("/sitemap.xml")).text();
+  const paths = Array.from(sitemap.matchAll(/<loc>https?:\/\/[^/]+([^<]*)<\/loc>/g), (m) => m[1]);
+  expect(paths.length).toBeGreaterThan(40);
+  const broken: string[] = [];
+  for (const path of paths) {
+    const res = await request.get(path, { maxRedirects: 0 });
+    if (res.status() !== 200) broken.push(`${path} → ${res.status()}`);
+  }
+  expect(broken).toEqual([]);
 });

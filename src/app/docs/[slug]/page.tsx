@@ -6,7 +6,6 @@ import { Errors } from "../_content/errors";
 import { Quickstart } from "../_content/quickstart";
 import { Webhooks } from "../_content/webhooks";
 import { DocPage, docMetadata } from "@/components/docs/doc-page";
-import { DOC_PAGES } from "@/lib/docs/pages";
 
 /** Each page's content, by slug. A new page joins DOC_PAGES and this map. */
 const CONTENT: Record<string, () => JSX.Element> = {
@@ -26,8 +25,9 @@ const CONTENT: Record<string, () => JSX.Element> = {
 
 // Every page is built ahead of time: fast, and crawlable without JavaScript.
 export const dynamicParams = false;
-export const generateStaticParams = () =>
-  DOC_PAGES.filter((p) => p.slug && !p.slug.startsWith("api")).map((p) => ({ slug: p.slug }));
+// Only the pages this route has content for: the rest (api, guides, events) have their own routes,
+// and pre-rendering their slugs here would overwrite those pages with "not found".
+export const generateStaticParams = () => Object.keys(CONTENT).map((slug) => ({ slug }));
 export const generateMetadata = ({ params }: { params: { slug: string } }) => docMetadata(params.slug);
 
 export default function Page({ params }: { params: { slug: string } }) {

@@ -60,7 +60,7 @@ export default function ApiReference() {
       {groups.map((group) => (
         <section key={group.slug}>
           <H2 id={group.slug}>{group.name}</H2>
-          {group.description && <P className="-mt-2 text-fg-muted">{group.description}.</P>}
+          {group.description && <P className="text-fg-muted">{group.description}.</P>}
           <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
             {group.endpoints.map((e) => (
               <li key={e.anchor}>

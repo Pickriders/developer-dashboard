@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 
 import { DocPage, docMetadata } from "@/components/docs/doc-page";
 import { OperationBlock } from "@/components/docs/reference";
-import { DocText } from "@/components/docs/reference";
 import { TestKeyField } from "@/components/docs/try-it";
 import { referenceGroups } from "@/lib/docs/openapi";
 
@@ -16,7 +15,6 @@ export default function ReferencePage({ params }: { params: { tag: string } }) {
   if (!group) notFound();
   return (
     <DocPage slug={`api/${group.slug}`}>
-      {group.description && <DocText text={`${group.description}.`} className="text-lg text-fg-muted" />}
       <div className="my-6">
         <TestKeyField />
       </div>

@@ -1,4 +1,5 @@
 import { ERROR_CODES } from "./errors";
+import { EVENT_DOCS, eventSlug } from "./events";
 import { referenceGroups } from "./openapi";
 
 /**
@@ -11,7 +12,9 @@ export type DocPage = {
   title: string;
   /** One plain sentence: the search result, the meta description and the social card. */
   description: string;
-  section: "Get started" | "The basics" | "Reference" | "Updates";
+  section: "Get started" | "The basics" | "Guides" | "Reference" | "Updates";
+  /** Searchable and in the sitemap, but not listed in the sidebar (one page per event). */
+  hidden?: boolean;
   /** Words people search with that aren't in the title or description. */
   keywords: string[];
 };
@@ -122,6 +125,69 @@ export const DOC_PAGES: DocPage[] = [
     keywords: ["id", "ids", "prefix", "ord_", "quo_", "evt_", "reference", "identifier"],
   },
   {
+    slug: "guides/going-live",
+    title: "Creating an account and going live",
+    description: "From sign-up to real deliveries: verify, ask for live access, and switch your keys.",
+    section: "Guides",
+    keywords: ["live access", "approval", "verify", "sign up", "live_status"],
+  },
+  {
+    slug: "guides/funding-the-wallet",
+    title: "Funding the wallet",
+    description: "Play money in test mode; card, bank transfer or auto top-up in live mode.",
+    section: "Guides",
+    keywords: ["wallet", "top up", "paystack", "bank transfer", "auto top-up", "balance", "funding"],
+  },
+  {
+    slug: "guides/quotes-and-pricing",
+    title: "Quotes and pricing",
+    description: "What a quote holds, how long, and how its price becomes your order's.",
+    section: "Guides",
+    keywords: ["quote", "price", "recommended_price", "service area", "expires", "fee"],
+  },
+  {
+    slug: "guides/delivery-types",
+    title: "Single, batch and bulk deliveries",
+    description: "One stop, many drop-offs, or many pickups, and when a contact is needed.",
+    section: "Guides",
+    keywords: ["single", "batch", "bulk", "multiple stops", "errand", "contact", "drop-off", "pickup"],
+  },
+  {
+    slug: "guides/scheduling",
+    title: "Scheduling",
+    description: "Book now, deliver later: from 1 hour to 30 days ahead, and moving it.",
+    section: "Guides",
+    keywords: ["schedule", "scheduled_for", "reschedule", "later", "future"],
+  },
+  {
+    slug: "guides/bidding",
+    title: "Bidding",
+    description: "Let riders offer their price, then accept the one you want.",
+    section: "Guides",
+    keywords: ["bidding", "offers", "accept", "max_amount", "auto accept"],
+  },
+  {
+    slug: "guides/tracking-and-proof",
+    title: "Tracking and proof of delivery",
+    description: "Where the rider is, links for your customer, and proof each parcel arrived.",
+    section: "Guides",
+    keywords: ["tracking", "eta", "tracking link", "proof", "confirmation code", "delivered"],
+  },
+  {
+    slug: "guides/cancellations",
+    title: "Cancellations and refunds",
+    description: "What cancelling costs at each stage, and what happens when we can't deliver.",
+    section: "Guides",
+    keywords: ["cancel", "refund", "failed", "charged", "cancellation"],
+  },
+  {
+    slug: "guides/go-live-checklist",
+    title: "Going-live checklist",
+    description: "Ten things to check before your first real delivery.",
+    section: "Guides",
+    keywords: ["checklist", "launch", "production", "go live", "ready"],
+  },
+  {
     slug: "api",
     title: "API reference",
     description: "Every request the Pickriders API accepts, with Try it, the OpenAPI file and a Postman collection.",
@@ -135,6 +201,21 @@ export const DOC_PAGES: DocPage[] = [
     description: `${group.description || group.name}: ${group.endpoints.length} endpoint${group.endpoints.length === 1 ? "" : "s"}, with every field and Try it.`,
     section: "Reference",
     keywords: group.endpoints.flatMap((e) => [e.path, e.op.summary ?? "", e.op.operationId ?? ""]),
+  })),
+  {
+    slug: "events",
+    title: "Events",
+    description: "Every event Pickriders sends your webhooks, each with when it's sent and a full example.",
+    section: "Reference",
+    keywords: ["events", "webhook events", "event types", ...EVENT_DOCS.map((e) => e.type)],
+  },
+  ...EVENT_DOCS.map((e): DocPage => ({
+    slug: `events/${eventSlug(e.type)}`,
+    title: e.type,
+    description: `${e.when} The ${e.type} event, with what it holds and a full example.`,
+    section: "Reference",
+    keywords: [e.type, e.kind, "event", "webhook"],
+    hidden: true,
   })),
   {
     slug: "changelog",
@@ -153,7 +234,7 @@ export const DOC_PAGES: DocPage[] = [
   },
 ];
 
-export const SECTIONS = ["Get started", "The basics", "Reference", "Updates"] as const;
+export const SECTIONS = ["Get started", "The basics", "Guides", "Reference", "Updates"] as const;
 
 export const docHref = (slug: string) => (slug ? `/docs/${slug}` : "/docs");
 

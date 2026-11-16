@@ -86,7 +86,10 @@ function FieldsTable({ rows, label }: { rows: FieldRow[]; label: string }) {
 /** One endpoint, all of it: what it does, what to send, what comes back, and Try it. */
 export function OperationBlock({ endpoint }: { endpoint: ApiEndpoint }) {
   const { method, path, op, anchor } = endpoint;
-  const params = (op.parameters ?? []).filter((p) => p.in !== "header" || p.name === "Idempotency-Key");
+  // Idempotency-Key is only read on POST, though the document lists it on every route.
+  const params = (op.parameters ?? []).filter(
+    (p) => p.in !== "header" || (p.name === "Idempotency-Key" && method === "POST"),
+  );
   const body = requestSchema(op);
   const bodyRows = fields(body);
   const success = successResponse(op);
