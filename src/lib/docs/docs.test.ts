@@ -75,3 +75,13 @@ describe("docs pages", () => {
     expect(searchDocs("   ")).toEqual([]);
   });
 });
+
+describe("the changelog", () => {
+  it("is newest first, each entry with a real date and its own anchor", () => {
+    const { CHANGELOG } = jest.requireActual("./changelog") as typeof import("./changelog");
+    expect(CHANGELOG.length).toBeGreaterThan(0);
+    expect(CHANGELOG.map((e) => e.date)).toEqual([...CHANGELOG.map((e) => e.date)].sort().reverse());
+    expect(new Set(CHANGELOG.map((e) => e.id)).size).toBe(CHANGELOG.length);
+    for (const e of CHANGELOG) expect(Number.isNaN(Date.parse(e.date))).toBe(false);
+  });
+});

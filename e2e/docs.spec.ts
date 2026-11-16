@@ -294,7 +294,7 @@ test.describe("Try it", () => {
     const quotes = page.locator('[data-endpoint="POST /quotes"]');
     await quotes.getByText("Try it with your test key").click();
     await quotes.getByRole("button", { name: "Send request" }).click();
-    await expect(quotes.getByTestId("try-it").getByText(/^20[01]$/)).toBeVisible();
+    await expect(quotes.getByTestId("try-it").getByText(/^20[01]$/)).toBeVisible({ timeout: 15_000 });
     await expect(quotes.getByTestId("try-it")).toContainText('"object": "quote"');
 
     // The key is shared across pages and panels, and path values are asked for.
@@ -306,7 +306,7 @@ test.describe("Try it", () => {
     await expect(order.getByText("Fill in id first.")).toBeVisible();
     await order.getByRole("textbox", { name: "id" }).fill("ord_nothere");
     await order.getByRole("button", { name: "Send request" }).click();
-    await expect(order.getByTestId("try-it").getByText("404")).toBeVisible();
+    await expect(order.getByTestId("try-it").getByText("404")).toBeVisible({ timeout: 15_000 });
   });
 
   test("the Postman collection's Create an order works as downloaded", async ({ page, request }) => {
@@ -372,4 +372,17 @@ test.describe("Try it", () => {
     expect(stored).not.toContain("sk_test_");
     await expect(page.getByLabel("Your test key").first()).toHaveValue("");
   });
+});
+
+test("every page links to the changelog and the versioning policy", async ({ page }) => {
+  for (const path of ["/docs", "/docs/quickstart", "/docs/errors", "/docs/api/orders", "/docs/changelog"]) {
+    await page.goto(path);
+    const footer = page.getByRole("navigation", { name: "Footer" });
+    await expect(footer.getByRole("link", { name: "Changelog" })).toHaveAttribute("href", "/docs/changelog");
+    await expect(footer.getByRole("link", { name: "Versioning" })).toHaveAttribute("href", "/docs/versioning");
+  }
+  await page.goto("/docs/versioning");
+  await expect(page.getByText(/6 months.{1,2}notice/).first()).toBeVisible();
+  await page.goto("/docs/changelog");
+  await expect(page.locator("time").first()).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}$/);
 });

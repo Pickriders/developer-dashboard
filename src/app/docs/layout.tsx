@@ -47,6 +47,12 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             <Link href="/docs/errors" className="focus-ring rounded-sm hover:text-fg">
               Errors
             </Link>
+            <Link href="/docs/changelog" className="focus-ring rounded-sm hover:text-fg">
+              Changelog
+            </Link>
+            <Link href="/docs/versioning" className="focus-ring rounded-sm hover:text-fg">
+              Versioning
+            </Link>
             <Link href="/" className="focus-ring rounded-sm hover:text-fg">
               Dashboard
             </Link>

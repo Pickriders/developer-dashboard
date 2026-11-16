@@ -18,6 +18,14 @@ const DOCS = [
   "/docs/errors",
   "/docs/money",
   "/docs/api",
+  "/docs/api/orders",
+  "/docs/api/quotes",
+  "/docs/idempotency",
+  "/docs/pagination",
+  "/docs/rate-limits",
+  "/docs/ids",
+  "/docs/changelog",
+  "/docs/versioning",
 ];
 
 async function audit(page: Page) {
@@ -82,6 +90,8 @@ for (const [device, viewport] of [
 ] as const) {
   for (const scheme of ["light", "dark"] as const) {
     test(`every page passes on a ${device} in ${scheme} mode`, async ({ browser, request }) => {
+      // Two dozen pages, each loaded and audited: more than the default 30 seconds.
+      test.setTimeout(180_000);
       await request.post(`${MOCK_API}/__test/reset`);
       await request.post(`${MOCK_API}/__test/requests?email=${ADA.email}&n=5`);
       const context = await browser.newContext({ viewport, colorScheme: scheme });
