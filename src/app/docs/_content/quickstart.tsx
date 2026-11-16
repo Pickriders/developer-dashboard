@@ -2,6 +2,7 @@ import { GET_A_KEY } from "@/components/docs/docs-header";
 import { Code, type CodeTab } from "@/components/docs/code";
 import { A, C, Callout, NextCard, P } from "@/components/docs/prose";
 import { Walkthrough, WalkStep } from "@/components/docs/walkthrough";
+import { SAMPLE_ORDER, SAMPLE_QUOTE } from "@/lib/docs/walkthrough";
 import { SITE_URL } from "@/constant";
 import { PUBLIC_API_BASE as BASE } from "@/constant";
 
@@ -323,6 +324,7 @@ export function Quickstart() {
           title="Check your key works"
           summary="The API answered ping. Your key works."
           checkKind="ping"
+          run={{ method: "GET", path: "/ping" }}
           tasks={[
             { id: "check-it-works:run", label: "Run the example above, in the language you like." },
             {
@@ -346,6 +348,7 @@ export function Quickstart() {
           title="Ask for a price"
           summary="You have a quote: a price held for 15 minutes."
           checkKind="quote"
+          run={{ method: "POST", path: "/quotes", body: JSON.parse(QUOTE_BODY) }}
           tasks={[
             { id: "ask-for-a-price:run", label: "Run the example above. It asks for a ride from Lekki to Ikoyi." },
             {
@@ -378,6 +381,7 @@ export function Quickstart() {
           title="Book the delivery"
           summary="Your order is booked and looking for a rider."
           checkKind="order"
+          run={{ method: "POST", path: "/orders", body: { quote_id: SAMPLE_QUOTE, reference: "my-first-order" } }}
           tasks={[
             {
               id: "book-the-delivery:run",
@@ -410,6 +414,7 @@ export function Quickstart() {
           title="Watch it arrive"
           summary="Delivered. That's a whole delivery."
           checkKind="delivered"
+          run={{ method: "POST", path: `/test/orders/${SAMPLE_ORDER}/advance`, body: { to: "delivered" } }}
           checkPrompt="Paste what you got back, and we'll check it was delivered"
           tasks={[
             { id: "watch-it-arrive:run", label: "Run the example above to send the pretend rider all the way." },

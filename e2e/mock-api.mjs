@@ -21,6 +21,7 @@ import { createServer } from "node:http";
 import { createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
 
 const PORT = Number(process.env.MOCK_API_PORT ?? 4010);
+const PUBLIC = "/developer/api/v1";
 const D = "/developer/api/v1/dashboard";
 const RESEND_S = 60;
 const TTL_S = 300;
@@ -1482,6 +1483,38 @@ createServer(async (req, res) => {
   };
 
   if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), failing.clear(), send(204, null));
+
+  // The public Developer API (what the docs' Try it calls from the browser): any origin may call it,
+  // as backend-api allows, and each route is the dashboard route of the same name, as the key's team.
+  if (url.pathname.startsWith(PUBLIC) && !url.pathname.startsWith(D)) {
+    res.setHeader("access-control-allow-origin", "*");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-methods": "GET,POST,PATCH,DELETE",
+        "access-control-allow-headers": req.headers["access-control-request-headers"] ?? "authorization,content-type",
+      });
+      return res.end();
+    }
+    const error = (status, type, code, message) =>
+      send(status, { error: { type, code, message, param: null, request_id: requestId } });
+    const secret = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    if (!secret) return error(401, "authentication_error", "api_key_required", "Send your API key.");
+    const owner = [...teams.values()].find((t) => t.keys.some((k) => k.secret === secret));
+    const key = owner?.keys.find((k) => k.secret === secret);
+    if (!key || key.status === "REVOKED")
+      return error(401, "authentication_error", "api_key_invalid", "Invalid API key.");
+    const path = url.pathname.slice(PUBLIC.length);
+    if (req.method === "GET" && path === "/ping") return send(200, { object: "ping", ok: true });
+    const mapped = path
+      .replace(/^\/test\/orders\/([^/]+)\/advance$/, "/orders/$1/advance")
+      .replace(/^\/test\/wallet\/fund$/, "/wallet/test-funds")
+      .replace(/^\/webhook_endpoints/, "/webhook-endpoints");
+    url.pathname = `${D}${mapped}`;
+    url.searchParams.set("livemode", String(key.livemode));
+    if (mapped === "/webhook-endpoints" && req.method === "POST") body.livemode = key.livemode;
+    req.headers.authorization = `Bearer tok_${owner.owner.id}`;
+    req.headers["x-team-id"] = owner.id;
+  }
   if (url.pathname === "/__test/fail") return (failing.add(url.searchParams.get("route")), send(204, null));
   if (url.pathname === "/__test/code") return send(200, { code: lastSent.get(url.searchParams.get("to")) ?? null });
   if (url.pathname === "/__test/event") {

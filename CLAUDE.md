@@ -109,6 +109,13 @@ sentences, one idea per paragraph, the next step always visible. `lib/docs/pages
 once (sidebar, search, sitemap, Next links and metadata come from it); a new page joins that list,
 the `CONTENT` map in `docs/[slug]/page.tsx` and `DOCS` in `e2e/quality.spec.ts`. Building blocks are
 in `components/docs/` (`Code` with remembered language tabs, `Steps`, `Callout`, `H2` with anchors).
+The quickstart is a walkthrough (`components/docs/walkthrough.tsx`): one step open at a time, a to-do
+list gating **Done**, and a paste-or-run check (`lib/docs/walkthrough.ts`) whose ids flow into later
+examples; every step stays in the server HTML for search engines. **Try it** (`components/docs/try-it.tsx`,
+step 12.6) sends real requests from the browser straight to the API (it allows any origin) with the
+reader's **test** key: `sk_live_` keys are refused, and the key lives in memory only, never storage,
+URLs or logs (§2). `e2e/mock-api.mjs` answers the public routes (`/developer/api/v1/…`, with CORS) by
+mapping them onto its dashboard routes; a docs example that calls a new route needs it there too.
 `lib/docs/errors.ts` must list every Developer API error code: API errors link to
 `/docs/errors#<code>`, so codes are added, never removed. Facts in the docs (paths, fields, limits,
 retry times) come from backend-api's source, never from memory. `NEXT_PUBLIC_SITE_URL` sets the
