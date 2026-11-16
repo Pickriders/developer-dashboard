@@ -1,4 +1,5 @@
 import { ERROR_CODES } from "./errors";
+import { referenceGroups } from "./openapi";
 
 /**
  * Every docs page, in reading order. The sidebar, search, the sitemap, "Next" links and each page's
@@ -93,11 +94,19 @@ export const DOC_PAGES: DocPage[] = [
   },
   {
     slug: "api",
-    title: "All endpoints",
-    description: "Every request the Pickriders API accepts, on one page.",
+    title: "API reference",
+    description: "Every request the Pickriders API accepts, with Try it, the OpenAPI file and a Postman collection.",
     section: "Reference",
-    keywords: ["api reference", "endpoints", "routes", "orders", "quotes", "wallet", "tracking", "openapi"],
+    keywords: ["api reference", "endpoints", "routes", "openapi", "postman", "swagger", "download"],
   },
+  // One page per part of the API, generated from the API document (step 12.2).
+  ...referenceGroups().map((group): DocPage => ({
+    slug: `api/${group.slug}`,
+    title: group.name,
+    description: `${group.description || group.name}: ${group.endpoints.length} endpoint${group.endpoints.length === 1 ? "" : "s"}, with every field and Try it.`,
+    section: "Reference",
+    keywords: group.endpoints.flatMap((e) => [e.path, e.op.summary ?? "", e.op.operationId ?? ""]),
+  })),
 ];
 
 export const SECTIONS = ["Get started", "The basics", "Reference"] as const;

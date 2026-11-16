@@ -284,28 +284,54 @@ async function testKey(request: import("@playwright/test").APIRequestContext) {
 }
 
 test.describe("Try it", () => {
-  test("sends a real request from the endpoints page and shows the answer", async ({ page, request }) => {
+  test("sends a real request from the reference and shows the answer", async ({ page, request }) => {
     const key = await testKey(request);
-    await page.goto("/docs/api");
+    await page.goto("/docs/api/quotes");
     await page.getByLabel("Your test key").first().fill("sk_live_abcdefghijk");
     await expect(page.getByText(/That's a live key/).first()).toBeVisible();
     await page.getByLabel("Your test key").first().fill(key);
 
     const quotes = page.locator('[data-endpoint="POST /quotes"]');
-    await quotes.getByRole("button", { name: "Try POST /quotes" }).click();
+    await quotes.getByText("Try it with your test key").click();
     await quotes.getByRole("button", { name: "Send request" }).click();
-    await expect(quotes.getByText(/^20[01]$/)).toBeVisible();
-    await expect(quotes.getByRole("tabpanel").or(quotes.locator("pre")).first()).toContainText('"object": "quote"');
+    await expect(quotes.getByTestId("try-it").getByText(/^20[01]$/)).toBeVisible();
+    await expect(quotes.getByTestId("try-it")).toContainText('"object": "quote"');
 
-    // The key is shared by every Try it on the page, and path values are asked for.
+    // The key is shared across pages and panels, and path values are asked for.
+    await page.getByRole("link", { name: "Orders", exact: true }).first().click();
     const order = page.locator('[data-endpoint="GET /orders/{id}"]');
-    await order.getByRole("button", { name: "Try GET /orders/{id}" }).click();
+    await order.getByText("Try it with your test key").click();
     await expect(order.getByLabel("Your test key")).toHaveValue(key);
     await order.getByRole("button", { name: "Send request" }).click();
     await expect(order.getByText("Fill in id first.")).toBeVisible();
     await order.getByRole("textbox", { name: "id" }).fill("ord_nothere");
     await order.getByRole("button", { name: "Send request" }).click();
-    await expect(order.getByText("404")).toBeVisible();
+    await expect(order.getByTestId("try-it").getByText("404")).toBeVisible();
+  });
+
+  test("the Postman collection's Create an order works as downloaded", async ({ page, request }) => {
+    const key = await testKey(request);
+    await page.goto("/docs/api");
+    await expect(page.getByRole("link", { name: /Postman collection/ })).toHaveAttribute(
+      "href",
+      "/docs/pickriders.postman_collection.json",
+    );
+    const collection = await (await request.get("/docs/pickriders.postman_collection.json")).json();
+    const create = collection.item
+      .flatMap((folder: { item: unknown[] }) => folder.item)
+      .find((item: { name: string }) => item.name === "Create an order");
+    // As Postman would: baseUrl pointed at the API, apiKey set, the body as it is.
+    const url = create.request.url.raw.replace("{{baseUrl}}", `${MOCK_API}/developer/api/v1`);
+    const res = await request.post(url, {
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      data: create.request.body.raw,
+    });
+    expect(res.status()).toBe(201);
+    expect((await res.json()).object).toBe("order");
+
+    const spec = await (await request.get("/docs/openapi.json")).json();
+    expect(spec.openapi).toMatch(/^3\./);
+    expect(Object.keys(spec.paths).length).toBeGreaterThan(25);
   });
 
   test("runs every step of the walkthrough from the page, no terminal needed", async ({ page, request }) => {
@@ -338,7 +364,7 @@ test.describe("Try it", () => {
     const key = await testKey(request);
     await page.goto("/docs/api");
     await page.getByLabel("Your test key").first().fill(key);
-    await page.getByRole("link", { name: "Webhooks" }).first().click();
+    await page.getByRole("link", { name: "Webhooks", exact: true }).first().click();
     await page.goto("/docs/api");
     const stored = await page.evaluate(
       () => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }),
