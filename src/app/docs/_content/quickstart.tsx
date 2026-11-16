@@ -1,6 +1,8 @@
 import { GET_A_KEY } from "@/components/docs/docs-header";
 import { Code, type CodeTab } from "@/components/docs/code";
-import { A, C, Callout, NextCard, P, Step, Steps } from "@/components/docs/prose";
+import { A, C, Callout, NextCard, P } from "@/components/docs/prose";
+import { Walkthrough, WalkStep } from "@/components/docs/walkthrough";
+import { SITE_URL } from "@/constant";
 import { PUBLIC_API_BASE as BASE } from "@/constant";
 
 /** The same request in each language, keyed by the tab labels readers pick once. */
@@ -212,92 +214,225 @@ curl_setopt_array($ch, [
 echo json_decode(curl_exec($ch), true)["status"]; // delivered`,
 });
 
+/** The steps, in order: the walkthrough's progress bar and search engines' HowTo both read them. */
+export const QUICKSTART_STEPS = [
+  { id: "get-your-test-key", title: "Get your test key" },
+  { id: "check-it-works", title: "Check your key works" },
+  { id: "ask-for-a-price", title: "Ask for a price" },
+  { id: "book-the-delivery", title: "Book the delivery" },
+  { id: "watch-it-arrive", title: "Watch it arrive" },
+];
+
+/** The tutorial as a HowTo, so search engines can show it step by step. */
+const HOW_TO = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "Send your first delivery with the Pickriders API",
+  description: "Get a test key, ask for a price, book the order and watch it get delivered.",
+  totalTime: "PT10M",
+  tool: [{ "@type": "HowToTool", name: "A terminal, or Node.js, Python or PHP" }],
+  step: QUICKSTART_STEPS.map((s, i) => ({
+    "@type": "HowToStep",
+    position: i + 1,
+    name: s.title,
+    url: `${SITE_URL}/docs/quickstart#${s.id}`,
+  })),
+};
+
 export function Quickstart() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(HOW_TO) }} />
       <P>
         You&apos;ll book a pretend delivery across Lagos and watch it arrive. Nothing here costs real money or sends a
-        real rider. Pick your language once, below, and every example follows.
+        real rider. Do one step at a time: each tells you exactly what to do, and the next opens when you tick it off.
       </P>
 
-      <Steps>
-        <Step title="Get your test key">
+      <Walkthrough
+        steps={QUICKSTART_STEPS}
+        finish={
+          <>
+            <p>
+              You priced, booked and delivered an order in three requests. Live orders work the same way, with a live
+              key.
+            </p>
+            <div className="mt-5 grid gap-3 text-left">
+              <NextCard href="/docs/webhooks" title="Hear about every step">
+                Let us tell your server the moment an order moves.
+              </NextCard>
+              <NextCard href="/docs/test-and-live" title="Go live">
+                When you&apos;re ready for real riders.
+              </NextCard>
+            </div>
+          </>
+        }
+      >
+        <WalkStep
+          id="get-your-test-key"
+          n={1}
+          title="Get your test key"
+          summary="Your sk_test_ key is saved as PICKRIDERS_KEY."
+          tasks={[
+            {
+              id: "key:account",
+              label: (
+                <>
+                  <A href={GET_A_KEY}>Sign up</A> for free, or sign in if you have an account.
+                </>
+              ),
+            },
+            {
+              id: "key:create",
+              label: (
+                <>
+                  On the <strong>API keys</strong> page, press <strong>Create key</strong>.
+                </>
+              ),
+            },
+            {
+              id: "key:copy",
+              label: (
+                <>
+                  Copy the key that starts with <C>sk_test_</C>. You only see it once.
+                </>
+              ),
+            },
+            {
+              id: "key:save",
+              label: (
+                <>
+                  Save it as <C>PICKRIDERS_KEY</C> with the command above.
+                </>
+              ),
+            },
+          ]}
+        >
           <P>
-            <A href={GET_A_KEY}>Sign up</A> (it&apos;s free), then open <strong>API keys</strong> and press{" "}
-            <strong>Create key</strong>. Copy the key that starts with <C>sk_test_</C>. You only see it once.
+            Your key is how the API knows it&apos;s you. A test key only plays pretend, so you can&apos;t break
+            anything. Save it where your code can read it:
           </P>
-          <P>Keep it somewhere your code can read it, like an environment variable:</P>
           <Code tabs={KEY} />
           <Callout tone="warning" title="Your key is a password">
             <p>Keep it on your server. Never put it in a website, an app or a public code repository.</p>
           </Callout>
-        </Step>
+        </WalkStep>
 
-        <Step title="Check it works">
-          <P>Send one tiny request. If you get an answer, your key works.</P>
+        <WalkStep
+          id="check-it-works"
+          n={2}
+          title="Check your key works"
+          summary="The API answered ping. Your key works."
+          checkKind="ping"
+          tasks={[
+            { id: "check-it-works:run", label: "Run the example above, in the language you like." },
+            {
+              id: "check-it-works:worked",
+              label: (
+                <>
+                  It printed <C>{'{"object":"ping","ok":true}'}</C>. (Paste it in the box above and we tick this for
+                  you.)
+                </>
+              ),
+            },
+          ]}
+        >
+          <P>Send one tiny request. If the API answers, your key works.</P>
           <Code tabs={PING} />
-          <P>
-            Got <C>api_key_invalid</C> instead? Copy the key again: it&apos;s easy to miss a character. Every error is
-            explained on the <A href="/docs/errors">errors page</A>.
-          </P>
-        </Step>
+        </WalkStep>
 
-        <Step title="Ask for a price">
+        <WalkStep
+          id="ask-for-a-price"
+          n={3}
+          title="Ask for a price"
+          summary="You have a quote: a price held for 15 minutes."
+          checkKind="quote"
+          tasks={[
+            { id: "ask-for-a-price:run", label: "Run the example above. It asks for a ride from Lekki to Ikoyi." },
+            {
+              id: "ask-for-a-price:worked",
+              label: (
+                <>
+                  You got a quote back, with an <C>id</C> starting <C>quo_</C>.
+                </>
+              ),
+            },
+          ]}
+        >
           <P>
-            Tell us the two stops: where the rider picks up and where they drop off. Each stop needs an address, its map
+            Tell us the two stops: where the rider picks up and where they drop off. Each stop has an address, its map
             position (<C>lat</C> and <C>lng</C>) and who the rider meets there.
           </P>
           <Code tabs={QUOTE} />
-          <P>We answer with a quote. The price is held for 15 minutes:</P>
-          <Code tabs={[{ label: "Response", lang: "json", code: QUOTE_RESPONSE }]} />
+          <P>You&apos;ll get a quote like this. The price is held for 15 minutes:</P>
+          <Code tabs={[{ label: "What you get back", lang: "json", code: QUOTE_RESPONSE }]} />
           <Callout tone="tip" title="Prices are in kobo">
             <p>
               <C>350000</C> means ₦3,500.00. All money in the API works this way. <A href="/docs/money">Why?</A>
             </p>
           </Callout>
-        </Step>
+        </WalkStep>
 
-        <Step title="Book the delivery">
+        <WalkStep
+          id="book-the-delivery"
+          n={4}
+          title="Book the delivery"
+          summary="Your order is booked and looking for a rider."
+          checkKind="order"
+          tasks={[
+            {
+              id: "book-the-delivery:run",
+              label: "Run the example above. If you pasted the last answer, it already has your quote id.",
+            },
+            {
+              id: "book-the-delivery:worked",
+              label: (
+                <>
+                  You got an order back, with <C>{'"status": "searching"'}</C>.
+                </>
+              ),
+            },
+          ]}
+        >
           <P>
-            Happy with the price? Turn the quote into an order. The price comes out of your wallet. Test wallets start
+            Happy with the price? Turn the quote into an order. The price comes out of your wallet; test wallets start
             with play money, so there&apos;s nothing to top up.
           </P>
           <Code tabs={ORDER} />
           <P>
-            The order&apos;s <C>status</C> is <C>searching</C>: we&apos;re finding a rider. Your <C>reference</C> is
-            yours to choose, like your own order number.
+            <C>searching</C> means we&apos;re finding a rider. Your <C>reference</C> is yours to choose, like your own
+            order number. Took more than 15 minutes? Go back a step for a fresh price.
           </P>
-        </Step>
+        </WalkStep>
 
-        <Step title="Watch it arrive">
+        <WalkStep
+          id="watch-it-arrive"
+          n={5}
+          title="Watch it arrive"
+          summary="Delivered. That's a whole delivery."
+          checkKind="delivered"
+          checkPrompt="Paste what you got back, and we'll check it was delivered"
+          tasks={[
+            { id: "watch-it-arrive:run", label: "Run the example above to send the pretend rider all the way." },
+            {
+              id: "watch-it-arrive:worked",
+              label: (
+                <>
+                  The order&apos;s status says <C>delivered</C>.
+                </>
+              ),
+            },
+          ]}
+        >
           <P>
-            In test mode a pretend rider does the trip whenever you say. Move the order straight to delivered (or leave
-            out <C>to</C> to go one step at a time):
+            In test mode, a pretend rider does the trip whenever you say. This moves your order straight to delivered.
+            Leave out <C>to</C> to go one step at a time instead.
           </P>
           <Code tabs={ADVANCE} />
           <P>
-            That&apos;s a whole delivery. You can see it in the dashboard too, on the <strong>Orders</strong> page.
+            You can see it in the dashboard too: open <strong>Orders</strong>.
           </P>
-        </Step>
-      </Steps>
-
-      <Callout tone="tip" title="You did it">
-        <p>
-          You priced, booked and delivered an order with three requests. Live orders work the same way, with a live key.
-        </p>
-      </Callout>
-
-      <h2 id="whats-next" className="mb-4 mt-12 text-[1.4rem] font-extrabold tracking-tight text-fg-heading">
-        What&apos;s next
-      </h2>
-      <div className="grid gap-3">
-        <NextCard href="/docs/webhooks" title="Hear about every step">
-          Instead of asking for the status, let us tell your server the moment it changes.
-        </NextCard>
-        <NextCard href="/docs/test-and-live" title="Go live">
-          When you&apos;re ready for real riders: what Pickriders checks, and how long it takes.
-        </NextCard>
-      </div>
+        </WalkStep>
+      </Walkthrough>
     </>
   );
 }

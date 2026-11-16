@@ -23,19 +23,19 @@ test("anyone can read the docs, signed out, and the next step is obvious", async
 });
 
 test("a language picked once is used in every example, and remembered", async ({ page }) => {
-  await page.goto("/docs/quickstart");
-  const firstBlock = page.getByRole("tablist", { name: "Language" }).first();
-  await firstBlock.getByRole("tab", { name: "Python" }).click();
-
-  const tabs = page.getByRole("tab", { name: "Python" });
-  const count = await tabs.count();
-  expect(count).toBeGreaterThan(2);
-  for (let i = 0; i < count; i++) await expect(tabs.nth(i)).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tabpanel").first()).toContainText("requests.get");
+  await page.goto("/docs/webhooks");
+  await page.getByRole("tablist", { name: "Language" }).first().getByRole("tab", { name: "Python" }).click();
+  await expect(page.getByRole("tabpanel").first()).toContainText("hmac.new");
+  await expect(page.getByRole("button", { name: "Copy Python example" })).toBeVisible();
 
   await page.goto("/docs/money");
   await expect(page.getByRole("tab", { name: "Python" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("button", { name: "Copy Python example" })).toBeVisible();
+
+  // Every example in the tutorial follows, folded steps included.
+  await page.goto("/docs/quickstart");
+  const tabs = page.locator('[role="tab"]', { hasText: "Python" });
+  expect(await tabs.count()).toBe(4);
+  for (const tab of await tabs.all()) await expect(tab).toHaveAttribute("aria-selected", "true");
 });
 
 test("search finds pages by word or error code, from the keyboard", async ({ page }) => {
@@ -115,5 +115,146 @@ test.describe("on a phone", () => {
         0,
       );
     }
+  });
+});
+
+test.describe("the first-delivery walkthrough", () => {
+  const step = (page: import("@playwright/test").Page, id: string) => page.locator(`[data-step="${id}"]`);
+  const tickAll = async (page: import("@playwright/test").Page, id: string) => {
+    for (const box of await step(page, id).getByRole("checkbox").all()) await box.check();
+  };
+
+  test("opens one step at a time, and the next only once this one is done", async ({ page }) => {
+    await page.goto("/docs/quickstart");
+    await expect(page.getByTestId("walk-status")).toContainText("Step 1 of 5");
+    await expect(step(page, "get-your-test-key")).toHaveAttribute("data-state", "current");
+    await expect(step(page, "check-it-works")).toHaveAttribute("data-state", "locked");
+    await expect(step(page, "check-it-works")).toContainText("Finish “Get your test key” to open this.");
+
+    const done = step(page, "get-your-test-key").getByRole("button", { name: "Done, next step" });
+    await expect(done).toBeDisabled();
+    await step(page, "get-your-test-key").getByRole("checkbox").first().check();
+    await expect(done).toBeDisabled();
+    await expect(step(page, "get-your-test-key")).toContainText("Your to-do 1/4");
+    await tickAll(page, "get-your-test-key");
+    await done.click();
+
+    await expect(step(page, "get-your-test-key")).toHaveAttribute("data-state", "done");
+    await expect(step(page, "get-your-test-key")).toContainText("Your sk_test_ key is saved as PICKRIDERS_KEY.");
+    await expect(step(page, "check-it-works")).toHaveAttribute("data-state", "current");
+    await expect(page.getByTestId("walk-status")).toContainText("Step 2 of 5");
+    await expect(step(page, "check-it-works").getByRole("heading", { name: /Check your key works/ })).toBeFocused();
+
+    // A finished step can be read again.
+    await step(page, "get-your-test-key").getByRole("button", { name: "Open again" }).click();
+    await expect(step(page, "get-your-test-key").getByText("Your key is a password")).toBeVisible();
+  });
+
+  test("checks what you paste: explains an error, ticks the box on success", async ({ page }) => {
+    await page.goto("/docs/quickstart");
+    await tickAll(page, "get-your-test-key");
+    await step(page, "get-your-test-key").getByRole("button", { name: "Done, next step" }).click();
+
+    const ping = step(page, "check-it-works");
+    await ping
+      .getByRole("textbox")
+      .fill('{"error":{"type":"authentication_error","code":"api_key_invalid","message":"Invalid API key."}}');
+    await ping.getByRole("button", { name: "Check it" }).click();
+    await expect(ping.getByText("The API said no: The key doesn't exist.")).toBeVisible();
+    await expect(ping.getByRole("link", { name: "More about api_key_invalid" })).toHaveAttribute(
+      "href",
+      "/docs/errors#api_key_invalid",
+    );
+
+    await ping.getByRole("textbox").fill('HTTP/2 200\n\n{"object":"ping","ok":true}');
+    await ping.getByRole("button", { name: "Check it" }).click();
+    await expect(ping.getByText("Your key works.", { exact: true })).toBeVisible();
+    await expect(ping.getByRole("checkbox", { name: /It printed/ })).toBeChecked();
+  });
+
+  test("carries your own quote and order ids into the next examples", async ({ page }) => {
+    await page.goto("/docs/quickstart");
+    for (const id of ["get-your-test-key", "check-it-works"]) {
+      await tickAll(page, id);
+      await step(page, id).getByRole("button", { name: "Done, next step" }).click();
+    }
+    const quote = step(page, "ask-for-a-price");
+    await quote
+      .getByRole("textbox")
+      .fill(
+        '{"object":"quote","id":"quo_mine1","recommended_price":350000,"expires_at":"2026-11-16T12:15:00Z","livemode":false}',
+      );
+    await quote.getByRole("button", { name: "Check it" }).click();
+    await expect(quote.getByText("You have a price: ₦3,500.00.")).toBeVisible();
+    await tickAll(page, "ask-for-a-price");
+    await quote.getByRole("button", { name: "Done, next step" }).click();
+
+    const book = step(page, "book-the-delivery");
+    await book.getByRole("tab", { name: "curl" }).click();
+    await expect(book.getByRole("tabpanel")).toContainText('"quote_id": "quo_mine1"');
+    await expect(book.getByText("Your ids filled in")).toBeVisible();
+
+    // A live answer is turned away: the tutorial is for test mode.
+    await book.getByRole("textbox").fill('{"object":"order","id":"ord_mine2","status":"searching","livemode":true}');
+    await book.getByRole("button", { name: "Check it" }).click();
+    await expect(book.getByText("That came from a live key.")).toBeVisible();
+    await book.getByRole("textbox").fill('{"object":"order","id":"ord_mine2","status":"searching","livemode":false}');
+    await book.getByRole("button", { name: "Check it" }).click();
+    await tickAll(page, "book-the-delivery");
+    await book.getByRole("button", { name: "Done, next step" }).click();
+
+    const arrive = step(page, "watch-it-arrive");
+    await expect(arrive.getByRole("tabpanel")).toContainText("/test/orders/ord_mine2/advance");
+    await arrive.getByRole("textbox").fill('{"object":"order","id":"ord_mine2","status":"delivered","livemode":false}');
+    await arrive.getByRole("button", { name: "Check it" }).click();
+    await tickAll(page, "watch-it-arrive");
+    await arrive.getByRole("button", { name: "Finish" }).click();
+    await expect(page.getByRole("heading", { name: "You sent your first delivery." })).toBeVisible();
+    await expect(page.getByTestId("walk-status")).toHaveText("All done. Nice work!");
+  });
+
+  test("remembers where you are, and starts over when asked", async ({ page }) => {
+    await page.goto("/docs/quickstart");
+    await tickAll(page, "get-your-test-key");
+    await step(page, "get-your-test-key").getByRole("button", { name: "Done, next step" }).click();
+    await step(page, "check-it-works").getByRole("checkbox").first().check();
+
+    await page.reload();
+    await expect(page.getByTestId("walk-status")).toContainText("Step 2 of 5");
+    await expect(step(page, "check-it-works").getByRole("checkbox").first()).toBeChecked();
+
+    await page.getByRole("button", { name: "Start over" }).click();
+    await expect(page.getByTestId("walk-status")).toContainText("Step 1 of 5");
+    await expect(step(page, "get-your-test-key").getByRole("checkbox").first()).not.toBeChecked();
+  });
+});
+
+test.describe("for search engines, without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("every step of the tutorial is in the page, open, with its code and a HowTo", async ({ page }) => {
+    await page.goto("/docs/quickstart");
+    for (const title of [
+      "Get your test key",
+      "Check your key works",
+      "Ask for a price",
+      "Book the delivery",
+      "Watch it arrive",
+    ]) {
+      await expect(page.getByRole("heading", { level: 2, name: new RegExp(title) })).toBeVisible();
+    }
+    await expect(page.getByText("/test/orders/ord_6560f0c2a1b2c3d4e5f60718/advance")).toBeVisible();
+    const ld = await page.locator('script[type="application/ld+json"]').allTextContents();
+    const howTo = ld
+      .map((t) => JSON.parse(t))
+      .flat()
+      .find((d) => d["@type"] === "HowTo");
+    expect(howTo.step.map((s: { name: string }) => s.name)).toEqual([
+      "Get your test key",
+      "Check your key works",
+      "Ask for a price",
+      "Book the delivery",
+      "Watch it arrive",
+    ]);
   });
 });
