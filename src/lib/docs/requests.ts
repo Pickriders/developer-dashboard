@@ -6,7 +6,7 @@ import { validate } from "./validate";
 
 /**
  * A request in the guides, written once as data: the same object becomes the curl, Node.js, Python
- * and PHP examples, is checked against the API document in CI, and can be sent to the sandbox.
+ * and PHP examples, is checked against the API document in CI, and runs against the mock API.
  * `{{name.field}}` in a path or body is a value from an earlier request in the guide.
  */
 export type GuideRequest = {
@@ -14,9 +14,9 @@ export type GuideRequest = {
   method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
-  /** Live mode only (a card checkout, a bank account): the sandbox run skips it. */
+  /** Live mode only (a card checkout, a bank account): the guide run skips it. */
   liveOnly?: boolean;
-  /** Needs something a test key can't make happen (a real rider's offer): the sandbox run skips it. */
+  /** Needs something a test key can't make happen (a real rider's offer): the guide run skips it. */
   skipInSandbox?: boolean;
   /** Its answer's id fills `{{<capture>.id}}` in the requests after it. */
   capture?: "quote" | "order" | "offer";
