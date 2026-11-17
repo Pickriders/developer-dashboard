@@ -19,6 +19,9 @@ const account = (over: Partial<DeveloperAccountDto> = {}): DeveloperAccountDto =
   liveReviewedAt: null,
   liveRejectionReason: null,
   liveSuspensionReason: null,
+  status: "ACTIVE",
+  suspensionReason: null,
+  suspendedAt: null,
   ...over,
 });
 const progress = (over: Partial<DeveloperOnboardingDto> = {}): DeveloperOnboardingDto => ({
