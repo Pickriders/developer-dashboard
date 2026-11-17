@@ -3846,6 +3846,12 @@ export interface ListReviewResponseDto {
   totalPages: number;
 }
 
+export interface OrderListDeveloperTeamDto {
+  id: string;
+  /** @example "Acme Logistics" */
+  name: string;
+}
+
 export interface OrderListItemResponseDto {
   userId?: string;
   riderId?: string;
@@ -3989,6 +3995,8 @@ export interface OrderListItemResponseDto {
   createdAt: string;
   /** @format date-time */
   updatedAt: string;
+  /** For orders created through the Developer API (channel DEVELOPER_API): the team. Null otherwise. */
+  developerTeam: OrderListDeveloperTeamDto | null;
   /** How many rider offers (bids) the order has received, any status */
   offersCount: number;
 }
@@ -5740,6 +5748,7 @@ export interface AuditLog {
   teamId?: string;
   event?: string;
   actorId?: string;
+  staffId?: string;
   target?: object;
   before?: object;
   after?: object;
@@ -6298,6 +6307,12 @@ export interface Team {
   liveRejectionReason: string;
   /** Why live access was suspended. The developer sees it. */
   liveSuspensionReason: string;
+  /** Why the whole team was suspended. */
+  suspensionReason?: string;
+  /** @format date-time */
+  suspendedAt?: string;
+  /** The admin who suspended it. */
+  suspendedBy?: string;
   allowedRoles: ("TEAM_OWNER" | "TEAM_MEMBER" | "TEAM_ADMIN" | "TEAM_VIEWER" | "TEAM_DEVELOPER" | "TEAM_FINANCE")[];
   address: {
     country?: string;
@@ -7816,6 +7831,12 @@ export interface DeveloperAccountDto {
   liveRejectionReason: string | null;
   /** Set while live access is SUSPENDED: why. */
   liveSuspensionReason: string | null;
+  /** The whole team. SUSPENDED: every API key, test and live, is refused with account_suspended, and the dashboard is read-only. */
+  status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  /** Set while the team is SUSPENDED: why. */
+  suspensionReason: string | null;
+  /** @format date-time */
+  suspendedAt: string | null;
 }
 
 export interface DeveloperOnboardingDto {
@@ -8262,6 +8283,10 @@ export interface AdminDeveloperRowDto {
   /** @format date-time */
   liveReviewedAt: string | null;
   owner: AdminDeveloperOwnerDto | null;
+  /** Why the whole team is suspended (status SUSPENDED). */
+  suspensionReason: string | null;
+  /** @format date-time */
+  suspendedAt: string | null;
   /** @format date-time */
   createdAt: string;
 }
@@ -8281,6 +8306,158 @@ export interface AdminDeveloperReviewerDto {
   name: string;
 }
 
+export interface AdminDeveloperMemberDto {
+  id: string;
+  name: string;
+  email: string;
+  /**
+   * The strongest of their roles.
+   * @example "TEAM_ADMIN"
+   */
+  role: string;
+  isOwner: boolean;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+}
+
+export interface AdminDeveloperKeyDto {
+  id: string;
+  label: string;
+  /**
+   * The first characters of the secret, never the secret.
+   * @example "sk_test_4eC3"
+   */
+  prefix: string;
+  livemode: boolean;
+  status: "active" | "expiring" | "expired" | "revoked";
+  /** Empty means every scope. */
+  scopes: string[];
+  /** @format date-time */
+  lastUsedAt: string | null;
+  /** @format date-time */
+  expiresAt: string | null;
+  /** @format date-time */
+  revokedAt: string | null;
+  /** Set when a Pickriders admin revoked it. */
+  revokedReason: string | null;
+  /** @format date-time */
+  createdAt: string;
+}
+
+export interface AdminDeveloperWalletDto {
+  /** Balance less held, in kobo. */
+  available: number;
+  /** Held for orders in progress, in kobo. */
+  held: number;
+  /** @example "NGN" */
+  currency: string;
+}
+
+export interface AdminDeveloperOrdersDto {
+  total: number;
+  /** Created in the last 30 days. */
+  last30Days: number;
+  /** Not finished yet. */
+  active: number;
+  delivered: number;
+  /** Cancelled by the developer or by Pickriders. */
+  cancelled: number;
+}
+
+export interface AdminDeveloperWebhooksDto {
+  endpoints: number;
+  /** Enabled and answering. */
+  healthy: number;
+  /** Enabled but failing since some time. */
+  failing: number;
+  /** Turned off, by the developer or after 3 days of failures. */
+  disabled: number;
+}
+
+export interface AdminDeveloperModeDto {
+  /** Null until the wallet exists. */
+  wallet: AdminDeveloperWalletDto | null;
+  orders: AdminDeveloperOrdersDto;
+  webhooks: AdminDeveloperWebhooksDto;
+  /** API requests in the last 30 days. */
+  requests30d: number;
+  /** Of those, answered 400 or above. */
+  errors30d: number;
+  /**
+   * The latest API request in this mode.
+   * @format date-time
+   */
+  lastRequestAt: string | null;
+}
+
+export interface AdminDeveloperStaffDto {
+  id: string;
+  name: string;
+}
+
+export interface AdminDeveloperAutoTopUpCardDto {
+  brand: string | null;
+  last4: string;
+  expMonth: string | null;
+  expYear: string | null;
+  bank: string | null;
+}
+
+export interface AdminDeveloperAutoTopUpDto {
+  enabled: boolean;
+  threshold: number | null;
+  amount: number | null;
+  card: AdminDeveloperAutoTopUpCardDto | null;
+  lastChargeAt: string | null;
+  consecutiveFailures: number;
+  lastFailureReason: string | null;
+  /** Why it turned itself off, if it did. */
+  disabledReason: string | null;
+}
+
+export interface AdminDeveloperFundingAccountDto {
+  status: "PENDING" | "ACTIVE" | "FAILED";
+  bankName: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  /** @format date-time */
+  requestedAt: string | null;
+  /** @format date-time */
+  activatedAt: string | null;
+  /** Why setting it up failed, when it did. */
+  failureReason: string | null;
+}
+
+export interface AdminDeveloperSettingsDto {
+  description: string | null;
+  logo: string | null;
+  /** Extra addresses for operational emails. */
+  notificationEmails: string[];
+  /** Low-balance email threshold, kobo. */
+  lowBalanceThreshold: number | null;
+  /** @format date-time */
+  lowBalanceAlertedAt: string | null;
+  /** Where API keys may be used from. Empty: anywhere. */
+  allowedIps: string[];
+  autoTopUp: AdminDeveloperAutoTopUpDto;
+  fundingAccount: AdminDeveloperFundingAccountDto | null;
+}
+
+export interface AdminDeveloperInvitationDto {
+  id: string;
+  email: string;
+  role: string;
+  /** Past its 7 days, still not accepted. */
+  expired: boolean;
+  /** @format date-time */
+  expiresAt: string;
+  /** The member who sent it. */
+  invitedBy: string;
+  sendCount: number;
+  /** @format date-time */
+  createdAt: string;
+}
+
 export interface AdminDeveloperDetailDto {
   /** The team id. */
   id: string;
@@ -8295,6 +8472,10 @@ export interface AdminDeveloperDetailDto {
   /** @format date-time */
   liveReviewedAt: string | null;
   owner: AdminDeveloperOwnerDto | null;
+  /** Why the whole team is suspended (status SUSPENDED). */
+  suspensionReason: string | null;
+  /** @format date-time */
+  suspendedAt: string | null;
   /** @format date-time */
   createdAt: string;
   website: string | null;
@@ -8308,6 +8489,20 @@ export interface AdminDeveloperDetailDto {
   liveReviewedBy: AdminDeveloperReviewerDto | null;
   /** Active members, the owner included. */
   memberCount: number;
+  /** Active members, owner first. */
+  members: AdminDeveloperMemberDto[];
+  /** Every key, newest first, revoked included. */
+  keys: AdminDeveloperKeyDto[];
+  /** Test-mode activity: what a reviewer looks at. */
+  test: AdminDeveloperModeDto;
+  live: AdminDeveloperModeDto;
+  /** Who suspended the team. */
+  suspendedBy: AdminDeveloperStaffDto | null;
+  settings: AdminDeveloperSettingsDto;
+  /** Invitations not yet accepted. */
+  invitations: AdminDeveloperInvitationDto[];
+  /** @format date-time */
+  updatedAt: string | null;
 }
 
 export interface DeveloperLiveDecisionRequestDto {
@@ -8317,6 +8512,144 @@ export interface DeveloperLiveDecisionRequestDto {
    * @example "Add your company website and describe what you deliver."
    */
   reason: string;
+}
+
+export interface TeamAuditStaffDto {
+  id: string;
+  name: string;
+}
+
+export interface StaffTeamAuditLogDto {
+  id: string;
+  /** @example "member.role_changed" */
+  event: string;
+  actor: TeamAuditActorDto | null;
+  target: TeamAuditTargetDto | null;
+  before: object | null;
+  after: object | null;
+  /** @format date-time */
+  createdAt: string;
+  /** Set on staff actions only. */
+  staff: TeamAuditStaffDto | null;
+}
+
+export interface StaffTeamAuditLogListDto {
+  object: "list";
+  data: StaffTeamAuditLogDto[];
+  has_more: boolean;
+  url: string;
+}
+
+export interface AdminDeveloperWebhookEndpointDto {
+  /** @example "webhook_endpoint" */
+  object: string;
+  /** @example "we_6560f0c2a1b2c3d4e5f60718" */
+  id: string;
+  /** @example "https://api.acme.test/pickriders/webhooks" */
+  url: string;
+  description: string | null;
+  /** @example ["order.delivered"] */
+  enabled_events: string[];
+  status: "enabled" | "disabled";
+  /** Why it is disabled: manual (you turned it off) or failing (every delivery failed for 3 days). */
+  disabled_reason: "manual" | "failing" | null;
+  /** Since when every delivery has failed. At 3 days the endpoint is turned off. */
+  failing_since: string | null;
+  livemode: boolean;
+  /** After a secret roll, events are signed with the old secret too until this time. */
+  previous_secret_expires_at: string | null;
+  /** @example "2026-11-11T09:30:00.000Z" */
+  created: string;
+  /** Deliveries in the last 7 days, test pings included. */
+  deliveries7d: number;
+  succeeded7d: number;
+  /** Gave up after every retry. */
+  failed7d: number;
+  /** Waiting for a first try or a retry. */
+  pending: number;
+  lastDeliveryAt: string | null;
+}
+
+export interface AdminDeveloperWebhookEndpointListDto {
+  object: "list";
+  has_more: boolean;
+  url: string;
+  data: AdminDeveloperWebhookEndpointDto[];
+}
+
+export interface AdminDeveloperWebhookDeliveryListDto {
+  object: "list";
+  has_more: boolean;
+  url: string;
+  data: WebhookDeliveryDto[];
+}
+
+export interface AdminDeveloperTransactionListDto {
+  object: "list";
+  has_more: boolean;
+  url: string;
+  data: PublicWalletTransactionDto[];
+}
+
+export interface DeveloperMonitoringWindowDto {
+  /** @example 60 */
+  minutes: number;
+  /** Requests answered */
+  requests: number;
+  /** Requests answered 5xx */
+  errors: number;
+  errorRate: number | null;
+  /** Requests refused with 429 */
+  rateLimited: number;
+  rateLimitedRate: number | null;
+  /** 95th percentile response time, ms */
+  p95Ms: number | null;
+  webhookAttempts: number;
+  /** Webhook attempts without a 2xx */
+  webhookFailures: number;
+  webhookFailureRate: number | null;
+}
+
+export interface DeveloperWebhookQueueDto {
+  /** Deliveries waiting to be sent or retried */
+  pending: number;
+  /** Pending deliveries due more than a minute ago */
+  overdue: number;
+  /** How late the oldest overdue delivery is, seconds */
+  oldestOverdueSeconds: number | null;
+}
+
+export interface DeveloperErrorTeamDto {
+  teamId: string;
+  name: string | null;
+  requests: number;
+  /** Requests answered 5xx */
+  errors: number;
+}
+
+export interface DeveloperMonitoringThresholdsDto {
+  windowMinutes: number;
+  minRequests: number;
+  errorRate: number;
+  p95Ms: number;
+  rateLimitedRate: number;
+  minWebhookAttempts: number;
+  webhookFailureRate: number;
+  overdueDeliveries: number;
+}
+
+export interface DeveloperMonitoringDto {
+  /** @format date-time */
+  at: string;
+  /** The window the alerts check */
+  now: DeveloperMonitoringWindowDto;
+  lastHour: DeveloperMonitoringWindowDto;
+  last24Hours: DeveloperMonitoringWindowDto;
+  queue: DeveloperWebhookQueueDto;
+  /** Teams with the most 5xx answers in the last hour */
+  errorTeams: DeveloperErrorTeamDto[];
+  /** What raises an alert */
+  thresholds: DeveloperMonitoringThresholdsDto;
 }
 
 export type GetHeartbeatData = any;
@@ -9562,6 +9895,12 @@ export type RiderConfirmHandoffData = HandoffViewDto;
 export type RiderPassOrderData = RiderPassOrderResponseDto;
 
 export interface GetOrdersParams {
+  /** false for Developer API test orders only; true leaves them out */
+  livemode?: "true" | "false";
+  /** One developer team's orders */
+  teamId?: string;
+  /** Where orders came from: DEVELOPER_API for orders created with a developer API key */
+  channel?: string;
   /** true: only orders a rider was released from at least once (riderReleaseCount > 0) */
   releasedOnly?: boolean;
   /** date filter for scheduled orders - provide this if filtering for scheduled orders */
@@ -10340,4 +10679,146 @@ export type AdminRejectDeveloperLiveData = AdminDeveloperDetailDto;
 
 export type AdminSuspendDeveloperLiveData = AdminDeveloperDetailDto;
 
+export type AdminSuspendDeveloperTeamData = AdminDeveloperDetailDto;
+
+export type AdminRestoreDeveloperTeamData = AdminDeveloperDetailDto;
+
+export type AdminRevokeDeveloperKeyData = AdminDeveloperDetailDto;
+
 export type AdminUnsuspendDeveloperLiveData = AdminDeveloperDetailDto;
+
+export interface AdminListDeveloperActivityParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  /**
+   * One event (`member.removed`) or an area ending in a dot (`member.`).
+   * @pattern /^[a-z_]+\.([a-z_]+)?$/
+   * @example "member."
+   */
+  event?: string;
+  teamId: string;
+}
+
+export type AdminListDeveloperActivityData = StaffTeamAuditLogListDto;
+
+export interface AdminGetDeveloperUsageParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+  /**
+   * The last 7, 30 or 90 days.
+   * @default "30d"
+   */
+  period?: "7d" | "30d" | "90d";
+  teamId: string;
+}
+
+export type AdminGetDeveloperUsageData = UsageDto;
+
+export interface AdminListDeveloperRequestLogsParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  /** Only live or only test requests. */
+  livemode?: "true" | "false";
+  /** succeeded (below 400), failed (400 and up), or a status class. */
+  status?: "succeeded" | "failed" | "2xx" | "4xx" | "5xx";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  /**
+   * Requests whose path contains this, e.g. /orders.
+   * @maxLength 200
+   * @example "/orders"
+   */
+  path?: string;
+  /** Requests made with this API key (its id). */
+  key?: string;
+  /** From this time (ISO 8601). */
+  created_gte?: string;
+  /** Up to this time (ISO 8601). */
+  created_lte?: string;
+  /**
+   * The request id from a response (Request-Id header or error.request_id). Finds it in either mode.
+   * @maxLength 64
+   * @example "req_kE72slxdyzWzqil0NpGahJCb"
+   */
+  request_id?: string;
+  teamId: string;
+}
+
+export type AdminListDeveloperRequestLogsData = RequestLogListDto;
+
+export type AdminGetDeveloperRequestLogData = RequestLogDetailDto;
+
+export interface AdminListDeveloperWebhookEndpointsParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  /** true for live mode, false for test. */
+  livemode?: "true" | "false";
+  teamId: string;
+}
+
+export type AdminListDeveloperWebhookEndpointsData = AdminDeveloperWebhookEndpointListDto;
+
+export interface AdminListDeveloperWebhookDeliveriesParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  teamId: string;
+  /** The endpoint id (we_…). */
+  endpointId: string;
+}
+
+export type AdminListDeveloperWebhookDeliveriesData = AdminDeveloperWebhookDeliveryListDto;
+
+export interface AdminListDeveloperTransactionsParams {
+  /**
+   * @min 1
+   * @max 100
+   * @default 20
+   */
+  limit?: number;
+  /** Id of the last object on the previous page; returns the objects after it. */
+  starting_after?: string;
+  /** Id of the first object on the next page; returns the objects before it. */
+  ending_before?: string;
+  /** true for live mode, false for test. */
+  livemode?: "true" | "false";
+  type?: "credit" | "debit";
+  teamId: string;
+}
+
+export type AdminListDeveloperTransactionsData = AdminDeveloperTransactionListDto;
+
+export type AdminGetDeveloperMonitoringData = DeveloperMonitoringDto;

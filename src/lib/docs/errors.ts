@@ -200,6 +200,13 @@ export const ERROR_GROUPS: ErrorGroup[] = [
         fix: "Use the new key from the roll.",
       },
       { code: "authentication_required", status: 401, meaning: "You need to be signed in.", fix: "Send your API key." },
+      {
+        code: "account_suspended",
+        status: 401,
+        meaning:
+          "Pickriders suspended your team, so every key, test and live, is refused. The dashboard shows the reason, and the owners got it by email.",
+        fix: "Contact support@pickriders.com. Your keys work again from the next request once the team is restored.",
+      },
     ],
   },
   {
@@ -224,12 +231,6 @@ export const ERROR_GROUPS: ErrorGroup[] = [
         status: 403,
         meaning: "The request came from an IP your allowlist doesn't include.",
         fix: "Add the IP in the dashboard's settings, or empty the list.",
-      },
-      {
-        code: "account_suspended",
-        status: 403,
-        meaning: "The account is suspended.",
-        fix: "Contact Pickriders support.",
       },
       { code: "team_suspended", status: 403, meaning: "Your team is suspended.", fix: "Contact Pickriders support." },
       {
