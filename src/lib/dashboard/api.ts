@@ -82,6 +82,9 @@ export type UsagePeriod = DeveloperGetUsageParams["period"] & string;
 export const usage = {
   get: (mode: "test" | "live", period: UsagePeriod) =>
     apiService.developerGetUsage({ livemode: mode === "live" ? "true" : "false", period }),
+  /** Home: wallet and runway, orders in motion and this week against last, 24 h of API traffic, webhooks, keys. */
+  overview: (mode: "test" | "live") =>
+    apiService.developerGetOverview({ livemode: mode === "live" ? "true" : "false" }),
 };
 
 /** "true" | "false": how the API takes a mode in a query string. */

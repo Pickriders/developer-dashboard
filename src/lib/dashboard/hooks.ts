@@ -79,6 +79,7 @@ export const teamKeys = {
   walletSetting: (teamId: string, name: string) => ["team", teamId, "live", "wallet", name] as const,
   ipAllowlist: (teamId: string) => ["team", teamId, "ip-allowlist"] as const,
   usage: (teamId: string, mode: Mode, period: UsagePeriod) => ["team", teamId, mode, "usage", period] as const,
+  overview: (teamId: string, mode: Mode) => ["team", teamId, mode, "overview"] as const,
 };
 
 export const useAccount = (teamId: string) =>
@@ -173,6 +174,15 @@ export const useSetIpAllowlist = (teamId: string) => {
 };
 
 /** The usage overview: every number is counted by the API (CLAUDE.md §4.9). */
+/** Home's numbers for the mode, refreshed every 30 s (and when the tab comes back) so the page stays live. */
+export const useOverview = (teamId: string, mode: Mode) =>
+  useQuery({
+    queryKey: teamKeys.overview(teamId, mode),
+    queryFn: () => usage.overview(mode),
+    refetchInterval: 30_000,
+    placeholderData: (previous) => previous,
+  });
+
 export const useUsage = (teamId: string, mode: Mode, period: UsagePeriod) =>
   useQuery({
     queryKey: teamKeys.usage(teamId, mode, period),

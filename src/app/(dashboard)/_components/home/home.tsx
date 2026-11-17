@@ -2,32 +2,38 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpRight, Check, ChevronDown, Clock, Rocket, TriangleAlert } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, Clock, TriangleAlert } from "lucide-react";
 
 import { LiveAccessDialog } from "./live-access-dialog";
+import { Overview, OverviewSkeleton, QuickActions } from "./overview";
 import { useStepCopy, type StepCopy } from "./steps";
 import { ApiErrorAlert } from "@/components/auth";
 import { IdText } from "@/components/kit/id-text";
 import { ProgressRing } from "@/components/kit/progress-ring";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button, LinkButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DOCS_URL } from "@/constant";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import { checklist, type Checklist, type Step, type StepId } from "@/lib/dashboard/checklist";
 import { toApiError } from "@/lib/dashboard/errors";
 import { LIVE_STATUS } from "@/lib/dashboard/live";
-import { useAccount, useOnboarding } from "@/lib/dashboard/hooks";
+import { timeAgo } from "@/lib/dashboard/format";
+import { useAccount, useOnboarding, useOverview } from "@/lib/dashboard/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import type { DeveloperAccountDto } from "@/services/apiService";
 
-/** Home: the next thing to do, front and centre, then the whole path from sign-up to live. */
+/**
+ * Home: the team at a glance in the current mode (what needs attention, money, orders in motion,
+ * API traffic, webhooks and keys), with the setup guide above it until every step is done.
+ */
 export function Home() {
-  const { me, team } = useWorkspace();
+  const { me, team, mode } = useWorkspace();
   const account = useAccount(team.id);
   const onboarding = useOnboarding(team.id);
+  const overview = useOverview(team.id, mode);
   const [asking, setAsking] = React.useState(false);
   useOpenFromLink(React.useCallback(() => setAsking(true), []));
 
@@ -52,36 +58,77 @@ export function Home() {
   if (!account.data || !onboarding.data) return <HomeSkeleton />;
 
   const list = checklist(account.data, onboarding.data);
-  const live = list.next === null;
+  const setUp = list.next === null;
 
   return (
     <>
-      <header className="mb-7 space-y-1">
-        <h1 className="text-[1.75rem] font-black tracking-tight text-fg-heading">{greeting}</h1>
-        <p className="text-base text-fg-muted">
-          {live
-            ? "Everything's set up. Here's your team at a glance."
-            : account.data.liveStatus === "APPROVED"
-              ? "You're approved for live. Finish the rest of setup whenever you're ready."
-              : list.next?.state === "waiting"
-                ? "Your live access request is with us. Keep building in test mode."
-                : "A few steps take you from here to live deliveries."}
-        </p>
+      <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-[1.75rem] font-black tracking-tight text-fg-heading">{greeting}</h1>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-fg-muted">
+            <span>
+              {setUp
+                ? `Here's ${team.name} in ${mode} mode right now.`
+                : account.data.liveStatus === "APPROVED"
+                  ? "You're approved for live. Finish the rest of setup whenever you're ready."
+                  : list.next?.state === "waiting"
+                    ? "Your live access request is with us. Keep building in test mode."
+                    : "A few steps take you from here to live deliveries."}
+            </span>
+            {overview.data && <UpdatedAt at={overview.data.generated_at} refreshing={overview.isFetching} />}
+          </p>
+        </div>
+        <QuickActions />
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="min-w-0 space-y-6">
-          {live && <LiveCard />}
-          <SetupGuide list={list} account={account.data} onRequestLive={() => setAsking(true)} />
+      {!setUp && (
+        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="min-w-0">
+            <SetupGuide list={list} account={account.data} onRequestLive={() => setAsking(true)} />
+          </div>
+          <aside className="space-y-4">
+            <TeamCard account={account.data} />
+            <HelpCard />
+          </aside>
         </div>
-        <aside className="space-y-4">
-          <TeamCard account={account.data} />
-          <HelpCard />
-        </aside>
-      </div>
+      )}
+
+      {overview.error ? (
+        <div className="space-y-3">
+          <ApiErrorAlert error={toApiError(overview.error)} />
+          <Button variant="secondary" onClick={() => void overview.refetch()}>
+            Try again
+          </Button>
+        </div>
+      ) : overview.data ? (
+        <>
+          {!setUp && <h2 className="mb-4 text-lg font-bold text-fg-heading">Your team in {mode} mode</h2>}
+          <Overview overview={overview.data} account={account.data} />
+        </>
+      ) : (
+        <OverviewSkeleton />
+      )}
 
       <LiveAccessDialog open={asking} onClose={() => setAsking(false)} account={account.data} />
     </>
+  );
+}
+
+/** "Updated just now", ticking over between refreshes, with a pulse while one is running. */
+function UpdatedAt({ at, refreshing }: { at: string; refreshing: boolean }) {
+  const [, tick] = React.useReducer((n: number) => n + 1, 0);
+  React.useEffect(() => {
+    const id = setInterval(tick, 15_000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-fg-subtle" title={new Date(at).toLocaleString()}>
+      <span
+        aria-hidden
+        className={cn("size-1.5 rounded-full bg-success", refreshing && "animate-pulse motion-reduce:animate-none")}
+      />
+      Updated {timeAgo(at)}
+    </span>
   );
 }
 
@@ -107,44 +154,10 @@ function useGreeting(firstname: string) {
   return greeting;
 }
 
-/** Shown instead of the guide's header once the team is live. */
-function LiveCard() {
-  return (
-    <section
-      aria-labelledby="live-title"
-      className="relative overflow-hidden rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7"
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full bg-success/10 blur-3xl"
-      />
-      <div className="relative flex items-start gap-4">
-        <span
-          aria-hidden
-          className="grid size-11 shrink-0 place-items-center rounded-xl bg-success-subtle text-success-fg"
-        >
-          <Rocket className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <h2 id="live-title" className="text-[1.375rem] font-extrabold tracking-tight text-fg-heading">
-            You&apos;re live
-          </h2>
-          <p className="mt-1 max-w-xl text-[15px] leading-6 text-fg-muted">
-            Live keys and live orders are switched on. Create a live key for your production server; test mode keeps
-            working for everything you build next.
-          </p>
-          <LinkButton href="/keys?create=live" className="mt-5">
-            Create a live key
-          </LinkButton>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /**
  * The path from sign-up to live, as one guide: the current step open with its action, the rest
- * folded to a line (open any of them), finished ones ticked with what was done.
+ * folded to a line (open any of them), finished ones ticked with what was done. Home shows it only
+ * until every step is done.
  */
 function SetupGuide({
   list,
@@ -156,30 +169,10 @@ function SetupGuide({
   onRequestLive: () => void;
 }) {
   const copyFor = useStepCopy();
-  const live = list.next === null;
   const [open, setOpen] = React.useState<StepId | null>(list.next?.id ?? null);
-  const [showAll, setShowAll] = React.useState(false);
 
   // When a step finishes (the data refetches), move on to the new next step.
   React.useEffect(() => setOpen(list.next?.id ?? null), [list.next?.id]);
-
-  if (live && !showAll) {
-    return (
-      <button
-        type="button"
-        onClick={() => setShowAll(true)}
-        className="focus-ring flex w-full items-center justify-between rounded-2xl border border-line bg-surface px-6 py-4 text-left shadow-card transition-colors hover:bg-surface-subtle"
-      >
-        <span className="flex items-center gap-3 text-sm font-semibold text-fg">
-          <span className="grid size-6 place-items-center rounded-full bg-success text-white" aria-hidden>
-            <Check className="size-3.5" strokeWidth={3} />
-          </span>
-          Setup complete: all {list.total} steps done
-        </span>
-        <span className="text-sm font-semibold text-brand-fg">Show steps</span>
-      </button>
-    );
-  }
 
   let number = 0;
   const left = list.total - list.done;
@@ -192,16 +185,14 @@ function SetupGuide({
         <ProgressRing value={list.done} total={list.total} size={52} />
         <div className="min-w-0">
           <h2 id="get-started" className="text-lg font-extrabold tracking-tight text-fg-heading">
-            {live ? "Setup complete" : "Get set up"}
+            Get set up
           </h2>
           <p className="text-sm text-fg-muted">
-            {live
-              ? "Every step is done."
-              : list.next?.state === "waiting"
-                ? "Nothing to do but wait for the review."
-                : account.liveStatus === "APPROVED"
-                  ? `${left} ${left === 1 ? "step" : "steps"} left`
-                  : `${left} ${left === 1 ? "step" : "steps"} to live deliveries`}
+            {list.next?.state === "waiting"
+              ? "Nothing to do but wait for the review."
+              : account.liveStatus === "APPROVED"
+                ? `${left} ${left === 1 ? "step" : "steps"} left`
+                : `${left} ${left === 1 ? "step" : "steps"} to live deliveries`}
           </p>
         </div>
       </div>

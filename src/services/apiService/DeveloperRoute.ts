@@ -62,6 +62,7 @@ import {
   DeveloperGetIpAllowlistData,
   DeveloperGetLowBalanceAlertData,
   DeveloperGetOnboardingData,
+  DeveloperGetOverviewData,
   DeveloperGetRequestLogData,
   DeveloperGetUsageData,
   DeveloperGetWalletData,
@@ -1393,6 +1394,31 @@ export namespace Developer {
       "X-Team-Id": string;
     };
     export type ResponseBody = DeveloperGetUsageData;
+  }
+
+  /**
+   * @description Wallet and runway, orders in motion and this week against last, 24 hours of API traffic, webhooks and keys.
+   * @tags developer-dashboard/overview
+   * @name DeveloperGetOverview
+   * @request GET:/developer/api/v1/dashboard/overview
+   * @secure
+   * @response `200` `DeveloperGetOverviewData`
+   */
+  export namespace DeveloperGetOverview {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /**
+       * true for live mode.
+       * @default "false"
+       */
+      livemode?: "true" | "false";
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {
+      /** The team to act on (from the teams list). */
+      "X-Team-Id": string;
+    };
+    export type ResponseBody = DeveloperGetOverviewData;
   }
 
   /**
