@@ -193,6 +193,10 @@ export function RateLimits() {
           ["Creating orders, on top of that", "30 a minute", "60 a minute"],
         ]}
       />
+      <P>
+        All of a team&apos;s keys in one mode share a ceiling of four times these numbers, so spreading requests over
+        more keys won&apos;t raise your limit. Need more? Tell us how many requests you expect and we&apos;ll talk.
+      </P>
       <P>Every answer says where you stand, in its headers:</P>
       <Table
         head={["Header", "What it says"]}
