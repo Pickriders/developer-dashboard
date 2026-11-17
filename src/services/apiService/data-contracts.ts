@@ -7262,6 +7262,58 @@ export interface PingResponseDto {
   ok: boolean;
 }
 
+export interface StatusDayDto {
+  /**
+   * A day in Lagos time.
+   * @example "2026-11-17"
+   */
+  date: string;
+  /** The worst state that day, from incidents. */
+  status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+}
+
+export interface StatusComponentDto {
+  id: "api" | "webhooks" | "dashboard";
+  /** @example "API" */
+  name: string;
+  status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+  /** The last 90 days, oldest first. */
+  history: StatusDayDto[];
+}
+
+export interface StatusIncidentUpdateDto {
+  status: "investigating" | "identified" | "monitoring" | "resolved";
+  message: string;
+  /** @example "2026-11-17T10:04:00.000Z" */
+  at: string;
+}
+
+export interface StatusIncidentDto {
+  /** @example "inc_6560f0c2a1b2c3d4e5f60718" */
+  id: string;
+  title: string;
+  status: "investigating" | "identified" | "monitoring" | "resolved";
+  impact: "minor" | "major" | "critical";
+  components: ("api" | "webhooks" | "dashboard")[];
+  started_at: string;
+  resolved_at: string | null;
+  /** Newest first. */
+  updates: StatusIncidentUpdateDto[];
+}
+
+export interface StatusDto {
+  object: "status";
+  /** The worst of the components. */
+  status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+  components: StatusComponentDto[];
+  /** Incidents not resolved yet, newest first. */
+  incidents: StatusIncidentDto[];
+  /** Resolved in the last 14 days, newest first. */
+  recent_incidents: StatusIncidentDto[];
+  /** When this was worked out. */
+  updated_at: string;
+}
+
 export interface PublicAccountDto {
   /**
    * Always "account".
@@ -9640,6 +9692,57 @@ export interface DeveloperMonitoringDto {
   thresholds: DeveloperMonitoringThresholdsDto;
 }
 
+export interface AdminIncidentDto {
+  /** @example "inc_6560f0c2a1b2c3d4e5f60718" */
+  id: string;
+  title: string;
+  status: "investigating" | "identified" | "monitoring" | "resolved";
+  impact: "minor" | "major" | "critical";
+  components: ("api" | "webhooks" | "dashboard")[];
+  started_at: string;
+  resolved_at: string | null;
+  /** Newest first. */
+  updates: StatusIncidentUpdateDto[];
+  /** The record id, for staff routes. */
+  record_id: string;
+}
+
+export interface AdminIncidentListDto {
+  /** Open first, then the latest 50 resolved. */
+  data: AdminIncidentDto[];
+}
+
+export interface CreateIncidentRequestDto {
+  /**
+   * @minLength 5
+   * @maxLength 140
+   * @example "Slow order creation"
+   */
+  title: string;
+  impact: "minor" | "major" | "critical";
+  components: ("api" | "webhooks" | "dashboard")[];
+  /** @default "investigating" */
+  status?: "investigating" | "identified" | "monitoring" | "resolved";
+  /**
+   * The first public update: what people see and what to do.
+   * @minLength 10
+   * @maxLength 2000
+   */
+  message: string;
+}
+
+export interface IncidentUpdateRequestDto {
+  /** resolved closes the incident. */
+  status: "investigating" | "identified" | "monitoring" | "resolved";
+  /**
+   * @minLength 10
+   * @maxLength 2000
+   */
+  message: string;
+  /** Change how bad it is. */
+  impact?: "minor" | "major" | "critical";
+}
+
 export type GetHeartbeatData = any;
 
 export type GetDeliveryPricingData = object;
@@ -11955,3 +12058,9 @@ export interface AdminListDeveloperTransactionsParams {
 export type AdminListDeveloperTransactionsData = AdminDeveloperTransactionListDto;
 
 export type AdminGetDeveloperMonitoringData = DeveloperMonitoringDto;
+
+export type AdminListDeveloperIncidentsData = AdminIncidentListDto;
+
+export type AdminCreateDeveloperIncidentData = AdminIncidentDto;
+
+export type AdminUpdateDeveloperIncidentData = AdminIncidentDto;

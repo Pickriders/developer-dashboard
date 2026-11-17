@@ -12,5 +12,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: page.slug === "" ? 1 : page.slug === "quickstart" ? 0.9 : 0.7,
     })),
     { url: `${SITE_URL}/auth/signup`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${SITE_URL}/status`, changeFrequency: "always", priority: 0.5 },
   ];
 }
