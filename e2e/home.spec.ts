@@ -85,6 +85,46 @@ test("switches team, and shows each team's own state and what the role allows", 
   await expect(page.getByLabel("Your team").getByText("Globex")).toBeVisible();
 });
 
+test("shows the team's numbers below the guide while setup isn't finished", async ({ page }) => {
+  await signIn(page);
+
+  await expect(page.getByRole("heading", { name: "Get set up" })).toBeVisible();
+  const numbers = page.getByRole("region", { name: "Headline numbers" });
+  await expect(numbers.getByRole("link", { name: /^Available balance: ₦1,000,000\.00/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Orders in motion" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "API traffic, last 24 hours" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Quick actions" }).getByRole("link", { name: "New order" }),
+  ).toBeVisible();
+});
+
+test("drops the guide once every step is done, and leads with what needs attention", async ({ page, request }) => {
+  await request.post(`${MOCK_API}/__test/setup?email=${ADA.email}&failing=1`);
+  await request.post(`${MOCK_API}/__test/requests?email=${ADA.email}&n=12`);
+  await signIn(page);
+
+  await expect(page.getByText(/in test mode right now/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Get set up" })).toHaveCount(0);
+  await expect(page.locator("[data-step]")).toHaveCount(0);
+
+  const attention = page.getByRole("region", { name: "Needs your attention" });
+  await expect(attention.getByText("1 webhook endpoint is failing")).toBeVisible();
+  await attention.getByRole("link", { name: "Fix webhooks" }).click();
+  await expect(page).toHaveURL(/\/webhooks$/);
+
+  await page.goto("/");
+  const traffic = page.locator("section", { has: page.getByRole("heading", { name: "API traffic, last 24 hours" }) });
+  await expect(traffic.getByText("12", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Webhooks" })).toBeVisible();
+  await expect(page.getByText("1 active key")).toBeVisible();
+});
+
+test("opens the filtered orders list from a stage of orders in motion", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("link", { name: /^Finding a rider/ }).click();
+  await expect(page).toHaveURL(/\/orders\?status=searching$/);
+});
+
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 375, height: 812 } });
 

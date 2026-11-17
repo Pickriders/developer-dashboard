@@ -14,3 +14,5 @@ export * from "./progress-ring";
 export * from "./new-secret";
 export * from "./filter-menu";
 export * from "./list-editor";
+export * from "./sparkline";
+export * from "./metric-card";

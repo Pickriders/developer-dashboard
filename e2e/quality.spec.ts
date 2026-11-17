@@ -131,6 +131,7 @@ test("a skip link jumps past the navigation", async ({ page }) => {
 /** When its data can't load, each page says so (with the request id) instead of going blank. */
 for (const [path, route] of [
   ["/", "GET /account"],
+  ["/", "GET /overview"],
   ["/usage", "GET /usage"],
   ["/orders", "GET /orders"],
   ["/wallet", "GET /wallet"],

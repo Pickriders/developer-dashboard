@@ -187,17 +187,28 @@ only; type the team's name) or removes them, and only appears where the role all
 yourself, the owner, or someone above you. Anyone but the owner can **Leave team**. Inviting is one
 email and one role, each role explained in a line.
 
-**Home** is a setup guide, not a dashboard of widgets: one card, the current step open with its one
-action, the others folded to a line, finished steps ticked with what was done (the address, the date).
-A refused or suspended live request opens first. Copy for every step lives in one place
-(`(dashboard)/_components/home/steps.tsx`).
+**Home** is the team at a glance in the current mode, live (it refreshes every 30 seconds), from one
+backend aggregate (`GET dashboard/overview`): quick actions under the greeting; **what needs attention**
+first (failing webhooks, a wallet running out, orders searching over 10 minutes, a burst of server
+errors, keys about to expire, a live team with no live key), each a slim tinted card with the fix one
+click away; four **MetricCards** (balance with its runway, orders today vs yesterday, delivery success
+this week vs last, API error rate today vs yesterday), each a link with a sparkline; **orders in
+motion** as one stacked bar and a tile per stage (one status colour each, distinct in both themes)
+linking to the filtered orders list; spend; the 14-day orders chart; the latest orders; 24 hours of
+API traffic by hour with errors stacked in red, median and p95, and the most frequent error codes
+(linking to their docs); webhook delivery health and keys. While setup isn't finished the **setup
+guide** sits above all of this (one card, the current step open with its one action, the others folded
+to a line, finished steps ticked with what was done; a refused or suspended request opens first). Once
+every step is done it disappears. Step copy lives in `(dashboard)/_components/home/steps.tsx`, the
+attention rules and deltas in `lib/dashboard/overview.ts`.
 
 **Auth** (`components/auth`): `AuthShell` (brand panel + form column), `AuthHeading`, `Field`
 (label, control, error or hint, wired for screen readers), `PasswordInput` (show/hide, Caps Lock),
 `PasswordMeter`, `CodeInput` (one real input drawn as boxes: paste, SMS autofill, shake),
 `ResendButton`, `FormAlert` / `ApiErrorAlert`, `SignOutButton`.
 
-**Kit** (`components/kit`): PageHeader, Panel, StatCard, ProgressRing, IdText, CopyButton, CodeBlock,
+**Kit** (`components/kit`): PageHeader, Panel, StatCard, MetricCard (a linked headline number with its
+change and a Sparkline), Sparkline, ProgressRing, IdText, CopyButton, CodeBlock,
 SecretReveal, ConfirmDialog (the storefront's, with `typeToConfirm`), EmptyState, TestModeBanner,
 Kbd, ThemeToggle. Build pages from these first; add to the kit when a pattern repeats, and show it
 on `/design`.
