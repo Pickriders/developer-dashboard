@@ -2,7 +2,7 @@ import type { GuideRequest } from "./requests";
 
 /**
  * The requests each guide shows (step 12.5), in the order a reader sends them. One source for the
- * examples on the page, the check that each matches the API document, and the sandbox run.
+ * examples on the page, the check that each matches the API document, and the run against the mock.
  */
 const LEKKI = { address: "1 Admiralty Way, Lekki Phase 1, Lagos", lat: 6.4474, lng: 3.474 };
 const IKOYI = { address: "12 Bourdillon Road, Ikoyi, Lagos", lat: 6.456, lng: 3.431 };
