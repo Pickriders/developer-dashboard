@@ -72,6 +72,8 @@ src/
 │   │                     usage — each with `_components/`. Its layout wraps them in the workspace
 │   ├── docs/             the public API docs (/docs, no sign-in): layout, start page, [slug] pages,
 │   │                     _content/ (each page's body), opengraph-image. See "Docs" below
+│   ├── legal/            the platform's terms, acceptable use, privacy notice and DPA (public;
+│   │                     drafts until `LEGAL.approved` in lib/legal/pages.ts, which legal flips)
 │   ├── sitemap.ts, robots.ts   what search engines may crawl: the docs and sign-up only
 │   ├── auth/             login, signup, verify (email then phone), forgot-password, invite
 │   ├── api/backend/      the proxy to the API: session cookie → bearer token (lib/session/proxy.ts)

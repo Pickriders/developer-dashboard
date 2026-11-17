@@ -9,6 +9,7 @@ import { ADA, MOCK_API, signIn } from "./helpers";
  */
 const PAGES = ["/", "/usage", "/orders", "/orders/new", "/wallet", "/keys", "/webhooks", "/logs", "/team", "/settings"];
 /** The public docs, held to the same bar. */
+const LEGAL = ["/legal", "/legal/terms", "/legal/acceptable-use", "/legal/privacy", "/legal/dpa"];
 const DOCS = [
   "/docs",
   "/docs/quickstart",
@@ -102,7 +103,7 @@ for (const [device, viewport] of [
       const page = await context.newPage();
       await signIn(page);
       const found: string[] = [];
-      for (const path of [...PAGES, ...DOCS]) {
+      for (const path of [...PAGES, ...DOCS, ...LEGAL]) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await page.waitForLoadState("networkidle");
