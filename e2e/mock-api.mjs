@@ -14,6 +14,7 @@
 //   POST /__test/requests?email=&n=                # n test-mode API requests in their own team's request log
 //   POST /__test/fail?route=GET%20/orders           # that route answers 500 until the next reset
 //   POST /__test/history?email=&days=              # a few test orders a day for that many days back (usage)
+//   POST /__test/setup?email=&failing=             # every setup step done (failing=1: the webhook endpoint fails)
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
 // (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
@@ -25,6 +26,14 @@ const PUBLIC = "/developer/api/v1";
 const D = "/developer/api/v1/dashboard";
 const RESEND_S = 60;
 const TTL_S = 300;
+
+/** Addresses for the orders /__test/history makes. */
+const HISTORY_PLACES = [
+  ["1 Admiralty Way, Lekki", "12 Bourdillon Rd, Ikoyi"],
+  ["Computer Village, Ikeja", "45 Adeola Odeku St, Victoria Island"],
+  ["Yaba Market, Yaba", "7 Allen Avenue, Ikeja"],
+  ["Ikota Shopping Complex, Lekki", "22 Awolowo Rd, Ikoyi"],
+];
 
 let users, codes, invitations, teams;
 function reset() {
@@ -514,6 +523,169 @@ const routes = {
           error_rate: rate(errors, logs.length),
         },
         webhooks: { deliveries: deliveries.length, succeeded: ok, failed: bad, success_rate: rate(ok, bad + ok) },
+      },
+    ];
+  },
+  "GET /overview": (req, body, params, url) => {
+    // The home page's numbers, counted from the mock's own state the way backend-api does.
+    const { team: t } = requireTeam(req, "team.read");
+    const live = url.searchParams.get("livemode") === "true";
+    const now = new Date();
+    const H = 36e5;
+    const D = 24 * H;
+    const lagos = (d) => new Date(d.getTime() + H).toISOString().slice(0, 10);
+    const midnight = (back) =>
+      new Date(new Date(`${lagos(new Date(now.getTime() - back * D))}T00:00:00.000Z`).getTime() - H);
+    const rate = (a, b) => (b ? Math.round((a / b) * 1e4) / 1e4 : null);
+    const at = (x) => new Date(x.created ?? x.createdAt ?? 0);
+    const orders = t.orders.filter((o) => o.livemode === live);
+    const flight = {
+      scheduled: 0,
+      awaiting_dispatch: 0,
+      searching: 0,
+      searching_long: 0,
+      rider_assigned: 0,
+      on_the_way: 0,
+    };
+    for (const o of orders) {
+      if (o.status === "scheduled") flight.scheduled++;
+      else if (o.status === "awaiting_dispatch") flight.awaiting_dispatch++;
+      else if (o.status === "searching") {
+        flight.searching++;
+        if (now - at(o) > 10 * 60_000) flight.searching_long++;
+      } else if (o.status === "rider_assigned") flight.rider_assigned++;
+      else if (o.status === "picking_up" || o.status === "in_transit") flight.on_the_way++;
+    }
+    const days = Array.from({ length: 14 }, (_, i) => lagos(new Date(midnight(13 - i).getTime() + 2 * H)));
+    const perDay = days.map((date) => {
+      const mine = orders.filter((o) => lagos(at(o)) === date);
+      return {
+        date,
+        created: mine.length,
+        delivered: mine.filter((o) => o.status === "delivered").length,
+        failed: mine.filter((o) => o.status === "failed").length,
+        cancelled: mine.filter((o) => o.status === "cancelled").length,
+      };
+    });
+    const sum = (rows) => {
+      const n = (k) => rows.reduce((a, r) => a + r[k], 0);
+      return {
+        created: n("created"),
+        delivered: n("delivered"),
+        failed: n("failed"),
+        cancelled: n("cancelled"),
+        success_rate: rate(n("delivered"), n("delivered") + n("failed")),
+      };
+    };
+    const wallet = t.wallets[live ? "live" : "test"];
+    const spent = (from, to = now) =>
+      Math.max(
+        0,
+        wallet.transactions
+          .filter((x) => ["order_hold", "order_refund"].includes(x.purpose) && at(x) >= from && at(x) < to)
+          .reduce((n, x) => n + (x.type === "debit" ? x.amount : -x.amount), 0),
+      );
+    const lagosNow = new Date(now.getTime() + H);
+    const month = new Date(Date.UTC(lagosNow.getUTCFullYear(), lagosNow.getUTCMonth(), 1) - H);
+    const daily = spent(new Date(now.getTime() - 14 * D)) / 14;
+    const hasWallet = !live || t.liveStatus === "APPROVED";
+    const logs = t.logs.filter((l) => l.livemode === live);
+    const last24 = logs.filter((l) => now - at(l) < D);
+    const prior = logs.filter((l) => now - at(l) >= D && now - at(l) < 2 * D);
+    const errs = (rows) => rows.filter((l) => l.status >= 400).length;
+    const durations = last24.map((l) => l.durationMs).sort((a, b) => a - b);
+    const pct = (p) => (durations.length ? durations[Math.max(0, Math.ceil(p * durations.length) - 1)] : null);
+    const firstHour = Math.floor(now.getTime() / H) * H - 23 * H;
+    const codes = new Map();
+    for (const l of last24.filter((x) => x.status >= 400)) {
+      const k = `${l.errorCode ?? "unknown"}|${l.status}`;
+      codes.set(k, (codes.get(k) ?? 0) + 1);
+    }
+    const endpoints = t.endpoints.filter((e) => e.livemode === live);
+    const deliveries = endpoints
+      .flatMap((e) => e.deliveries)
+      .filter((d) => d.event_type !== "ping" && now - new Date(d.created) < D);
+    const ok = deliveries.filter((d) => d.status === "succeeded").length;
+    const bad = deliveries.filter((d) => d.status === "failed").length;
+    const keys = t.keys.filter((k) => k.livemode === live && usable(k));
+    const soon = keys
+      .filter((k) => k.expiresAt && new Date(k.expiresAt) - now <= 14 * D)
+      .map((k) => new Date(k.expiresAt));
+    const used = keys
+      .map((k) => k.lastUsedAt)
+      .filter(Boolean)
+      .map((d) => new Date(d).getTime());
+    return [
+      200,
+      {
+        livemode: live,
+        generated_at: now.toISOString(),
+        wallet: hasWallet
+          ? {
+              available: wallet.available,
+              held: wallet.held,
+              currency: "NGN",
+              low_balance_threshold: live ? (t.lowBalance?.threshold ?? null) : null,
+              runway_days: daily > 0 ? Math.floor(wallet.available / daily) : null,
+            }
+          : null,
+        orders: {
+          in_flight: flight,
+          today: perDay[13].created,
+          yesterday: perDay[12].created,
+          delivered_today: orders.filter((o) => o.status === "delivered" && lagos(at(o)) === days[13]).length,
+          last_7_days: sum(perDay.slice(7)),
+          previous_7_days: sum(perDay.slice(0, 7)),
+          per_day: perDay.map(({ date, created, delivered }) => ({ date, created, delivered })),
+        },
+        spend: {
+          last_7_days: spent(midnight(6)),
+          previous_7_days: spent(midnight(13), midnight(6)),
+          month_to_date: spent(month),
+          currency: "NGN",
+        },
+        api: {
+          requests: last24.length,
+          errors: errs(last24),
+          server_errors: last24.filter((l) => l.status >= 500).length,
+          error_rate: rate(errs(last24), last24.length),
+          previous_requests: prior.length,
+          previous_error_rate: rate(errs(prior), prior.length),
+          p50_ms: pct(0.5),
+          p95_ms: pct(0.95),
+          per_hour: Array.from({ length: 24 }, (_, i) => {
+            const start = firstHour + i * H;
+            const mine = last24.filter((l) => at(l).getTime() >= start && at(l).getTime() < start + H);
+            return { hour: new Date(start).toISOString(), requests: mine.length, errors: errs(mine) };
+          }),
+          top_errors: [...codes.entries()]
+            .map(([k, count]) => ({ code: k.split("|")[0], status: Number(k.split("|")[1]), count }))
+            .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code))
+            .slice(0, 5),
+          last_request_at: logs.length
+            ? logs
+                .map(at)
+                .sort((a, b) => b - a)[0]
+                .toISOString()
+            : null,
+        },
+        webhooks: {
+          endpoints: endpoints.length,
+          healthy: endpoints.filter((e) => e.status !== "disabled" && !e.failing_since).length,
+          failing: endpoints.filter((e) => e.status !== "disabled" && e.failing_since).length,
+          disabled: endpoints.filter((e) => e.status === "disabled").length,
+          deliveries: deliveries.length,
+          succeeded: ok,
+          failed: bad,
+          pending: endpoints.flatMap((e) => e.deliveries).filter((d) => d.status === "pending").length,
+          success_rate: rate(ok, ok + bad),
+        },
+        keys: {
+          active: keys.length,
+          expiring_soon: soon.length,
+          next_expiry_at: soon.length ? new Date(Math.min(...soon)).toISOString() : null,
+          last_used_at: used.length ? new Date(Math.max(...used)).toISOString() : null,
+        },
       },
     ];
   },
@@ -1656,9 +1828,28 @@ createServer(async (req, res) => {
       const n = Math.round(3 + (days - d) / 4 + 3 * Math.sin(d / 1.2) + (d % 7 === 0 ? -2 : 0));
       for (let i = 0; i < Math.max(0, n); i++) {
         const created = new Date(Date.now() - d * 864e5 - i * 6e5).toISOString();
+        // Today's first few are still moving, so Home's "orders in motion" has something to show.
+        const moving = ["searching", "rider_assigned", "in_transit", "picking_up"];
         const status =
-          d === 0 && i === 0 ? "pending" : i % 9 === 4 ? "failed" : i % 11 === 5 ? "cancelled" : "delivered";
-        own.orders.push({ object: "order", id: `ord_${newId()}`, livemode: false, status, created, updated: created });
+          d === 0 && i < moving.length ? moving[i] : i % 9 === 4 ? "failed" : i % 11 === 5 ? "cancelled" : "delivered";
+        const n = own.orders.length + 1001;
+        const [from, to] = HISTORY_PLACES[(d + i) % HISTORY_PLACES.length];
+        own.orders.push({
+          object: "order",
+          id: `ord_${newId()}`,
+          number: `PR${n}`,
+          reference: i % 3 === 0 ? `ACME-${n}` : null,
+          livemode: false,
+          status,
+          type: "single",
+          stops: [
+            { role: "pickup", address: from, status: "completed" },
+            { role: "dropoff", address: to, status: status === "delivered" ? "completed" : "pending" },
+          ],
+          pricing: { amount: 150_000 + (i % 4) * 25_000, currency: "NGN" },
+          created,
+          updated: created,
+        });
         if (status !== "cancelled") {
           own.wallets.test.transactions.push({
             object: "transaction",
@@ -1688,6 +1879,36 @@ createServer(async (req, res) => {
     const t = makeTeam(url.searchParams.get("name"), owner);
     owner.memberships.push({ teamId: t.id, role: "TEAM_OWNER" });
     user.memberships.push({ teamId: t.id, role: url.searchParams.get("role") ?? "TEAM_VIEWER" });
+    return send(204, null);
+  }
+  if (url.pathname === "/__test/setup") {
+    // Every setup step done (test key, test order, webhook endpoint, live approved); failing=1 makes the endpoint fail.
+    const user = users.get(url.searchParams.get("email"));
+    const own = user && teams.get(user.memberships.find((m) => m.role === "TEAM_OWNER")?.teamId);
+    if (!own) return send(404, { error: { code: "no_such_team" } });
+    if (!own.keys.some((k) => !k.livemode)) issueKey(own, user, { label: "Server", livemode: false, scopes: [] });
+    own.testOrders = Math.max(own.testOrders, 1);
+    const failing = url.searchParams.get("failing") === "1";
+    own.endpoints.push({
+      id: `we_${newId()}`,
+      url: "https://acme.example/hooks",
+      description: null,
+      enabled_events: ["*"],
+      status: "enabled",
+      disabled_reason: null,
+      failing_since: failing ? new Date(Date.now() - 864e5).toISOString() : null,
+      livemode: false,
+      previous_secret_expires_at: null,
+      created: new Date().toISOString(),
+      secret: newSecret(),
+      previousSecret: null,
+      deliveries: [],
+    });
+    Object.assign(own, {
+      liveStatus: "APPROVED",
+      liveRequestedAt: own.liveRequestedAt ?? new Date().toISOString(),
+      liveReviewedAt: new Date().toISOString(),
+    });
     return send(204, null);
   }
   if (url.pathname === "/__test/team" || url.pathname === "/__test/order") {

@@ -3,7 +3,9 @@
 The Pickriders **developer dashboard** — the console developers use alongside the public
 Developer API. They sign up, verify their email and phone, create API keys, manage webhook
 endpoints, read request logs, create and track orders, fund their wallet, manage their team,
-and request live access. Served at `dashboard.pickriders.com`, with the public API docs at `/docs`.
+and request live access, with the public API docs at `/docs`. Each environment serves its own copy;
+never hard-code a dashboard domain. backend-api builds email links from its `DEVELOPER_DASHBOARD_URL`,
+set per environment to that environment's dashboard.
 
 **Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3 and **our own
 components in the Pickriders storefront's design** (**DESIGN.md**: tokens, Urbanist and Geist Mono,
@@ -126,8 +128,9 @@ against that copy (`lib/docs/openapi-diff.ts`). The OpenAPI file and the Postman
 `lib/docs/endpoints.ts`.
 **Guides** (`/docs/guides/*`, step 12.5) write their requests as data in `lib/docs/guides.ts`: the
 same object becomes the four code tabs, is validated against the API document in CI
-(`examples.test.ts`), runs against the mock in `e2e/docs.spec.ts`, and against the dev API in CI's
-contract job when the `PICKRIDERS_TEST_KEY` secret is set. **Events** (`/docs/events/*`, step 12.7)
+(`examples.test.ts`) and runs in order against the mock in `e2e/docs.spec.ts`. **Never send them (or any
+test) to the deployed dev API from CI**: each run leaves real orders behind. What the API does with a
+request is backend-api's own tests' job, on their throwaway in-memory database. **Events** (`/docs/events/*`, step 12.7)
 are in `lib/docs/events.ts`; examples are generated from the API document and validated, and a new
 event type in the API fails CI until it's documented.
 `lib/docs/errors.ts` must list every Developer API error code: API errors link to

@@ -71,6 +71,8 @@ import {
   DeveloperGetIpAllowlistData,
   DeveloperGetLowBalanceAlertData,
   DeveloperGetOnboardingData,
+  DeveloperGetOverviewData,
+  DeveloperGetOverviewParams,
   DeveloperGetRequestLogData,
   DeveloperGetUsageData,
   DeveloperGetUsageParams,
@@ -1308,6 +1310,24 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
   developerGetUsage = (query: DeveloperGetUsageParams, params: RequestParams = {}) =>
     this.request<DeveloperGetUsageData, any>({
       path: `/developer/api/v1/dashboard/usage`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Wallet and runway, orders in motion and this week against last, 24 hours of API traffic, webhooks and keys.
+   *
+   * @tags developer-dashboard/overview
+   * @name DeveloperGetOverview
+   * @request GET:/developer/api/v1/dashboard/overview
+   * @secure
+   * @response `200` `DeveloperGetOverviewData`
+   */
+  developerGetOverview = (query: DeveloperGetOverviewParams, params: RequestParams = {}) =>
+    this.request<DeveloperGetOverviewData, any>({
+      path: `/developer/api/v1/dashboard/overview`,
       method: "GET",
       query: query,
       secure: true,

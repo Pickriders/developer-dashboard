@@ -57,7 +57,7 @@ jobs:
     # public OpenAPI document at /developer/docs/openapi.json; a breaking change against the copy
     # the reference was built from (src/lib/docs/openapi.json) fails here with what broke. Additive
     # changes pass: refresh the copy with `yarn docs:sync` to document them.
-    name: API contract and guides
+    name: API contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -78,13 +78,9 @@ jobs:
         env:
           OPENAPI_NEXT: ${{ runner.temp }}/developer-openapi.json
 
-      # Step 12.5: every guide's requests, sent to the sandbox (the dev API) with a test key. Add a
-      # PICKRIDERS_TEST_KEY secret (an sk_test_ key for a team kept for this) to turn it on; without
-      # one the test is skipped.
-      - name: Run the guides against the sandbox
-        run: yarn jest src/lib/docs/guides-sandbox.test.ts --ci
-        env:
-          PICKRIDERS_TEST_KEY: ${{ secrets.PICKRIDERS_TEST_KEY }}
+      # The guides are not sent to the deployed dev API: every run would leave real test orders
+      # behind. examples.test.ts checks each request against the API document, e2e/docs.spec.ts runs
+      # them in order against the mock, and backend-api's own tests cover what the API does with them.
 
   e2e:
     name: End-to-end (Playwright)

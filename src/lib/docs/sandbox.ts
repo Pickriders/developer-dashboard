@@ -2,7 +2,8 @@ import { GUIDE_REQUESTS } from "./guides";
 import type { GuideRequest } from "./requests";
 
 /**
- * Runs the guides' requests for real (step 12.5), in order, with a test key: ids from earlier answers
+ * Runs the guides' requests (step 12.5) in order, with a test key, against `base`: in CI that's the
+ * mock API (e2e/docs.spec.ts), never the deployed API, which would keep every order. Ids from earlier answers
  * fill later requests, and `{{later}}` becomes a real time a few hours away. Live-only requests and
  * those a test key can't trigger are skipped. Returns what went wrong, per guide; empty when all ran.
  */

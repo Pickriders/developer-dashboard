@@ -220,6 +220,13 @@ const CASES: Case[] = [
     params: { livemode: "true", period: "7d" },
   },
   {
+    name: "usage.overview",
+    call: () => api.usage.overview("test"),
+    method: "GET",
+    path: `${D}/overview`,
+    params: { livemode: "false" },
+  },
+  {
     name: "keys.list",
     call: () => api.keys.list("live"),
     method: "GET",

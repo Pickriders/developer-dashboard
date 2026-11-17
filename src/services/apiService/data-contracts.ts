@@ -9,6 +9,65 @@
  * ---------------------------------------------------------------
  */
 
+export interface WithdrawalFreezeViewDto {
+  /** true while withdrawals are paused for everyone */
+  active: boolean;
+  /** Why, as the admin wrote it */
+  reason?: string | null;
+  /**
+   * When withdrawals resume, when known
+   * @format date-time
+   */
+  until?: string | null;
+  /** A sentence ready to show, mentioning `until` when set */
+  message?: string | null;
+  /** @format date-time */
+  setAt?: string | null;
+  /** Admin user id */
+  setBy?: string | null;
+  /** @format date-time */
+  liftedAt?: string | null;
+  /** Admin user id, or "SYSTEM" when the cron lifted it at `until` */
+  liftedBy?: string | null;
+}
+
+export interface PlatformSettingsResponseDto {
+  /** Platform-wide support inboxes for unclaimed URGENT admin alerts (fallback when a state has none) */
+  supportEmails: string[];
+  withdrawalsFrozen: WithdrawalFreezeViewDto;
+  /**
+   * Last saved; absent until the settings were first saved
+   * @format date-time
+   */
+  updatedAt?: string;
+}
+
+export interface WithdrawalFreezeRequestDto {
+  /** true pauses every wallet withdrawal on the platform; false lifts the pause */
+  active: boolean;
+  /**
+   * Why withdrawals are paused. Required when active; shown to riders and customers
+   * @maxLength 280
+   */
+  reason?: string;
+  /**
+   * Lift the pause automatically at this time (ISO 8601). Omit for an open-ended pause
+   * @format date-time
+   */
+  until?: string;
+}
+
+export interface UpdatePlatformSettingsRequestDto {
+  /**
+   * Platform-wide support inboxes for an URGENT admin alert nobody claimed, used when the alert state has no supportEmails of its own (at most 5; lowercased, trimmed, deduplicated). An empty list clears it
+   * @maxItems 5
+   * @example ["support@pickriders.com"]
+   */
+  supportEmails?: string[];
+  /** Pause or resume wallet withdrawals platform-wide (riders and customers). Needs a fresh MFA code */
+  withdrawalsFrozen?: WithdrawalFreezeRequestDto;
+}
+
 export interface CountryConfigSchemaDto {
   exchangeRate: number;
   minimumOfferPercentage: number;
@@ -197,7 +256,7 @@ export interface State {
     handoffConfirmRadiusM?: number;
     /** @default 2 */
     handoffsPerOrder?: number;
-    supportWhatsappPhone?: string;
+    supportEmails?: string[];
     /** @default 2 */
     releaseFreePerDay?: number;
     /** @default 5 */
@@ -222,6 +281,12 @@ export interface State {
     nextPickupRadiusKm?: number;
     /** @default 3 */
     nextFinishWithinKm?: number;
+    /** @default 0.6 */
+    dispatchRatingWeight?: number;
+    /** @default 0 */
+    dispatchMinRating?: number;
+    /** @default 5 */
+    dispatchMinRatingReviews?: number;
   };
   _id: string;
   /** @format date-time */
@@ -419,10 +484,11 @@ export interface StateConfigDto {
    */
   handoffsPerOrder?: number;
   /**
-   * Support WhatsApp number (E.164, e.g. +2348012345678) URGENT alerts escalate to. Empty clears it
-   * @pattern /^(\+[1-9]\d{7,14})?$/
+   * Support inboxes an URGENT admin alert nobody claimed is emailed to (at most 5; lowercased, trimmed, deduplicated). An empty list clears it, and the platform-wide list is used instead
+   * @maxItems 5
+   * @example ["support@pickriders.com"]
    */
-  supportWhatsappPhone?: string;
+  supportEmails?: string[];
   /**
    * Rider releases: releases inside the free window that stay free per Lagos day (0: none)
    * @min 0
@@ -503,6 +569,27 @@ export interface StateConfigDto {
    * @default 3
    */
   nextFinishWithinKm?: number;
+  /**
+   * Rider rating, SCORING strategy: how much a rating moves the score (score = distance + recentOrders * 0.5 - (rating - 4.0) * weight). 0 turns the rating term off
+   * @min 0
+   * @max 5
+   * @default 0.6
+   */
+  dispatchRatingWeight?: number;
+  /**
+   * Rider rating floor: riders rated below this (over at least dispatchMinRatingReviews reviews) are left out of broadcasts, one-at-a-time searches and NEARBY tiers, never out of a store's own listed riders. 0 = off, otherwise 1 to 5 in steps of 0.1
+   * @min 0
+   * @max 5
+   * @default 0
+   */
+  dispatchMinRating?: number;
+  /**
+   * Rider rating floor: reviews a rider needs before the floor applies to them
+   * @min 1
+   * @max 1000
+   * @default 5
+   */
+  dispatchMinRatingReviews?: number;
 }
 
 export interface UpdateStateDto {
@@ -513,6 +600,31 @@ export interface UpdateStateDto {
   name: string;
   /** Configuration for the state */
   config?: StateConfigDto;
+}
+
+export interface LockoutStatusResponseDto {
+  /** true while sign-in for this email is locked */
+  locked: boolean;
+  /** Wrong passwords since the last lock */
+  failures: number;
+  /** Locks so far in the current memory window */
+  locks: number;
+  /** @format date-time */
+  lockedUntil?: string | null;
+  retryAfterSeconds: number;
+}
+
+export interface UnlockLoginRequestDto {
+  /**
+   * The email the locked admin signs in with
+   * @example "ops@pickriders.com"
+   */
+  email: string;
+}
+
+export interface UnlockLoginResponseDto {
+  message: string;
+  status: LockoutStatusResponseDto;
 }
 
 export interface RangeDto {
@@ -1688,6 +1800,47 @@ export interface LoginRequestDto {
   accessType?: string;
 }
 
+export interface AdminLoginResponseDto {
+  /** true: call /auth/admins/mfa/challenge with mfaToken and a code; no tokens yet */
+  mfaRequired: boolean;
+  /** Single-purpose token for the MFA challenge (5 minutes, works once) */
+  mfaToken?: string;
+  /** Seconds until mfaToken expires */
+  mfaExpiresInSeconds?: number;
+  /** Short-lived access JWT (default 15 minutes); carries the session id (sid) */
+  accessToken?: string;
+  /**
+   * Seconds until accessToken expires
+   * @example 900
+   */
+  expiryDurationSeconds?: number;
+  /** Rotating refresh token for POST /auth/admins/refresh. Store it securely */
+  refreshToken?: string;
+  /**
+   * When the refresh token (the session) expires unless refreshed
+   * @format date-time
+   */
+  refreshExpiresAt?: string;
+  /** The session id (also the sid claim in accessToken) */
+  sessionId?: string;
+  /** An authenticator is enabled on this account */
+  mfaEnabled?: boolean;
+  /** MFA is compulsory for this admin's roles and not set up yet: show the setup flow */
+  mfaSetupRequired?: boolean;
+  /**
+   * After this, only the MFA setup routes work until MFA is enabled
+   * @format date-time
+   */
+  mfaSetupDeadline?: string;
+  /** The deadline passed: this session can only call the MFA setup routes */
+  mfaSetupRestricted?: boolean;
+  /**
+   * Set when this device is trusted (the challenge was skipped)
+   * @format date-time
+   */
+  trustedUntil?: string;
+}
+
 export interface AuthTokenResponseDto {
   accessToken: string;
   /**
@@ -1740,6 +1893,134 @@ export interface CheckTokenResponseDto {
 
 export interface GoogleSignInRequestDto {
   idToken: string;
+}
+
+export interface MfaChallengeRequestDto {
+  /** The mfaToken from the sign-in response (valid 5 minutes, works once) */
+  mfaToken: string;
+  /**
+   * The 6-digit code from the authenticator app
+   * @minLength 6
+   * @maxLength 7
+   */
+  code?: string;
+  /**
+   * One of the recovery codes shown at setup (XXXXX-XXXXX); spent on use
+   * @maxLength 32
+   */
+  recoveryCode?: string;
+  /** Skip the authenticator on this device for 30 days. Needs the X-Device-Id header; ignored without it */
+  trustDevice?: boolean;
+}
+
+export interface AdminRefreshRequestDto {
+  /** The refresh token from the last sign-in or refresh (each one works once) */
+  refreshToken: string;
+}
+
+export interface AdminSessionResponseDto {
+  id: string;
+  /** This is the session the request was made with */
+  current: boolean;
+  /** "Chrome 130 on macOS" */
+  userAgent?: string;
+  /** The X-Device-Id the client sent at sign-in, when any */
+  deviceId?: string;
+  ip?: string;
+  /** @format date-time */
+  createdAt: string;
+  /** @format date-time */
+  lastSeenAt: string;
+  /** @format date-time */
+  expiresAt: string;
+  /** @format date-time */
+  mfaVerifiedAt?: string | null;
+  /** @format date-time */
+  trustedUntil?: string | null;
+}
+
+export interface ListAdminSessionsResponseDto {
+  sessions: AdminSessionResponseDto[];
+}
+
+export interface RevokedSessionsResponseDto {
+  message: string;
+  /** How many sessions were signed out */
+  revoked: number;
+}
+
+export interface MfaStatusResponseDto {
+  enabled: boolean;
+  /** @format date-time */
+  enabledAt?: string | null;
+  recoveryCodesLeft: number;
+  /** A setup was started (secret issued) and is waiting for its first code */
+  pendingSetup: boolean;
+  /** Devices currently trusted to skip the challenge */
+  trustedDevices: number;
+  /** MFA is compulsory for this admin's roles */
+  required: boolean;
+}
+
+export interface MfaSetupResponseDto {
+  /** Base32 secret: show once for manual entry, never store it client-side */
+  secret: string;
+  /** otpauth:// URI: render it as a QR code in the admin app */
+  otpauthUri: string;
+  /**
+   * Verify a code before this, or start again
+   * @format date-time
+   */
+  expiresAt: string;
+}
+
+export interface MfaCodeRequestDto {
+  /**
+   * A 6-digit authenticator code, or a recovery code (XXXXX-XXXXX) where accepted
+   * @maxLength 32
+   */
+  code: string;
+}
+
+export interface MfaEnabledResponseDto {
+  enabled: boolean;
+  /** @format date-time */
+  enabledAt: string;
+  /** Ten one-time recovery codes. Shown once; only hashes are kept */
+  recoveryCodes: string[];
+}
+
+export interface MfaDisabledResponseDto {
+  enabled: boolean;
+  /** @format date-time */
+  disabledAt: string;
+}
+
+export interface RecoveryCodesResponseDto {
+  /** Ten new one-time recovery codes; the old ones no longer work */
+  recoveryCodes: string[];
+  /** @format date-time */
+  generatedAt: string;
+}
+
+export interface SecurityConfirmRequestDto {
+  /** The signed token from a security email link (works once) */
+  token: string;
+}
+
+export enum SecurityConfirmAction {
+  TRUST_DEVICE = "TRUST_DEVICE",
+  SECURE_ACCOUNT = "SECURE_ACCOUNT",
+  REVOKE_SESSION = "REVOKE_SESSION",
+}
+
+export interface SecurityConfirmResponseDto {
+  action: SecurityConfirmAction;
+  message: string;
+  /** The admin must reset their password before signing in again (SECURE_ACCOUNT) */
+  passwordResetRequired: boolean;
+  /** Sessions signed out by this action */
+  revokedSessions: number;
 }
 
 export interface CountryDto {
@@ -1904,6 +2185,18 @@ export interface ReviewDetailsDto {
   count?: number;
 }
 
+export interface RiderRatingStatsDto {
+  /** Average star rating, one decimal; 0 when unrated */
+  average: number;
+  /** How many reviews the average is over */
+  count: number;
+  /**
+   * When the stored rating was last recomputed
+   * @format date-time
+   */
+  updatedAt?: string;
+}
+
 export interface User {
   /**
    * @minLength 3
@@ -2023,6 +2316,8 @@ export interface User {
   passwordUpdatedAt?: string;
   business?: Business;
   reviews?: ReviewDetailsDto;
+  ratingStats?: RiderRatingStatsDto;
+  rating?: ReviewDetailsDto;
   _id: string;
   /** @format date-time */
   createdAt: string;
@@ -2030,6 +2325,10 @@ export interface User {
   updatedAt: string;
   /** @format date-time */
   deletedAt?: string;
+  /** @format date-time */
+  pendingErasureAt?: string;
+  /** @format date-time */
+  erasureRequestedAt?: string;
   /** @format date-time */
   walletTermsAcknowledgedAt?: string;
 }
@@ -2136,6 +2435,20 @@ export interface WithdrawalRestrictionViewDto {
   note?: string | null;
   /** @format date-time */
   restrictedAt?: string | null;
+}
+
+export interface PlatformWithdrawalFreezeViewDto {
+  /** true while withdrawals are paused for everyone */
+  active: boolean;
+  /** Why, as the admin wrote it */
+  reason?: string | null;
+  /**
+   * When withdrawals resume, when known
+   * @format date-time
+   */
+  until?: string | null;
+  /** A sentence ready to show, mentioning `until` when set */
+  message?: string | null;
 }
 
 export interface UserProfileResponseDto {
@@ -2256,6 +2569,8 @@ export interface UserProfileResponseDto {
   passwordUpdatedAt?: string;
   business?: Business;
   reviews?: ReviewDetailsDto;
+  ratingStats?: RiderRatingStatsDto;
+  rating?: ReviewDetailsDto;
   _id: string;
   /** @format date-time */
   createdAt: string;
@@ -2264,8 +2579,14 @@ export interface UserProfileResponseDto {
   /** @format date-time */
   deletedAt?: string;
   /** @format date-time */
+  pendingErasureAt?: string;
+  /** @format date-time */
+  erasureRequestedAt?: string;
+  /** @format date-time */
   walletTermsAcknowledgedAt?: string;
   withdrawalRestriction?: WithdrawalRestrictionViewDto;
+  /** Platform-wide withdrawal pause (riders and customers); show a banner while active */
+  withdrawalsFrozen?: PlatformWithdrawalFreezeViewDto;
 }
 
 export interface UpdateProfileRequestDto {
@@ -2361,7 +2682,7 @@ export interface Wallet {
   updatedAt: string;
 }
 
-export interface WalletListResponseDto {
+export interface UserWalletsResponseDto {
   nextPage?: number | null;
   previousPage?: number | null;
   currentPage: number;
@@ -2369,6 +2690,7 @@ export interface WalletListResponseDto {
   perPageLimit: number;
   totalRecords: number;
   totalPages: number;
+  withdrawalsFrozen: PlatformWithdrawalFreezeViewDto;
 }
 
 export enum PaymentProvider {
@@ -2502,6 +2824,22 @@ export interface ListReferralsResponseDto {
 
 export interface TransactionSummaryResponseDto {
   total: number;
+}
+
+export interface ErasureStatusResponseDto {
+  message: string;
+  /**
+   * When the account will be erased; null once cancelled
+   * @format date-time
+   */
+  pendingErasureAt?: string | null;
+  /** true when this call cancelled a scheduled erasure */
+  cancelled: boolean;
+}
+
+export interface CancelErasureRequestDto {
+  /** The token from the "Keep my account" link in the deletion email */
+  token: string;
 }
 
 export interface UpdatePhoneRequestDto {
@@ -3147,6 +3485,8 @@ export interface AdminUserProfileResponseDto {
   passwordUpdatedAt?: string;
   business?: Business;
   reviews?: ReviewDetailsDto;
+  ratingStats?: RiderRatingStatsDto;
+  rating?: ReviewDetailsDto;
   _id: string;
   /** @format date-time */
   createdAt: string;
@@ -3155,8 +3495,51 @@ export interface AdminUserProfileResponseDto {
   /** @format date-time */
   deletedAt?: string;
   /** @format date-time */
+  pendingErasureAt?: string;
+  /** @format date-time */
+  erasureRequestedAt?: string;
+  /** @format date-time */
   walletTermsAcknowledgedAt?: string;
   withdrawalRestriction?: AdminWithdrawalRestrictionViewDto;
+}
+
+export interface ErasureBlockerDto {
+  /** OPEN_ORDERS, RIDER_MID_TRIP, WALLET_BALANCE, PENDING_WITHDRAWALS, OWNS_BUSINESS or OWNS_TEAM */
+  code: string;
+  /** How many (or, for WALLET_BALANCE, the amount in sub-units) */
+  count: number;
+  /** A sentence ready to show */
+  message: string;
+}
+
+export interface ErasureBlockersResponseDto {
+  /** true when nothing blocks the erasure */
+  canErase: boolean;
+  blockers: ErasureBlockerDto[];
+}
+
+export interface EraseUserRequestDto {
+  /**
+   * Why the account is being erased (kept on the tombstone and the audit trail)
+   * @minLength 3
+   * @maxLength 280
+   */
+  reason: string;
+  /**
+   * Internal note for the audit trail
+   * @maxLength 1000
+   */
+  note?: string;
+}
+
+export interface EraseUserResponseDto {
+  message: string;
+  /** The tombstone id that now stands in for the user on orders, payments and wallets */
+  tombstoneId: string;
+  /** @format date-time */
+  erasedAt: string;
+  /** How many rows were re-pointed or scrubbed, per collection */
+  summary: object;
 }
 
 export enum UserStatus {
@@ -3623,7 +4006,6 @@ export interface CreateTemplateRequestDto {
   isActive?: boolean;
 }
 
-/** @default "EMAIL" */
 export enum NotificationType {
   IN_APP = "IN_APP",
   PUSH = "PUSH",
@@ -3722,6 +4104,225 @@ export interface BroadcastRequestDto {
    * @maxLength 2000
    */
   message: string;
+}
+
+export enum EmailAudience {
+  CUSTOMER = "CUSTOMER",
+  RIDER = "RIDER",
+  BUSINESS = "BUSINESS",
+  DEVELOPER = "DEVELOPER",
+  STAFF = "STAFF",
+  EVERYONE = "EVERYONE",
+}
+
+export enum EmailCategory {
+  ACCOUNT = "ACCOUNT",
+  ORDERS = "ORDERS",
+  PAYMENTS = "PAYMENTS",
+  RIDERS = "RIDERS",
+  DEVELOPERS = "DEVELOPERS",
+  ALERTS = "ALERTS",
+  MARKETING = "MARKETING",
+}
+
+export enum OutboundMessagePurpose {
+  SECURITY = "SECURITY",
+  TRANSACTIONAL = "TRANSACTIONAL",
+  ALERT = "ALERT",
+  MARKETING = "MARKETING",
+  TEST = "TEST",
+}
+
+export interface EmailTemplateSummaryDto {
+  /** @example "verification-code" */
+  key: string;
+  /**
+   * The stored template name
+   * @example "pickriders-general-verification"
+   */
+  name: string;
+  audience: EmailAudience;
+  category: EmailCategory;
+  description: string;
+  /** What sends it */
+  trigger: string;
+  channels: NotificationType[];
+  purpose: OutboundMessagePurpose;
+  /** Skipped for people who turned email off */
+  respectsEmailPreference: boolean;
+  /**
+   * The subject as written (Handlebars)
+   * @example "Your Pickriders verification code"
+   */
+  subject: string;
+  /**
+   * The variables the sample data fills
+   * @example ["firstname","code"]
+   */
+  variables: string[];
+  /** The admin switch: false when turned off (GET admins/email-templates/controls) */
+  enabled: boolean;
+  /** Always sends: cannot be turned off or paused */
+  essential: boolean;
+  /** Why it is essential */
+  essentialReason: string | null;
+  /** Marketing, launch or referral style: held back by the marketing pause */
+  marketing: boolean;
+}
+
+export interface EmailPauseViewDto {
+  active: boolean;
+  reason: string | null;
+  /**
+   * When it lifts by itself; null: until lifted by hand
+   * @format date-time
+   */
+  until: string | null;
+  /** The admin who paused */
+  setBy: string | null;
+  /** @format date-time */
+  setAt: string | null;
+  /**
+   * When the last pause was lifted
+   * @format date-time
+   */
+  liftedAt: string | null;
+  /** The admin who lifted it, or SYSTEM at `until` */
+  liftedBy: string | null;
+}
+
+/** Status SKIPPED: why the admin email controls held it back */
+export enum OutboundMessageSkipReason {
+  DISABLED_BY_ADMIN = "DISABLED_BY_ADMIN",
+  PAUSED_MARKETING = "PAUSED_MARKETING",
+  PAUSED_NON_ESSENTIAL = "PAUSED_NON_ESSENTIAL",
+}
+
+export interface EmailTemplateControlDto {
+  /** @example "welcome" */
+  key: string;
+  /** @example "pickriders-general-welcome" */
+  name: string;
+  audience: EmailAudience;
+  category: EmailCategory;
+  /** Core sends this template by email (the controls only affect email) */
+  emailChannel: boolean;
+  /** The switch: false when an admin turned it off */
+  enabled: boolean;
+  /** Always sends: cannot be turned off or paused */
+  essential: boolean;
+  /** Why it is essential */
+  essentialReason: string | null;
+  /** Held back by the marketing pause */
+  marketing: boolean;
+  /** Why the switch is locked (essential, or not sent by email); null when it can be changed */
+  lockedReason: string | null;
+  /** Why an admin turned it off */
+  disabledReason: string | null;
+  disabledBy: string | null;
+  /** @format date-time */
+  disabledAt: string | null;
+  /** Status SKIPPED: why the admin email controls held it back */
+  skipReason: OutboundMessageSkipReason | null;
+}
+
+export interface EmailControlsResponseDto {
+  /**
+   * Registry keys turned off
+   * @example ["welcome"]
+   */
+  disabledEmails: string[];
+  /** Marketing, launch and referral emails */
+  pauseMarketing: EmailPauseViewDto;
+  /** Every email that is not essential */
+  pauseNonEssential: EmailPauseViewDto;
+  templates: EmailTemplateControlDto[];
+  /**
+   * Last change; absent until the first one
+   * @format date-time
+   */
+  updatedAt?: string;
+}
+
+export interface SetEmailTemplateEnabledRequestDto {
+  /**
+   * false turns the email off (essential emails cannot be turned off)
+   * @example false
+   */
+  enabled: boolean;
+  /**
+   * Why. Required when turning an email off; kept in the audit log either way
+   * @maxLength 280
+   * @example "Copy is being rewritten"
+   */
+  reason?: string;
+}
+
+export interface EmailPauseRequestDto {
+  /**
+   * true pauses, false lifts the pause
+   * @example true
+   */
+  active: boolean;
+  /**
+   * Why. Required when pausing; kept in the audit log either way
+   * @maxLength 280
+   * @example "SMTP reputation recovery"
+   */
+  reason?: string;
+  /**
+   * When the pause lifts by itself (ISO 8601, in the future). Omit to pause until lifted by hand
+   * @example "2026-11-21T09:00:00.000Z"
+   */
+  until?: string;
+}
+
+export interface SendTestEmailsRequestDto {
+  /**
+   * A registry key (GET admins/email-templates), or ALL for every template
+   * @maxLength 80
+   * @example "verification-code"
+   */
+  templateKey: string;
+  /**
+   * @maxItems 5
+   * @minItems 1
+   * @example ["ops@pickriders.com"]
+   */
+  recipients: string[];
+}
+
+export interface TestEmailQueuedDto {
+  templateKey: string;
+  recipient: string;
+  /** Its row in the message log (GET admins/messages/:id) */
+  messageId: string | null;
+  status: "queued" | "sent" | "failed" | "duplicate";
+}
+
+export interface SendTestEmailsResponseDto {
+  count: number;
+  queued: TestEmailQueuedDto[];
+}
+
+export interface EmailTemplatePreviewResponseDto {
+  key: string;
+  name: string;
+  subject: string;
+  /** The full HTML document */
+  html: string;
+  /** The plain-text part */
+  text: string;
+  /** The variables it was rendered with */
+  variables: object;
+}
+
+export interface PreviewEmailTemplateRequestDto {
+  /**
+   * Values that replace the template's sample variables (the rest keep their sample value)
+   * @example {"firstname":"Bola","orderNumber":"2088"}
+   */
+  variables?: object;
 }
 
 export interface CityDto {
@@ -4011,6 +4612,16 @@ export interface ListOrderItemsResponseDto {
   totalPages: number;
 }
 
+export interface WalletListResponseDto {
+  nextPage?: number | null;
+  previousPage?: number | null;
+  currentPage: number;
+  results: Wallet[];
+  perPageLimit: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
 export interface GetOrderStatisticsResponseDto {
   completed: number;
   cancelled: number;
@@ -4057,6 +4668,27 @@ export interface RateRiderRequestDto {
    */
   rating: number;
   comment?: string;
+}
+
+export interface RebuildRiderRatingsRequestDto {
+  /**
+   * true (default) recomputes every rider; false only fills riders with no stored rating yet
+   * @default true
+   */
+  force?: boolean;
+}
+
+export interface RiderRatingBackfillResponseDto {
+  /** Riders read in this run */
+  scanned: number;
+  /** Riders whose stored rating was written */
+  updated: number;
+  /** Batches of riders processed */
+  batches: number;
+  /** How long the run took, in milliseconds */
+  durationMs: number;
+  /** true = every rider was recomputed, false = only riders missing a rating */
+  forced: boolean;
 }
 
 export interface UpdateVehicleStatusRequestDto {
@@ -5507,10 +6139,32 @@ export interface AdminAlertDto {
   resolution?: AdminAlertResolution;
   resolutionNote?: string;
   /**
-   * When the alert was escalated to the support WhatsApp number
+   * When the unclaimed URGENT alert was escalated (see emailedAt for whether an email went out)
    * @format date-time
    */
   escalatedAt?: string;
+  /**
+   * When support was emailed about this alert ("Emailed support at 10:42")
+   * @format date-time
+   */
+  emailedAt?: string;
+  /**
+   * When the one "still unclaimed" reminder email was sent
+   * @format date-time
+   */
+  emailReminderAt?: string;
+  /**
+   * When the "Resolved" follow-up email was sent
+   * @format date-time
+   */
+  emailResolvedAt?: string;
+  /** How many support inboxes the escalation email went to */
+  emailRecipientsCount?: number;
+  /**
+   * When the alert was listed in an alert-storm digest email instead of getting its own email
+   * @format date-time
+   */
+  emailDigestAt?: string;
   /** @format date-time */
   createdAt: string;
 }
@@ -5544,12 +6198,136 @@ export interface AdminAlertsSummaryResponseDto {
   byType: AdminAlertTypeCountDto[];
 }
 
+export interface AdminTestAlertEmailRequestDto {
+  /**
+   * Country code of the state to test, e.g. NG. Omit both for the platform list
+   * @pattern /^[A-Za-z]{2,3}$/
+   */
+  countryCode?: string;
+  /**
+   * State code, e.g. EN. Needs countryCode
+   * @pattern /^[A-Za-z0-9-]{1,10}$/
+   */
+  stateCode?: string;
+}
+
+export interface AdminTestAlertEmailResponseDto {
+  /** The support inboxes the sample alert email went to */
+  sentTo: string[];
+}
+
 export interface AdminResolveAlertRequestDto {
   /**
    * What was done
    * @maxLength 500
    */
   note?: string;
+}
+
+export enum OutboundMessageChannel {
+  SMS = "SMS",
+  EMAIL = "EMAIL",
+}
+
+export enum OutboundMessageStatus {
+  QUEUED = "QUEUED",
+  SENT = "SENT",
+  FAILED = "FAILED",
+  SKIPPED = "SKIPPED",
+}
+
+export enum OutboundMessageProvider {
+  TERMII = "TERMII",
+  SMTP = "SMTP",
+}
+
+export interface AdminMessageProviderResponseDto {
+  /** Termii: the account balance after this send */
+  balance?: number;
+  /** The balance currency or unit, when the provider says */
+  currency?: string;
+  /** The provider's status line, e.g. Successfully Sent or 250 OK */
+  message?: string;
+  /** SMTP: addresses the server refused */
+  rejected?: string[];
+}
+
+export interface AdminMessageDto {
+  id: string;
+  channel: OutboundMessageChannel;
+  provider: OutboundMessageProvider;
+  status: OutboundMessageStatus;
+  purpose: OutboundMessagePurpose;
+  /** Phone number or email address(es), comma separated when several */
+  to: string;
+  userId?: string;
+  orderId?: string;
+  /** Email registry key, e.g. verification-code */
+  templateKey?: string;
+  /** Template name, e.g. pickriders-general-verification */
+  templateName?: string;
+  /** Email subject */
+  subject?: string;
+  /** Plain text of the message with secrets masked (detail only) */
+  bodyPreview?: string;
+  providerMessageId?: string;
+  providerResponse?: AdminMessageProviderResponseDto;
+  /** Why the last attempt failed */
+  error?: string;
+  /** Send attempts so far */
+  attempts: number;
+  /** @format date-time */
+  createdAt: string;
+  /** @format date-time */
+  sentAt?: string;
+  /** @format date-time */
+  failedAt?: string;
+  /** Status SKIPPED: why the admin email controls held it back */
+  skipReason?: OutboundMessageSkipReason;
+  /** @format date-time */
+  skippedAt?: string;
+}
+
+export interface AdminListMessagesResponseDto {
+  nextPage?: number | null;
+  previousPage?: number | null;
+  currentPage: number;
+  results: AdminMessageDto[];
+  perPageLimit: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+export interface AdminMessageChannelCountDto {
+  channel: OutboundMessageChannel;
+  queued: number;
+  sent: number;
+  failed: number;
+  /** Held back by the admin email controls (turned off or paused) */
+  skipped: number;
+  total: number;
+}
+
+export interface AdminTermiiBalanceDto {
+  /** As Termii reported it on the latest send */
+  balance: number;
+  currency?: string;
+  /**
+   * When that send happened
+   * @format date-time
+   */
+  seenAt: string;
+}
+
+export interface AdminMessagesSummaryResponseDto {
+  /** @format date-time */
+  from: string;
+  /** @format date-time */
+  to: string;
+  total: number;
+  byChannel: AdminMessageChannelCountDto[];
+  /** Null until an SMS reported a balance */
+  termiiBalance: AdminTermiiBalanceDto | null;
 }
 
 export enum ChatParticipantRole {
@@ -6413,6 +7191,54 @@ export interface CreateWebOrderDto {
   note?: string;
   countryCode?: string;
   stateCode?: string;
+}
+
+export interface WebOrderTrackRiderDto {
+  /** The rider's id; changes when another rider takes the order */
+  id: string;
+  name: string;
+  photo: string | null;
+  phone: string | null;
+  rating: number | null;
+}
+
+export interface WebOrderTrackResponseDto {
+  orderNumber: string;
+  /** Order status (OrderStatus) */
+  status: string;
+  dispatchStatus: string | null;
+  /** Order payment status (OrderPaymentStatus) */
+  paymentStatus: string;
+  isPaid: boolean;
+  /** A rider accepted and the guest has not paid yet */
+  awaitingPayment: boolean;
+  /** Still open for bids (no rider committed yet) */
+  bidding: boolean;
+  /** What the customer pays, in naira */
+  price: number;
+  /** Fixed platform fee, in naira */
+  serviceCharge: number;
+  /** The rider's pay, in naira */
+  riderPrice: number;
+  /** Recommended rider pay the stepper scales, in naira */
+  recommendedRiderPrice: number;
+  /** Lowest rider pay allowed, in naira */
+  minRiderPrice: number;
+  minOfferPercent: number;
+  maxOfferPercent: number;
+  currency: string;
+  /** Track stepper position (0 to 6) */
+  milestone: number;
+  /** Code the guest reads to the rider at drop-off */
+  deliveryCode: string | null;
+  rider: WebOrderTrackRiderDto | null;
+  /**
+   * When another rider last took over the order (a completed rider handoff, or a new rider after the previous one was released). Null when the rider never changed. Show a "your rider changed" banner once per value
+   * @format date-time
+   */
+  riderChangedAt?: string | null;
+  pickup: string | null;
+  dropoff: string | null;
 }
 
 export interface SupportUnreadResponseDto {
@@ -8193,6 +9019,168 @@ export interface UsageDto {
   webhooks: UsageWebhooksDto;
 }
 
+export interface OverviewWalletDto {
+  /** Money you can spend now, kobo. */
+  available: number;
+  /** Reserved for orders in progress, kobo. */
+  held: number;
+  /** @example "NGN" */
+  currency: string;
+  /** Live mode: the low-balance email threshold you set, kobo. Null when none is set, and in test mode. */
+  low_balance_threshold: number | null;
+  /** Roughly how many days the available money lasts at your average daily spend over the last 14 days. Null with no recent spend. */
+  runway_days: number | null;
+}
+
+export interface OverviewInFlightDto {
+  /** Waiting for their scheduled dispatch time. */
+  scheduled: number;
+  /** Manual dispatch: waiting for you to dispatch them. */
+  awaiting_dispatch: number;
+  /** Looking for a rider. */
+  searching: number;
+  /** Of those searching, how many have looked for more than 10 minutes. */
+  searching_long: number;
+  /** A rider accepted and is heading to the pickup. */
+  rider_assigned: number;
+  /** Picking up or on the way to the drop-off. */
+  on_the_way: number;
+}
+
+export interface OverviewPeriodOrdersDto {
+  created: number;
+  delivered: number;
+  /** Pickriders couldn't deliver them. */
+  failed: number;
+  /** You cancelled them. */
+  cancelled: number;
+  /** delivered ÷ (delivered + failed), 0 to 1. */
+  success_rate: number | null;
+}
+
+export interface OverviewOrdersDto {
+  in_flight: OverviewInFlightDto;
+  /** Created today (Lagos time). */
+  today: number;
+  /** Created yesterday (Lagos time). */
+  yesterday: number;
+  /** Delivered today (Lagos time), whenever they were created. */
+  delivered_today: number;
+  /** The last 7 days, today included. */
+  last_7_days: OverviewPeriodOrdersDto;
+  /** The 7 days before those. */
+  previous_7_days: OverviewPeriodOrdersDto;
+  /** The last 14 days, oldest first, zeros included. */
+  per_day: UsageDayDto[];
+}
+
+export interface OverviewSpendDto {
+  /** Order payments less refunds over the last 7 days, kobo. */
+  last_7_days: number;
+  /** The 7 days before those, kobo. */
+  previous_7_days: number;
+  /** This calendar month so far (Lagos time), kobo. */
+  month_to_date: number;
+  /** @example "NGN" */
+  currency: string;
+}
+
+export interface OverviewHourDto {
+  /**
+   * The start of the hour.
+   * @example "2026-11-17T14:00:00.000Z"
+   */
+  hour: string;
+  requests: number;
+  /** Answered 400 or above. */
+  errors: number;
+}
+
+export interface OverviewErrorCodeDto {
+  /** @example "parameter_invalid" */
+  code: string;
+  /** @example 422 */
+  status: number;
+  count: number;
+}
+
+export interface OverviewApiDto {
+  /** Requests in the last 24 hours. */
+  requests: number;
+  /** Of those, answered 400 or above. */
+  errors: number;
+  /** Answered 500 or above: ours, not yours. */
+  server_errors: number;
+  /** errors ÷ requests, 0 to 1. */
+  error_rate: number | null;
+  /** Requests in the 24 hours before those. */
+  previous_requests: number;
+  /** The error rate in the 24 hours before. */
+  previous_error_rate: number | null;
+  /** 95th percentile response time, ms. Null with no requests. */
+  p95_ms: number | null;
+  /** Median response time, ms. */
+  p50_ms: number | null;
+  /** Each of the last 24 hours, oldest first. */
+  per_hour: OverviewHourDto[];
+  /** Your most frequent error codes, most first (5 at most). */
+  top_errors: OverviewErrorCodeDto[];
+  /** @format date-time */
+  last_request_at: string | null;
+}
+
+export interface OverviewWebhooksDto {
+  endpoints: number;
+  /** Turned on and not failing. */
+  healthy: number;
+  /** Turned on, every delivery failing. */
+  failing: number;
+  /** Turned off, by you or after 3 days of failures. */
+  disabled: number;
+  /** Deliveries in the last 24 hours, test pings left out. */
+  deliveries: number;
+  succeeded: number;
+  /** Gave up after every retry. */
+  failed: number;
+  /** Waiting for a first try or a retry, any age. */
+  pending: number;
+  /** succeeded ÷ (succeeded + failed), 0 to 1. */
+  success_rate: number | null;
+}
+
+export interface OverviewKeysDto {
+  /** Keys that work in this mode. */
+  active: number;
+  /** Of those, how many expire within 14 days. */
+  expiring_soon: number;
+  /**
+   * When the soonest of those expires.
+   * @format date-time
+   */
+  next_expiry_at: string | null;
+  /**
+   * The last time any key in this mode was used.
+   * @format date-time
+   */
+  last_used_at: string | null;
+}
+
+export interface OverviewDto {
+  livemode: boolean;
+  /**
+   * When these numbers were counted.
+   * @format date-time
+   */
+  generated_at: string;
+  /** Null when this mode has no wallet yet. */
+  wallet: OverviewWalletDto | null;
+  orders: OverviewOrdersDto;
+  spend: OverviewSpendDto;
+  api: OverviewApiDto;
+  webhooks: OverviewWebhooksDto;
+  keys: OverviewKeysDto;
+}
+
 export interface RequestLogKeyDto {
   id: string;
   /** The key’s name, if it still exists. */
@@ -8656,6 +9644,10 @@ export type GetHeartbeatData = any;
 
 export type GetDeliveryPricingData = object;
 
+export type GetPlatformSettingsData = PlatformSettingsResponseDto;
+
+export type UpdatePlatformSettingsData = PlatformSettingsResponseDto;
+
 export interface GetCountriesParams {
   order?: "ASC" | "DESC";
   page?: number;
@@ -8679,6 +9671,14 @@ export type GetCountryStatesData = ListStateResponseDto;
 export type GetCountryStateByIdData = State;
 
 export type UpdateCountryStateData = State;
+
+export interface AdminLockoutStatusParams {
+  email: string;
+}
+
+export type AdminLockoutStatusData = LockoutStatusResponseDto;
+
+export type AdminUnlockLoginData = UnlockLoginResponseDto;
 
 export interface OverviewParams {
   /** ISO date or YYYY-MM-DD (Lagos day) */
@@ -9110,7 +10110,7 @@ export type GrantData = AdminCustomerAchievementsResponseDto;
 
 export type RevokeData = AdminCustomerAchievementsResponseDto;
 
-export type LoginAdminsData = AuthTokenResponseDto;
+export type LoginAdminsData = AdminLoginResponseDto;
 
 export type LoginData = AuthTokenResponseDto;
 
@@ -9129,6 +10129,36 @@ export type ResendTokenData = MessageResponseDto;
 export type CheckTokenValidityData = CheckTokenResponseDto;
 
 export type GoogleSignInData = AuthTokenResponseDto;
+
+export type AdminMfaChallengeData = AdminLoginResponseDto;
+
+export type AdminRefreshSessionData = AdminLoginResponseDto;
+
+export type AdminLogoutData = MessageResponseDto;
+
+export type AdminListSessionsData = ListAdminSessionsResponseDto;
+
+export type AdminRevokeSessionData = MessageResponseDto;
+
+export type AdminRevokeOtherSessionsData = RevokedSessionsResponseDto;
+
+export type AdminMfaStatusData = MfaStatusResponseDto;
+
+export type AdminMfaTotpSetupData = MfaSetupResponseDto;
+
+export type AdminMfaTotpVerifyData = MfaEnabledResponseDto;
+
+export type AdminMfaTotpDisableData = MfaDisabledResponseDto;
+
+export type AdminMfaRegenerateRecoveryCodesData = RecoveryCodesResponseDto;
+
+export interface AdminSecurityConfirmRedirectParams {
+  token: string;
+}
+
+export type AdminSecurityConfirmRedirectData = any;
+
+export type AdminSecurityConfirmData = SecurityConfirmResponseDto;
 
 export interface CreateUserParams {
   referralCode?: any;
@@ -9152,7 +10182,7 @@ export type UserKycVerificationData = MessageResponseDto;
 
 export type ChangeUserPasswordData = MessageResponseDto;
 
-export type GetUserWalletsData = WalletListResponseDto;
+export type GetUserWalletsData = UserWalletsResponseDto;
 
 export type GetUserWalletData = Wallet;
 
@@ -9206,7 +10236,11 @@ export type GetUserTransactionsSummaryData = TransactionSummaryResponseDto;
 
 export type GetUserTransactionData = Transaction;
 
-export type DeleteUserAccountData = MessageResponseDto;
+export type DeleteUserAccountData = ErasureStatusResponseDto;
+
+export type CancelMyErasureData = ErasureStatusResponseDto;
+
+export type CancelErasureByTokenData = ErasureStatusResponseDto;
 
 export type UpdatePhoneNumberData = MessageResponseDto;
 
@@ -9229,8 +10263,8 @@ export type AdminCreateUserData = CreateUserRequestDto;
 export interface GetUsersParams {
   /** true = accounts an admin paused withdrawals on, false = accounts that can withdraw */
   withdrawalRestricted?: "0" | "1" | "false" | "true";
-  /** For the rider list (isRider=true), sort by this field. completedDeliveries and totalEarned are lifetime rider metrics returned on each row. Combine with order=DESC for a leaderboard. */
-  sortBy?: "createdAt" | "lastLoginDate" | "completedDeliveries" | "totalEarned";
+  /** For the rider list (isRider=true), sort by this field. completedDeliveries and totalEarned are lifetime rider metrics returned on each row; deliveriesAndEarnings ranks by deliveries then earnings; rating ranks by the stored average (rating.average on each row) with the review count as the tiebreaker, unrated riders last. Combine with order=DESC for a leaderboard. */
+  sortBy?: "createdAt" | "lastLoginDate" | "completedDeliveries" | "totalEarned" | "deliveriesAndEarnings" | "rating";
   /** Filter riders by licence KYC status. APPROVE = licence-approved (verified) riders. */
   driversLicenseVerified?: "APPROVE" | "DISAPPROVE" | "SUSPENDED" | "SUBMITTED" | "PENDING";
   /** Search by user email, phone, firstname, lastname, middlename, or nin. This query is case insensitive. */
@@ -9281,7 +10315,11 @@ export type AdminSetWithdrawalRestrictionData = AdminUserProfileResponseDto;
 
 export type GetUserData = AdminUserProfileResponseDto;
 
-export type AdminGetUserWalletsData = WalletListResponseDto;
+export type AdminErasureBlockersData = ErasureBlockersResponseDto;
+
+export type AdminEraseUserData = EraseUserResponseDto;
+
+export type AdminGetUserWalletsData = any;
 
 export type UpdateUserStatusData = object;
 
@@ -9491,6 +10529,22 @@ export interface LogParams {
 
 export type LogData = any;
 
+export type AdminListEmailTemplatesData = EmailTemplateSummaryDto[];
+
+export type AdminGetEmailControlsData = EmailControlsResponseDto;
+
+export type AdminSetEmailTemplateEnabledData = EmailControlsResponseDto;
+
+export type AdminPauseMarketingEmailsData = EmailControlsResponseDto;
+
+export type AdminPauseNonEssentialEmailsData = EmailControlsResponseDto;
+
+export type AdminSendTestEmailsData = SendTestEmailsResponseDto;
+
+export type AdminPreviewEmailTemplateData = EmailTemplatePreviewResponseDto;
+
+export type AdminPreviewEmailTemplateWithVariablesData = EmailTemplatePreviewResponseDto;
+
 export type CreateBusinessData = CreateBusinessRequestDto;
 
 export type CreateBusinessUserData = CreateBusinessUserRequestDto;
@@ -9654,6 +10708,8 @@ export interface GetReviewsParams {
 export type GetReviewsData = ListReviewResponseDto;
 
 export type RateRiderData = Review;
+
+export type AdminRebuildRiderRatingsData = RiderRatingBackfillResponseDto;
 
 export type UpdateUserVehicleData = Vehicle;
 
@@ -10032,9 +11088,76 @@ export type AdminListAlertsData = AdminListAlertsResponseDto;
 
 export type AdminAlertsSummaryData = AdminAlertsSummaryResponseDto;
 
+export type AdminSendTestAlertEmailData = AdminTestAlertEmailResponseDto;
+
 export type AdminClaimAlertData = AdminAlertDto;
 
 export type AdminResolveAlertData = AdminAlertDto;
+
+export interface AdminListMessagesParams {
+  channel?: OutboundMessageChannel;
+  status?: OutboundMessageStatus;
+  /** Only SKIPPED messages held back for this reason */
+  skipReason?: OutboundMessageSkipReason;
+  provider?: OutboundMessageProvider;
+  purpose?: OutboundMessagePurpose;
+  /**
+   * Part of the phone number or email address it went to. Phones match on digits, so 0803… finds +234803…
+   * @maxLength 120
+   * @example "8031234567"
+   */
+  recipient?: string;
+  /**
+   * Template name (pickriders-general-verification) or email registry key (verification-code)
+   * @maxLength 120
+   * @example "pickriders-general-verification"
+   */
+  template?: string;
+  /** Only messages to this user */
+  userId?: string;
+  /** Only messages about this order */
+  orderId?: string;
+  /**
+   * From this time (ISO 8601), inclusive
+   * @example "2026-11-01T00:00:00.000Z"
+   */
+  dateFrom?: string;
+  /**
+   * Up to this time (ISO 8601), inclusive
+   * @example "2026-11-14T23:59:59.999Z"
+   */
+  dateTo?: string;
+  /**
+   * @min 1
+   * @default 1
+   */
+  page?: number;
+  /**
+   * @min 1
+   * @max 100
+   * @default 25
+   */
+  limit?: number;
+}
+
+export type AdminListMessagesData = AdminListMessagesResponseDto;
+
+export interface AdminMessagesSummaryParams {
+  /**
+   * From this time (ISO 8601), inclusive
+   * @example "2026-11-07T00:00:00.000Z"
+   */
+  dateFrom?: string;
+  /**
+   * Up to this time (ISO 8601), inclusive
+   * @example "2026-11-14T23:59:59.999Z"
+   */
+  dateTo?: string;
+}
+
+export type AdminMessagesSummaryData = AdminMessagesSummaryResponseDto;
+
+export type AdminGetMessageData = AdminMessageDto;
 
 export type GetOrderChatData = ChatThreadDto;
 
@@ -10278,13 +11401,13 @@ export type UpdateConfigData = object;
 
 export type CreateData = any;
 
-export type TrackData = any;
+export type TrackData = WebOrderTrackResponseDto;
 
 export type SearchData = any;
 
 export type OffersData = any;
 
-export type AcceptOfferData = any;
+export type AcceptOfferData = WebOrderTrackResponseDto;
 
 export type PayData = any;
 
@@ -10512,6 +11635,16 @@ export interface DeveloperGetUsageParams {
 }
 
 export type DeveloperGetUsageData = UsageDto;
+
+export interface DeveloperGetOverviewParams {
+  /**
+   * true for live mode.
+   * @default "false"
+   */
+  livemode?: "true" | "false";
+}
+
+export type DeveloperGetOverviewData = OverviewDto;
 
 export type DashboardListServiceAreasData = ServiceAreaListDto;
 
