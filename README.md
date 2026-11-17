@@ -1,7 +1,8 @@
 # developer-dashboard
 
-The console for developers using the **Pickriders Developer API**, served at
-[dashboard.pickriders.com](https://dashboard.pickriders.com).
+The console for developers using the **Pickriders Developer API**. Each environment (dev, staging,
+production) serves its own copy; backend-api's `DEVELOPER_DASHBOARD_URL` must point at the same
+environment's dashboard, because every developer email links there.
 
 Developers sign up here, verify their email and phone, create test and live API keys, manage
 webhook endpoints and see every delivery attempt, read their API request logs, create and track

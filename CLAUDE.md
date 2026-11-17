@@ -3,7 +3,9 @@
 The Pickriders **developer dashboard** — the console developers use alongside the public
 Developer API. They sign up, verify their email and phone, create API keys, manage webhook
 endpoints, read request logs, create and track orders, fund their wallet, manage their team,
-and request live access. Served at `dashboard.pickriders.com`, with the public API docs at `/docs`.
+and request live access, with the public API docs at `/docs`. Each environment serves its own copy;
+never hard-code a dashboard domain. backend-api builds email links from its `DEVELOPER_DASHBOARD_URL`,
+set per environment to that environment's dashboard.
 
 **Stack:** Next.js 14 (**App Router**), React 18, TypeScript, Tailwind CSS 3 and **our own
 components in the Pickriders storefront's design** (**DESIGN.md**: tokens, Urbanist and Geist Mono,
