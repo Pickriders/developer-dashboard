@@ -217,13 +217,21 @@ export function SignupForm() {
         </Button>
 
         <p className="text-center text-xs leading-5 text-fg-subtle">
-          By creating an account you agree to the{" "}
-          <a href="https://pickriders.com/terms" target="_blank" rel="noreferrer" className="text-fg-muted underline">
-            Terms of Service
+          By creating an account you agree, for your business, to the{" "}
+          <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-fg-muted underline">
+            API Terms of Use
           </a>{" "}
-          and{" "}
-          <a href="https://pickriders.com/privacy" target="_blank" rel="noreferrer" className="text-fg-muted underline">
-            Privacy Policy
+          (with the{" "}
+          <a href="/legal/dpa" target="_blank" rel="noreferrer" className="text-fg-muted underline">
+            Data Processing Agreement
+          </a>
+          ) and the{" "}
+          <a href="/legal/acceptable-use" target="_blank" rel="noreferrer" className="text-fg-muted underline">
+            Acceptable Use Policy
+          </a>
+          , and confirm you&apos;ve read the{" "}
+          <a href="/legal/privacy" target="_blank" rel="noreferrer" className="text-fg-muted underline">
+            Privacy Notice
           </a>
           .
         </p>
