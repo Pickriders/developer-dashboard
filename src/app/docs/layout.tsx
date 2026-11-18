@@ -53,15 +53,18 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             <Link href="/docs/versioning" className="focus-ring rounded-sm hover:text-fg">
               Versioning
             </Link>
+            <Link href="/status" className="focus-ring rounded-sm hover:text-fg">
+              Status
+            </Link>
             <Link href="/" className="focus-ring rounded-sm hover:text-fg">
               Dashboard
             </Link>
-            <a href="https://pickriders.com/terms" className="focus-ring rounded-sm hover:text-fg">
+            <Link href="/legal/terms" className="focus-ring rounded-sm hover:text-fg">
               Terms
-            </a>
-            <a href="https://pickriders.com/privacy" className="focus-ring rounded-sm hover:text-fg">
+            </Link>
+            <Link href="/legal/privacy" className="focus-ring rounded-sm hover:text-fg">
               Privacy
-            </a>
+            </Link>
           </nav>
         </div>
       </footer>

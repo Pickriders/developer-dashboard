@@ -193,3 +193,28 @@ test.describe("on a phone", () => {
     });
   }
 });
+
+test("sign-up links to the developer platform's legal pages, open to anyone, marked as drafts until approved", async ({
+  page,
+}) => {
+  await page.goto("/auth/signup");
+  const terms = page.getByRole("link", { name: "API Terms of Use" });
+  await expect(terms).toHaveAttribute("href", "/legal/terms");
+  for (const name of ["Data Processing Agreement", "Acceptable Use Policy", "Privacy Notice"]) {
+    await expect(page.getByRole("link", { name })).toBeVisible();
+  }
+  // Signed out, the pages open (no sign-in redirect), each with its title and the draft notice.
+  for (const [path, title] of [
+    ["/legal/terms", "API Terms of Use"],
+    ["/legal/acceptable-use", "Acceptable Use Policy"],
+    ["/legal/privacy", "Privacy Notice"],
+    ["/legal/dpa", "Data Processing Agreement"],
+  ]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(path);
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    await expect(page.locator("[data-legal-draft]")).toBeVisible();
+  }
+  await page.goto("/legal/nope");
+  await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("API Terms of Use");
+});

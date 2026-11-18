@@ -15,6 +15,7 @@
 //   POST /__test/fail?route=GET%20/orders           # that route answers 500 until the next reset
 //   POST /__test/history?email=&days=              # a few test orders a day for that many days back (usage)
 //   POST /__test/setup?email=&failing=             # every setup step done (failing=1: the webhook endpoint fails)
+//   POST /__test/incident?title=&impact=&components=&message=   # open a status-page incident; ?resolve=<id> resolves it
 //
 // Webhook deliveries are real HTTP POSTs to the endpoint URL, signed like backend-api's
 // (Pickriders-Signature: t=<unix>,v1=<hmac-sha256 of "t.body">), so Playwright can run a receiver.
@@ -27,6 +28,41 @@ const D = "/developer/api/v1/dashboard";
 const RESEND_S = 60;
 const TTL_S = 300;
 
+/** GET /status as backend-api works it out: incidents set each part's state and the 90-day bars. */
+function statusOf(all) {
+  const STATE = { minor: "degraded_performance", major: "partial_outage", critical: "major_outage" };
+  const ORDER = ["operational", "degraded_performance", "partial_outage", "major_outage"];
+  const worse = (a, b) => (ORDER.indexOf(b) > ORDER.indexOf(a) ? b : a);
+  const day = (d) => new Date(d.getTime() + 36e5).toISOString().slice(0, 10);
+  const open = all.filter((i) => !i.resolved_at);
+  const components = [
+    ["api", "API"],
+    ["webhooks", "Webhooks"],
+    ["dashboard", "Dashboard"],
+  ].map(([id, name]) => {
+    const mine = all.filter((i) => i.components.includes(id));
+    const history = Array.from({ length: 90 }, (_, n) => {
+      const date = day(new Date(Date.now() - (89 - n) * 864e5));
+      const status = mine
+        .filter((i) => day(new Date(i.started_at)) <= date && (!i.resolved_at || day(new Date(i.resolved_at)) >= date))
+        .reduce((acc, i) => worse(acc, STATE[i.impact]), "operational");
+      return { date, status };
+    });
+    const status = open
+      .filter((i) => i.components.includes(id))
+      .reduce((acc, i) => worse(acc, STATE[i.impact]), "operational");
+    return { id, name, status, history };
+  });
+  return {
+    object: "status",
+    status: components.reduce((acc, c) => worse(acc, c.status), "operational"),
+    components,
+    incidents: open,
+    recent_incidents: all.filter((i) => i.resolved_at),
+    updated_at: new Date().toISOString(),
+  };
+}
+
 /** Addresses for the orders /__test/history makes. */
 const HISTORY_PLACES = [
   ["1 Admiralty Way, Lekki", "12 Bourdillon Rd, Ikoyi"],
@@ -36,6 +72,8 @@ const HISTORY_PLACES = [
 ];
 
 let users, codes, invitations, teams;
+/** Incidents on the status page (GET /status), set with /__test/incident. */
+let incidents = [];
 function reset() {
   users = new Map(); // email -> user
   teams = new Map(); // id -> team
@@ -1678,7 +1716,40 @@ createServer(async (req, res) => {
     res.end(data == null ? undefined : JSON.stringify(data));
   };
 
-  if (url.pathname === "/__test/reset") return (reset(), lastSent.clear(), failing.clear(), send(204, null));
+  if (url.pathname === "/__test/reset")
+    return (reset(), (incidents = []), lastSent.clear(), failing.clear(), send(204, null));
+  if (url.pathname === "/__test/incident") {
+    // ?title=&impact=&components=api,webhooks&message= opens one; ?resolve=<id> resolves it.
+    const now = new Date().toISOString();
+    const resolve = url.searchParams.get("resolve");
+    if (resolve) {
+      const found = incidents.find((i) => i.id === resolve);
+      if (found)
+        Object.assign(found, {
+          status: "resolved",
+          resolved_at: now,
+          updates: [
+            { status: "resolved", message: url.searchParams.get("message") ?? "Fixed.", at: now },
+            ...found.updates,
+          ],
+        });
+      return send(204, null);
+    }
+    const incident = {
+      id: `inc_${newId()}`,
+      title: url.searchParams.get("title") ?? "Test incident",
+      status: "investigating",
+      impact: url.searchParams.get("impact") ?? "minor",
+      components: (url.searchParams.get("components") ?? "api").split(","),
+      started_at: now,
+      resolved_at: null,
+      updates: [
+        { status: "investigating", message: url.searchParams.get("message") ?? "We are looking into it.", at: now },
+      ],
+    };
+    incidents.unshift(incident);
+    return send(200, { id: incident.id });
+  }
 
   // The public Developer API (what the docs' Try it calls from the browser): any origin may call it,
   // as backend-api allows, and each route is the dashboard route of the same name, as the key's team.
@@ -1693,6 +1764,10 @@ createServer(async (req, res) => {
     }
     const error = (status, type, code, message) =>
       send(status, { error: { type, code, message, param: null, request_id: requestId } });
+    if (req.method === "GET" && url.pathname === `${PUBLIC}/status`) {
+      if (failing.has("GET /status")) return error(500, "api_error", "internal_error", "Something went wrong.");
+      return send(200, statusOf(incidents));
+    }
     const secret = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     if (!secret) return error(401, "authentication_error", "api_key_required", "Send your API key.");
     const owner = [...teams.values()].find((t) => t.keys.some((k) => k.secret === secret));
