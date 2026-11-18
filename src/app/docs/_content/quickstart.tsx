@@ -264,6 +264,9 @@ export function Quickstart() {
               <NextCard href="/docs/test-and-live" title="Go live">
                 When you&apos;re ready for real riders.
               </NextCard>
+              <NextCard href="/docs/sdks" title="Do it in JavaScript">
+                The Node.js SDK books and follows a delivery in a few lines.
+              </NextCard>
             </div>
           </>
         }

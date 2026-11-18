@@ -32,6 +32,19 @@ const DOCS = [
   "/docs/guides/go-live-checklist",
   "/docs/events",
   "/docs/events/order-delivered",
+  "/docs/sdks",
+  "/docs/sdks/node",
+  "/docs/sdks/nextjs",
+  "/docs/sdks/react",
+  "/docs/sdks/vue",
+  "/docs/sdks/svelte",
+  "/docs/sdks/browser",
+  "/docs/sdks/testing",
+  "/docs/sdks/reference",
+  "/docs/tutorials/food-delivery",
+  "/docs/tutorials/food-delivery/setup",
+  "/docs/tutorials/food-delivery/book-a-rider",
+  "/docs/tutorials/food-delivery/when-things-go-wrong",
 ];
 
 async function audit(page: Page) {

@@ -1,0 +1,25 @@
+{
+  // Type-checks every SDK example in the docs against the published `pickriders` package
+  // (src/lib/docs/snippets.test.ts). `@/` is the tutorial app, as in a real Next.js project.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./food-delivery/*", "./sdks/nextjs/*", "./sdks/react/*"],
+      "$lib/*": ["./sdks/svelte/lib/*"],
+      "~/*": ["./sdks/vue/nuxt/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}
