@@ -135,6 +135,18 @@ test) to the deployed dev API from CI**: each run leaves real orders behind. Wha
 request is backend-api's own tests' job, on their throwaway in-memory database. **Events** (`/docs/events/*`, step 12.7)
 are in `lib/docs/events.ts`; examples are generated from the API document and validated, and a new
 event type in the API fails CI until it's documented.
+**SDK docs and the tutorial** (`/docs/sdks/*`, `/docs/tutorials/food-delivery/*`) teach the Node SDK
+(npm `pickriders`, `../pickriders-node`). Their examples are files in `docs-snippets/`, never strings in
+the pages: `<Snippet path="…" />` (`components/docs/snippet.tsx`) reads them at build time, and
+`lib/docs/snippets.test.ts` type-checks all of them against the installed `pickriders` (and React and
+Next.js), so an example that wouldn't compile fails CI. `docs-snippets/food-delivery/` is the tutorial
+app, compiled together with `@/` as its root: each part adds files, and a later part shows a named
+excerpt (`@show-start <part>`) instead of rewriting a file. `@hide-start`/`@hide-end` hides stand-in
+lines, `@file` names a file, and `docs-snippets/stubs.d.ts` stubs frameworks this repo doesn't install
+(Express, Vue, Svelte…). **Required:** when the SDK releases a change to its public surface, bump
+`pickriders` here in the same piece of work and fix whatever the check finds. When the Developer API
+changes (backend-api hard rule 11), update the reference (`yarn docs:sync`), the guides, and the SDK
+pages once the SDK catches up. Run SDK examples against the sandbox by hand, never from CI.
 `lib/docs/errors.ts` must list every Developer API error code: API errors link to
 `/docs/errors#<code>`, so codes are added, never removed. Facts in the docs (paths, fields, limits,
 retry times) come from backend-api's source, never from memory. `NEXT_PUBLIC_SITE_URL` sets the
