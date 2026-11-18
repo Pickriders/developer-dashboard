@@ -2,6 +2,58 @@ import { ERROR_CODES } from "./errors";
 import { EVENT_DOCS, eventSlug } from "./events";
 import { referenceGroups } from "./openapi";
 
+/** The food delivery tutorial's parts, in order (their content is in docs/_content/tutorial.tsx). */
+const TUTORIAL_PAGES: DocPage[] = [
+  [
+    "setup",
+    "1. Set up the app",
+    "Create the Next.js app, add your test key and check it's connected.",
+    ["create-next-app", "env", "api key"],
+  ],
+  [
+    "delivery-fee",
+    "2. Show the delivery fee",
+    "Price the delivery with a quote and show it at checkout.",
+    ["quote", "price", "checkout", "kobo"],
+  ],
+  [
+    "book-a-rider",
+    "3. Book a rider",
+    "Book at the quoted price when the customer pays, and call the rider when the food is ready.",
+    ["book", "dispatch", "manual", "idempotency", "kitchen"],
+  ],
+  [
+    "live-tracking",
+    "4. Show the delivery live",
+    "A page where the customer watches their delivery, with no key in the browser.",
+    ["tracking", "live", "trackDelivery", "eta"],
+  ],
+  [
+    "webhooks",
+    "5. Keep up with webhooks",
+    "Receive Pickriders events so your records follow every rider, locally through a tunnel.",
+    ["webhooks", "tunnel", "cloudflared", "signature"],
+  ],
+  [
+    "when-things-go-wrong",
+    "6. When things go wrong",
+    "Book again when nobody takes a delivery, handle cancellations, and rehearse failures.",
+    ["failed", "rebook", "cancel", "no_riders", "scenario"],
+  ],
+  [
+    "go-live",
+    "7. Go live",
+    "Live access, the wallet, a low-balance alert, live webhooks and the switch to a live key.",
+    ["go live", "live key", "wallet", "production"],
+  ],
+].map(([slug, title, description, keywords]) => ({
+  slug: `tutorials/food-delivery/${slug}`,
+  title: title as string,
+  description: description as string,
+  section: "Tutorials" as const,
+  keywords: [...(keywords as string[]), "tutorial", "food delivery"],
+}));
+
 /**
  * Every docs page, in reading order. The sidebar, search, the sitemap, "Next" links and each page's
  * metadata all come from here, so a page exists once. `slug` "" is /docs itself.
@@ -12,7 +64,7 @@ export type DocPage = {
   title: string;
   /** One plain sentence: the search result, the meta description and the social card. */
   description: string;
-  section: "Get started" | "The basics" | "Guides" | "Reference" | "Updates";
+  section: "Get started" | "The basics" | "Guides" | "SDKs" | "Tutorials" | "Reference" | "Updates";
   /** Searchable and in the sitemap, but not listed in the sidebar (one page per event). */
   hidden?: boolean;
   /** Words people search with that aren't in the title or description. */
@@ -188,6 +240,90 @@ export const DOC_PAGES: DocPage[] = [
     keywords: ["checklist", "launch", "production", "go live", "ready"],
   },
   {
+    slug: "sdks",
+    title: "Node.js SDK",
+    description:
+      "Book deliveries and follow them to the door in TypeScript or JavaScript, on your server and in the browser.",
+    section: "SDKs",
+    keywords: [
+      "sdk",
+      "npm",
+      "pickriders",
+      "node",
+      "nodejs",
+      "typescript",
+      "javascript",
+      "library",
+      "install",
+      "client",
+    ],
+  },
+  {
+    slug: "sdks/node",
+    title: "Node.js servers",
+    description: "Book from your routes and receive webhooks with Express, Fastify, NestJS or plain Node.",
+    section: "SDKs",
+    keywords: ["express", "fastify", "nestjs", "node:http", "backend", "server", "worker", "raw body", "nodeHandler"],
+  },
+  {
+    slug: "sdks/nextjs",
+    title: "Next.js",
+    description: "Server Actions to book, a route handler for webhooks, and a live tracking page.",
+    section: "SDKs",
+    keywords: ["next", "nextjs", "app router", "server actions", "route handler", "vercel", "edge", "pages router"],
+  },
+  {
+    slug: "sdks/react",
+    title: "React",
+    description: "A useDelivery hook that follows a delivery on screen, from its tracking link.",
+    section: "SDKs",
+    keywords: ["react", "hook", "useDelivery", "useSyncExternalStore", "component", "strict mode"],
+  },
+  {
+    slug: "sdks/vue",
+    title: "Vue and Nuxt",
+    description: "A composable that follows a delivery, and a Nuxt server route for webhooks.",
+    section: "SDKs",
+    keywords: ["vue", "nuxt", "composable", "useDelivery", "h3", "server route"],
+  },
+  {
+    slug: "sdks/svelte",
+    title: "Svelte and SvelteKit",
+    description: "A store that follows a delivery, and SvelteKit actions and endpoints for booking and webhooks.",
+    section: "SDKs",
+    keywords: ["svelte", "sveltekit", "store", "readable", "+server.ts", "form action"],
+  },
+  {
+    slug: "sdks/browser",
+    title: "Plain JavaScript in the browser",
+    description: "Follow a delivery from its tracking link with no framework and no build step.",
+    section: "SDKs",
+    keywords: ["browser", "client", "pickriders/client", "trackDelivery", "cdn", "esm.sh", "vanilla", "tracking link"],
+  },
+  {
+    slug: "sdks/testing",
+    title: "Testing your integration",
+    description: "Play the rider, rehearse failures, test your webhook route, and run tests with no network.",
+    section: "SDKs",
+    keywords: ["test", "testing", "advance", "scenario", "no_riders", "generateTestHeader", "mock", "fetch", "ci"],
+  },
+  {
+    slug: "sdks/reference",
+    title: "SDK reference",
+    description: "Every method, option, event, error and type in the Pickriders SDK.",
+    section: "SDKs",
+    keywords: ["reference", "methods", "options", "tracker", "until", "done", "webhooks", "errors", "types", "api"],
+  },
+  {
+    slug: "tutorials/food-delivery",
+    title: "Build a food delivery app",
+    description:
+      "A Next.js app from checkout to the customer's door: prices, booking, live tracking, webhooks and going live.",
+    section: "Tutorials",
+    keywords: ["tutorial", "example app", "food delivery", "restaurant", "next.js", "end to end", "walkthrough"],
+  },
+  ...TUTORIAL_PAGES,
+  {
     slug: "api",
     title: "API reference",
     description: "Every request the Pickriders API accepts, with Try it, the OpenAPI file and a Postman collection.",
@@ -234,7 +370,7 @@ export const DOC_PAGES: DocPage[] = [
   },
 ];
 
-export const SECTIONS = ["Get started", "The basics", "Guides", "Reference", "Updates"] as const;
+export const SECTIONS = ["Get started", "The basics", "Guides", "SDKs", "Tutorials", "Reference", "Updates"] as const;
 
 export const docHref = (slug: string) => (slug ? `/docs/${slug}` : "/docs");
 

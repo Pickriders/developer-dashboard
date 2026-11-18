@@ -58,9 +58,10 @@ const KEYWORDS: Record<Lang, string[]> = {
 const COMMENT: Partial<Record<Lang, RegExp>> = {
   bash: /^#[^\n]*/,
   python: /^#[^\n]*/,
-  javascript: /^\/\/[^\n]*/,
-  go: /^\/\/[^\n]*/,
-  php: /^(\/\/|#)[^\n]*/,
+  // Line comments, and block comments (/** … */ doc comments in the SDK examples).
+  javascript: /^(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/,
+  go: /^(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/,
+  php: /^(\/\/|#)[^\n]*|^\/\*[\s\S]*?\*\//,
 };
 
 export function highlight(code: string, lang: Lang): Token[] {

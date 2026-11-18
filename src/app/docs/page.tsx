@@ -84,6 +84,18 @@ export default function DocsHome() {
         </div>
       </div>
 
+      <h2 className="mb-4 mt-14 text-[1.4rem] font-extrabold tracking-tight text-fg-heading">
+        Building in JavaScript?
+      </h2>
+      <div className="grid gap-3 md:grid-cols-2">
+        <NextCard href="/docs/sdks" title="The Node.js SDK">
+          Book a delivery and follow it to the door in a few lines, on your server and in the browser.
+        </NextCard>
+        <NextCard href="/docs/tutorials/food-delivery" title="Tutorial: a food delivery app">
+          Build one end to end with Next.js: checkout, booking, live tracking and webhooks.
+        </NextCard>
+      </div>
+
       <h2 className="mb-4 mt-14 text-[1.4rem] font-extrabold tracking-tight text-fg-heading">Already building?</h2>
       <div className="grid gap-3 md:grid-cols-2">
         <NextCard href="/docs/webhooks" title="Hear when things happen">

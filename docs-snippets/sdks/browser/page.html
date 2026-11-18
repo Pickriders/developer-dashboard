@@ -1,0 +1,16 @@
+<!-- @file track.html -->
+<p>Your order is <strong id="status">loading…</strong> <span id="eta"></span></p>
+
+<script type="module">
+  // No build step: load the browser entry from a CDN.
+  import { trackDelivery } from "https://esm.sh/pickriders@0.1/client";
+
+  const link = new URLSearchParams(location.search).get("t"); // ?t=<tracking_url>
+  trackDelivery(link).subscribe(({ data }) => {
+    if (!data) return;
+    document.querySelector("#status").textContent = data.status.replaceAll("_", " ");
+    document.querySelector("#eta").textContent = data.eta_s
+      ? `· about ${Math.ceil(data.eta_s / 60)} min`
+      : "";
+  });
+</script>

@@ -30,6 +30,12 @@ describe("highlight", () => {
     ]);
   });
 
+  it("treats a block comment as one comment, apostrophes and all", () => {
+    const tokens = highlight("/** Mama's order */\nconst a = 'x';", "javascript");
+    expect(tokens[0]).toEqual({ type: "comment", text: "/** Mama's order */" });
+    expect(tokens.find((t) => t.type === "string")?.text).toBe("'x'");
+  });
+
   it("keeps a # inside a URL, and PHP variables", () => {
     expect(types("curl https://x.test/docs#errors", "bash")).toEqual([["keyword", "curl"]]);
     expect(types("$secret = 'whsec_1';", "php")).toEqual([
