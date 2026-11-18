@@ -108,7 +108,7 @@ test.describe("on a phone", () => {
     await page.goto("/docs");
     await page.getByRole("button", { name: "Open the docs menu" }).click();
     const menu = page.getByRole("dialog", { name: "Docs menu" });
-    await menu.getByRole("link", { name: "Webhooks" }).click();
+    await menu.getByRole("link", { name: "Webhooks", exact: true }).click();
     await expect(page).toHaveURL("/docs/webhooks");
     await expect(menu).toHaveCount(0);
     for (const path of ["/docs", "/docs/quickstart", "/docs/webhooks", "/docs/errors", "/docs/api"]) {

@@ -210,23 +210,22 @@ export function successResponse(op: Operation, doc: OpenApi = SPEC) {
   ];
   const schema = response.content?.["application/json"]?.schema;
   const resolved = resolve(schema, doc);
-  const isList = resolved.type === "array" && /list object/i.test(response.description ?? "");
-  return { status, description: response.description ?? "", schema, isList };
+  // The document describes lists as the list object the API sends ({ object: "list", data, … }).
+  // Older copies said "a bare array" with "list object" in the description; both read the same here.
+  const isEnvelope =
+    resolved.properties?.object?.enum?.[0] === "list" && resolve(resolved.properties?.data, doc).type === "array";
+  const isList = isEnvelope || (resolved.type === "array" && /list object/i.test(response.description ?? ""));
+  return { status, description: response.description ?? "", schema, isList, isEnvelope };
 }
 
 /** The example the reference shows for a response. */
 export function responseExample(op: Operation, path: string, doc: OpenApi = SPEC) {
-  const { schema, isList } = successResponse(op, doc);
+  const { schema, isList, isEnvelope } = successResponse(op, doc);
   if (!schema) return null;
   const value = exampleFor(schema, doc);
-  return isList
-    ? {
-        object: "list",
-        data: value,
-        has_more: false,
-        url: `${PATH_PREFIX}${path.replace(/\{.*$/, "").replace(/\/$/, "")}`,
-      }
-    : value;
+  if (!isList) return value;
+  const page = { has_more: false, url: `${PATH_PREFIX}${path.replace(/\{.*$/, "").replace(/\/$/, "")}` };
+  return isEnvelope ? { ...(value as object), ...page } : { object: "list", data: value, ...page };
 }
 
 export const requestSchema = (op: Operation) => op.requestBody?.content?.["application/json"]?.schema;
