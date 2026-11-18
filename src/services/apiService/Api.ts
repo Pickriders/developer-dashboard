@@ -48,6 +48,7 @@ import {
   AdminClaimAlertData,
   AdminConfigData,
   AdminCreateAnnouncementData,
+  AdminCreateDeveloperIncidentData,
   AdminCreateTeamData,
   AdminCreateUserData,
   AdminDeleteAnnouncementData,
@@ -90,6 +91,7 @@ import {
   AdminListAnnouncementsParams,
   AdminListDeveloperActivityData,
   AdminListDeveloperActivityParams,
+  AdminListDeveloperIncidentsData,
   AdminListDeveloperRequestLogsData,
   AdminListDeveloperRequestLogsParams,
   AdminListDeveloperTransactionsData,
@@ -160,6 +162,7 @@ import {
   AdminUnsuspendDeveloperLiveData,
   AdminUpdateAnnouncementData,
   AdminUpdateAnnouncementStatusData,
+  AdminUpdateDeveloperIncidentData,
   AdminUpdateMyAddressesData,
   AdminUpdateMyPhotoData,
   AdminUpdateOrderStatusRequestDto,
@@ -222,6 +225,7 @@ import {
   CreateDedicatedVirtualAccountData,
   CreateGroupData,
   CreateGroupRequestDto,
+  CreateIncidentRequestDto,
   CreateIssueData,
   CreateIssueRequestDto,
   CreateOrderPaymentLinkData,
@@ -389,6 +393,7 @@ import {
   GrantAchievementRequestDto,
   GrantData,
   HandleWebhookEventsData,
+  IncidentUpdateRequestDto,
   InitializeExternalOrderPaymentData,
   InitializeFundWalletData,
   InitializeOrderPaymentRequestDto,
@@ -7693,6 +7698,63 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
       path: `/api/v1/admins/developer-monitoring`,
       method: "GET",
       secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Open incidents first, then the latest 50 resolved.
+   *
+   * @tags admins/developer-incidents
+   * @name AdminListDeveloperIncidents
+   * @request GET:/api/v1/admins/developer-incidents
+   * @secure
+   * @response `200` `AdminListDeveloperIncidentsData`
+   */
+  adminListDeveloperIncidents = (params: RequestParams = {}) =>
+    this.request<AdminListDeveloperIncidentsData, any>({
+      path: `/api/v1/admins/developer-incidents`,
+      method: "GET",
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Opens an incident with its first public update. It shows on the status page at once.
+   *
+   * @tags admins/developer-incidents
+   * @name AdminCreateDeveloperIncident
+   * @request POST:/api/v1/admins/developer-incidents
+   * @secure
+   * @response `200` `AdminCreateDeveloperIncidentData`
+   * @response `201` `AdminIncidentDto`
+   */
+  adminCreateDeveloperIncident = (data: CreateIncidentRequestDto, params: RequestParams = {}) =>
+    this.request<AdminCreateDeveloperIncidentData, any>({
+      path: `/api/v1/admins/developer-incidents`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Posts a public update; status `resolved` closes the incident.
+   *
+   * @tags admins/developer-incidents
+   * @name AdminUpdateDeveloperIncident
+   * @request POST:/api/v1/admins/developer-incidents/{incidentId}/updates
+   * @secure
+   * @response `200` `AdminUpdateDeveloperIncidentData`
+   * @response `201` `AdminIncidentDto`
+   */
+  adminUpdateDeveloperIncident = (incidentId: string, data: IncidentUpdateRequestDto, params: RequestParams = {}) =>
+    this.request<AdminUpdateDeveloperIncidentData, any>({
+      path: `/api/v1/admins/developer-incidents/${incidentId}/updates`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
       format: "json",
       ...params,
     });
