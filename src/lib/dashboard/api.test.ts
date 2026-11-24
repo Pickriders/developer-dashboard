@@ -78,6 +78,20 @@ const CASES: Case[] = [
     data: { email: "ada@acme.com", password: "p" },
   },
   {
+    name: "auth.linkPreview",
+    call: () => api.auth.linkPreview({ email: "ada@acme.com", password: "p" }),
+    method: "POST",
+    path: `${D}/auth/link/preview`,
+    data: { email: "ada@acme.com", password: "p" },
+  },
+  {
+    name: "auth.link",
+    call: () => api.auth.link({ linkToken: "lt", teamName: "Acme" }),
+    method: "POST",
+    path: `${D}/auth/link`,
+    data: { linkToken: "lt", teamName: "Acme" },
+  },
+  {
     name: "auth.sendEmailCode",
     call: () => api.auth.sendEmailCode("new@acme.com"),
     method: "POST",

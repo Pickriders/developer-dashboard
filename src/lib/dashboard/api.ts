@@ -1,6 +1,7 @@
 import { apiService } from "@/services/apiService";
 import type {
   DeveloperForgotPasswordRequestDto,
+  DeveloperLinkRequestDto,
   DeveloperLoginRequestDto,
   DeveloperResetPasswordRequestDto,
   DeveloperSessionResponseDto,
@@ -40,6 +41,13 @@ export const auth = {
   me: () => apiService.developerMe(),
   signup: (body: DeveloperSignupRequestDto) => session(apiService.developerSignup(body)),
   login: (body: DeveloperLoginRequestDto) => session(apiService.developerLogin(body)),
+  /**
+   * An existing Pickriders account without developer access (sign-in said `not_a_developer`): the
+   * same credentials return the account and a short-lived link token. Nothing changes yet.
+   */
+  linkPreview: (body: DeveloperLoginRequestDto) => apiService.developerLinkPreview(body),
+  /** Adds developer access and a first team to that account, and signs in. */
+  link: (body: DeveloperLinkRequestDto) => session(apiService.developerLinkAccount(body)),
   sendEmailCode: (email?: string) => apiService.developerSendEmailCode(email ? { email } : {}),
   verifyEmail: (code: string) => apiService.developerVerifyEmail({ code }),
   sendPhoneCode: (phone?: string) => apiService.developerSendPhoneCode(phone ? { phone } : {}),

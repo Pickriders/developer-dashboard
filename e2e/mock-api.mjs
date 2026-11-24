@@ -109,13 +109,23 @@ function reset() {
   });
   ada.emailVerified = true;
   ada.phoneVerified = true;
+  // Someone who uses the Pickriders app but isn't a developer yet: signing in offers to link.
+  const chioma = makeUser({
+    firstname: "Chioma",
+    lastname: "Eze",
+    email: "chioma@acme.test",
+    phone: "2348035551212",
+    password: "customer-pass-1",
+    developer: false,
+  });
+  chioma.phoneVerified = true;
 }
 const lastSent = new Map(); // address -> code
 const failing = new Set(); // "GET /orders": routes that answer 500 (the error states)
 
 const newId = () => randomUUID().replace(/-/g, "").slice(0, 24);
 
-function makeUser({ firstname, lastname, email, phone, password }) {
+function makeUser({ firstname, lastname, email, phone, password, developer = true }) {
   const user = {
     id: newId(),
     firstname,
@@ -128,10 +138,13 @@ function makeUser({ firstname, lastname, email, phone, password }) {
     pendingEmail: null,
     pendingPhone: null,
     memberships: [], // { teamId, role }
+    developer,
+    createdAt: "2024-03-12T09:00:00.000Z",
   };
+  users.set(email, user);
+  if (!developer) return user;
   const own = makeTeam(`${firstname}'s team`, user);
   user.memberships.push({ teamId: own.id, role: "TEAM_OWNER" });
-  users.set(email, user);
   return user;
 }
 
@@ -252,6 +265,21 @@ const nationalPhone = (p) => {
   return /^[789]\d{9}$/.test(d) ? `234${d}` : null;
 };
 
+/** The account behind an email or phone and password (sign-in and the link preview). */
+const authenticate = (body) => {
+  const user = body.email
+    ? users.get(String(body.email).trim().toLowerCase())
+    : [...users.values()].find((u) => u.phone === nationalPhone(body.phone));
+  if (!user || user.password !== body.password)
+    throw new ApiError(
+      401,
+      "invalid_credentials",
+      body.email ? "Incorrect email or password." : "Incorrect phone number or password.",
+    );
+  return user;
+};
+const linkTokens = new Map(); // token -> user id
+
 class ApiError extends Error {
   constructor(status, code, message, param = null) {
     super(message);
@@ -336,14 +364,20 @@ const routes = {
       .trim()
       .toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, "parameter_invalid", "email must be an email", "email");
-    if (users.has(email)) throw new ApiError(409, "email_taken", "An account already uses this email.", "email");
+    if (users.has(email))
+      throw new ApiError(
+        409,
+        "email_taken",
+        "You already have a Pickriders account with this email. Sign in with it instead: you don't need a new account.",
+        "email",
+      );
     const phone = nationalPhone(body.phone);
     if (!phone) throw new ApiError(400, "invalid_phone", `${body.phone} isn't a valid NG phone number.`, "phone");
     if ([...users.values()].some((u) => u.phone === phone))
       throw new ApiError(
         409,
         "phone_taken",
-        "An account already uses this phone number. Sign in, or use another number.",
+        "You already have a Pickriders account with this phone number. Sign in with it instead: you don't need a new account.",
         "phone",
       );
     const user = makeUser({ ...body, email, phone });
@@ -362,13 +396,49 @@ const routes = {
     return [201, session(user)];
   },
   "POST /auth/login": (req, body) => {
-    const user = users.get(
-      String(body.email ?? "")
-        .trim()
-        .toLowerCase(),
-    );
-    if (!user || user.password !== body.password)
-      throw new ApiError(401, "invalid_credentials", "Incorrect email or password.");
+    const user = authenticate(body);
+    if (!user.developer)
+      throw new ApiError(
+        403,
+        "not_a_developer",
+        "This Pickriders account isn't set up for developers yet. Link it to the developer dashboard to continue.",
+      );
+    return [200, session(user)];
+  },
+  "POST /auth/link/preview": (req, body) => {
+    const user = authenticate(body);
+    if (user.developer) throw new ApiError(409, "already_developer", "This account already has developer access.");
+    const linkToken = `lnk_${newId()}`;
+    linkTokens.set(linkToken, user.id);
+    return [
+      200,
+      {
+        linkToken,
+        expiresIn: 900,
+        account: {
+          firstname: user.firstname,
+          lastname: user.lastname,
+          email: user.email,
+          phone: user.phone,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
+          memberSince: user.createdAt,
+          uses: ["CUSTOMER"],
+        },
+        suggestedTeamName: `${user.firstname}'s team`,
+      },
+    ];
+  },
+  "POST /auth/link": (req, body) => {
+    const id = linkTokens.get(body.linkToken);
+    const user = [...users.values()].find((u) => u.id === id);
+    if (!user) throw new ApiError(401, "link_expired", "This step timed out. Sign in again to link your account.");
+    if (!user.developer) {
+      user.developer = true;
+      const own = makeTeam(body.teamName?.trim() || `${user.firstname}'s team`, user);
+      user.memberships.push({ teamId: own.id, role: "TEAM_OWNER" });
+      if (!user.emailVerified) issue(user, "verify_email", user.email);
+    }
     return [200, session(user)];
   },
   "GET /auth/me": (req) => [200, describe(requireUser(req))],

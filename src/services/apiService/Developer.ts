@@ -79,6 +79,9 @@ import {
   DeveloperGetWalletData,
   DeveloperGetWalletParams,
   DeveloperLeaveTeamData,
+  DeveloperLinkAccountData,
+  DeveloperLinkPreviewData,
+  DeveloperLinkRequestDto,
   DeveloperListApiKeysData,
   DeveloperListApiKeysParams,
   DeveloperListAuditLogsData,
@@ -155,7 +158,7 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
       ...params,
     });
   /**
-   * @description Works before email and phone are verified: test mode is available straight away.
+   * @description Works before email and phone are verified: test mode is available straight away. With email or phone. NOT_A_DEVELOPER (403) for a Pickriders account without developer access: link it.
    *
    * @tags developer-dashboard/auth
    * @name DeveloperLogin
@@ -166,6 +169,43 @@ export class Developer<SecurityDataType = unknown> extends HttpClient<SecurityDa
   developerLogin = (data: DeveloperLoginRequestDto, params: RequestParams = {}) =>
     this.request<DeveloperLoginData, any>({
       path: `/developer/api/v1/dashboard/auth/login`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Linking an existing Pickriders account, step one: after sign-in answered NOT_A_DEVELOPER, the same email or phone and password return the account (for the "what changes" screen) and a 15-minute link token. Nothing changes yet. ALREADY_DEVELOPER when it has access already.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperLinkPreview
+   * @request POST:/developer/api/v1/dashboard/auth/link/preview
+   * @response `200` `DeveloperLinkPreviewData`
+   * @response `401` `any` INVALID_CREDENTIALS
+   * @response `409` `any` ALREADY_DEVELOPER
+   */
+  developerLinkPreview = (data: DeveloperLoginRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperLinkPreviewData, any>({
+      path: `/developer/api/v1/dashboard/auth/link/preview`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      format: "json",
+      ...params,
+    });
+  /**
+   * @description Step two: adds developer access and a first team to the account, then signs in. The account, its password and its app data stay as they are. LINK_EXPIRED after 15 minutes.
+   *
+   * @tags developer-dashboard/auth
+   * @name DeveloperLinkAccount
+   * @request POST:/developer/api/v1/dashboard/auth/link
+   * @response `200` `DeveloperLinkAccountData`
+   * @response `401` `any` LINK_EXPIRED
+   */
+  developerLinkAccount = (data: DeveloperLinkRequestDto, params: RequestParams = {}) =>
+    this.request<DeveloperLinkAccountData, any>({
+      path: `/developer/api/v1/dashboard/auth/link`,
       method: "POST",
       body: data,
       type: ContentType.Json,

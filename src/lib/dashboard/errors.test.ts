@@ -40,7 +40,7 @@ describe("toApiError", () => {
     expect(
       toApiError(axiosError(401, { error: { code: "invalid_credentials", message: "Incorrect email or password." } }))
         .message,
-    ).toBe("That email and password don't match.");
+    ).toBe("Those details don't match. Check your email or phone number and password.");
     expect(
       toApiError(axiosError(429, { error: { code: "rate_limited", message: "ThrottlerException" } })).message,
     ).toMatch(/Wait a minute/);

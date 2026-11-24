@@ -22,17 +22,35 @@ import {
 } from "@/components/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { looksLikeEmail, parseIdentifier } from "@/lib/auth/identifier";
+import { formatPhone } from "@/lib/auth/phone";
 import { auth } from "@/lib/dashboard/api";
 import { type ApiError, fieldOf } from "@/lib/dashboard/errors";
 import { useApiMutation, useInvitationPreview } from "@/lib/dashboard/hooks";
 import { crossSessionBoundary } from "@/lib/session/navigate";
 import { safeRedirect } from "@/lib/session/paths";
+import type { DeveloperLinkPreviewResponseDto } from "@/services/apiService";
+import { LinkAccount } from "./link-account";
 
 const FIELDS = ["email", "password"] as const;
 type FieldName = (typeof FIELDS)[number];
 
+// "email" is the field's name (the API's `param` for it), but it takes an email or a phone number:
+// one Pickriders account signs in with either, as in the apps.
 const schema = yup.object({
-  email: yup.string().trim().required("Enter your email.").email("Enter a valid email, like ada@acme.com."),
+  email: yup
+    .string()
+    .trim()
+    .required("Enter your email or phone number.")
+    .test("identifier", (value, ctx) =>
+      parseIdentifier(value ?? "")
+        ? true
+        : ctx.createError({
+            message: looksLikeEmail(value ?? "")
+              ? "Enter a valid email, like ada@acme.com."
+              : "Enter a valid email, or a Nigerian phone number like 0803 123 4567.",
+          }),
+    ),
   password: yup.string().required("Enter your password."),
 });
 
@@ -43,25 +61,38 @@ export function LoginForm() {
   const invitationToken = params.get("invitation");
   const invitation = useInvitationPreview(invitationToken);
   const login = useApiMutation(auth.login);
+  const linkPreview = useApiMutation(auth.linkPreview);
   const [failure, setFailure] = React.useState<ApiError | null>(null);
+  // An existing Pickriders account without developer access: the link step, in place of the form.
+  const [linking, setLinking] = React.useState<DeveloperLinkPreviewResponseDto | null>(null);
+  const fromSignup = params.get("from") === "signup";
   const passwordRef = React.useRef<HTMLInputElement>(null);
   const serverErrors = useServerErrors<FieldName>();
 
   const form = useFormik({
-    initialValues: { email: params.get("email") ?? "", password: "" },
+    initialValues: {
+      email: params.get("email") ?? (params.get("phone") ? formatPhone(params.get("phone") as string) : ""),
+      password: "",
+    },
     validationSchema: schema,
     onSubmit: async (values, helpers) => {
       setFailure(null);
+      const credentials = { ...parseIdentifier(values.email)!, password: values.password };
       try {
-        const session = await login.mutateAsync({
-          email: values.email.trim(),
-          password: values.password,
-          ...(invitationToken && { invitationToken }),
-        });
+        const session = await login.mutateAsync({ ...credentials, ...(invitationToken && { invitationToken }) });
         void session;
         crossSessionBoundary(safeRedirect(params.get("redirect")));
       } catch (e) {
-        const error = e as ApiError;
+        let error = e as ApiError;
+        // The password was right, but the account isn't a developer account yet: offer to link it.
+        if (error.code === "not_a_developer") {
+          try {
+            setLinking(await linkPreview.mutateAsync(credentials));
+            return;
+          } catch (previewError) {
+            error = previewError as ApiError;
+          }
+        }
         const field = fieldOf(error, FIELDS);
         if (field) {
           serverErrors.set(field, values[field].trim(), error.message);
@@ -79,7 +110,34 @@ export function LoginForm() {
   const error = (name: FieldName) => serverErrors.get(name, form.values[name].trim()) ?? visibleError(form, name);
   const carry = new URLSearchParams();
   for (const key of ["redirect", "invitation"]) if (params.get(key)) carry.set(key, params.get(key) as string);
-  const forgotHref = `/auth/forgot-password${form.values.email ? `?email=${encodeURIComponent(form.values.email.trim())}` : ""}`;
+  if (linking) {
+    return (
+      <AuthShell>
+        <LinkAccount
+          preview={linking}
+          next={safeRedirect(params.get("redirect"))}
+          onCancel={(expired) => {
+            setLinking(null);
+            form.setFieldValue("password", "", false);
+            if (expired) {
+              setFailure({
+                status: 401,
+                type: "authentication_error",
+                code: "link_expired",
+                message: "Sign in again to link your account.",
+                param: null,
+                requestId: null,
+              });
+            }
+          }}
+        />
+      </AuthShell>
+    );
+  }
+
+  // Resetting goes by email: carry the field over only when it holds one.
+  const typedEmail = looksLikeEmail(form.values.email) ? form.values.email.trim() : "";
+  const forgotHref = `/auth/forgot-password${typedEmail ? `?email=${encodeURIComponent(typedEmail)}` : ""}`;
 
   return (
     <AuthShell
@@ -90,7 +148,7 @@ export function LoginForm() {
         description={
           invitation.data
             ? `${invitation.data.invitedByName} invited ${invitation.data.email}. Sign in with that account to accept.`
-            : "Welcome back. Sign in to your developer account."
+            : "Welcome back. Use your Pickriders account: the same email or phone and password as in the app."
         }
       />
 
@@ -101,6 +159,11 @@ export function LoginForm() {
           </FormAlert>
         )}
         {params.get("reason") === "signed_out" && !failure && <FormAlert tone="success" title="You've signed out." />}
+        {fromSignup && !failure && (
+          <FormAlert tone="info" title="You already have a Pickriders account.">
+            Sign in with it, and we&apos;ll set up developer access on the same account. No new account needed.
+          </FormAlert>
+        )}
         {failure && (
           <ApiErrorAlert error={failure}>
             {failure.code === "invalid_credentials" && (
@@ -111,18 +174,18 @@ export function LoginForm() {
           </ApiErrorAlert>
         )}
 
-        <Field id="email" label="Email" error={error("email")}>
+        <Field id="email" label="Email or phone number" error={error("email")}>
           {(a11y) => (
             <Input
               {...a11y}
               {...form.getFieldProps("email")}
-              type="email"
+              type="text"
               autoComplete="username"
               inputMode="email"
               autoCapitalize="none"
               spellCheck={false}
               autoFocus={!form.values.email}
-              placeholder="ada@acme.com"
+              placeholder="ada@acme.com or 0803 123 4567"
               className={AUTH_INPUT}
             />
           )}

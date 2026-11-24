@@ -67,6 +67,9 @@ import {
   DeveloperGetUsageData,
   DeveloperGetWalletData,
   DeveloperLeaveTeamData,
+  DeveloperLinkAccountData,
+  DeveloperLinkPreviewData,
+  DeveloperLinkRequestDto,
   DeveloperListApiKeysData,
   DeveloperListAuditLogsData,
   DeveloperListInvitationsData,
@@ -137,7 +140,7 @@ export namespace Developer {
   }
 
   /**
-   * @description Works before email and phone are verified: test mode is available straight away.
+   * @description Works before email and phone are verified: test mode is available straight away. With email or phone. NOT_A_DEVELOPER (403) for a Pickriders account without developer access: link it.
    * @tags developer-dashboard/auth
    * @name DeveloperLogin
    * @request POST:/developer/api/v1/dashboard/auth/login
@@ -150,6 +153,39 @@ export namespace Developer {
     export type RequestBody = DeveloperLoginRequestDto;
     export type RequestHeaders = {};
     export type ResponseBody = DeveloperLoginData;
+  }
+
+  /**
+   * @description Linking an existing Pickriders account, step one: after sign-in answered NOT_A_DEVELOPER, the same email or phone and password return the account (for the "what changes" screen) and a 15-minute link token. Nothing changes yet. ALREADY_DEVELOPER when it has access already.
+   * @tags developer-dashboard/auth
+   * @name DeveloperLinkPreview
+   * @request POST:/developer/api/v1/dashboard/auth/link/preview
+   * @response `200` `DeveloperLinkPreviewData`
+   * @response `401` `any` INVALID_CREDENTIALS
+   * @response `409` `any` ALREADY_DEVELOPER
+   */
+  export namespace DeveloperLinkPreview {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperLoginRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperLinkPreviewData;
+  }
+
+  /**
+   * @description Step two: adds developer access and a first team to the account, then signs in. The account, its password and its app data stay as they are. LINK_EXPIRED after 15 minutes.
+   * @tags developer-dashboard/auth
+   * @name DeveloperLinkAccount
+   * @request POST:/developer/api/v1/dashboard/auth/link
+   * @response `200` `DeveloperLinkAccountData`
+   * @response `401` `any` LINK_EXPIRED
+   */
+  export namespace DeveloperLinkAccount {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = DeveloperLinkRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = DeveloperLinkAccountData;
   }
 
   /**

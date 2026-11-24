@@ -161,7 +161,7 @@ export function Showcase() {
         </div>
         <TestModeBanner />
         <div className="grid gap-3 sm:grid-cols-3">
-          <FormAlert title="That email and password don't match.">
+          <FormAlert title="Those details don't match. Check your email or phone number and password.">
             Forgot it? <a href="#status">Reset your password</a>
           </FormAlert>
           <FormAlert tone="info" title="Your session expired.">

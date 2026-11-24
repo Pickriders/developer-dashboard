@@ -407,10 +407,16 @@ import {
   RefundCustomerOrderData,
   RefundOrderRequestDto,
   RefundableOrdersData,
+  RegisterLiveActivityTokenData,
+  RegisterLiveActivityTokenDto,
+  RegisterLivePushToStartTokenData,
+  RegisterPushToStartTokenDto,
   RejectVehicleData,
   ReleaseOrderRiderData,
   ReleaseRiderRequestDto,
   RemoveGroupUsersData,
+  RemoveLiveActivityTokenData,
+  RemoveLiveActivityTokenDto,
   RemoveOrderCouponData,
   RemoveUserFromBusinessData,
   RequestOrderRidersData,
@@ -2016,7 +2022,7 @@ export namespace Api {
   }
 
   /**
-   * No description
+   * @description Replaying the refresh token rotated in the last minute (another tab refreshed first) returns a new access token and no refreshToken: keep the one you hold. A later replay signs the session out.
    * @tags auth
    * @name AdminRefreshSession
    * @summary New access and refresh tokens; the presented refresh token stops working
@@ -6575,6 +6581,169 @@ export namespace Api {
 
   /**
    * No description
+   * @tags live-activities
+   * @name RegisterLiveActivityToken
+   * @summary Register the push token of an order's Lock Screen card
+   * @request PUT:/api/v1/live-activities/orders/{orderId}/token
+   * @secure
+   * @response `204` `RegisterLiveActivityTokenData`
+   */
+  export namespace RegisterLiveActivityToken {
+    export type RequestParams = {
+      orderId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = RegisterLiveActivityTokenDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = RegisterLiveActivityTokenData;
+  }
+
+  /**
+   * No description
+   * @tags live-activities
+   * @name RemoveLiveActivityToken
+   * @summary Forget an order's Lock Screen card (it ended, or the customer turned it off)
+   * @request DELETE:/api/v1/live-activities/orders/{orderId}/token
+   * @secure
+   * @response `204` `RemoveLiveActivityTokenData`
+   */
+  export namespace RemoveLiveActivityToken {
+    export type RequestParams = {
+      orderId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = RemoveLiveActivityTokenDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = RemoveLiveActivityTokenData;
+  }
+
+  /**
+   * No description
+   * @tags live-activities
+   * @name RegisterLivePushToStartToken
+   * @summary Register this device's push-to-start token (iOS 17.2+)
+   * @request PUT:/api/v1/live-activities/push-to-start-token
+   * @secure
+   * @response `204` `RegisterLivePushToStartTokenData`
+   */
+  export namespace RegisterLivePushToStartToken {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = RegisterPushToStartTokenDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = RegisterLivePushToStartTokenData;
+  }
+
+  /**
+   * No description
+   * @tags admins/messages
+   * @name AdminListMessages
+   * @summary SMS and emails core sent, newest first, with filters. Kept 180 days
+   * @request GET:/api/v1/admins/messages
+   * @secure
+   * @response `200` `AdminListMessagesData`
+   */
+  export namespace AdminListMessages {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      channel?: OutboundMessageChannel;
+      status?: OutboundMessageStatus;
+      /** Only SKIPPED messages held back for this reason */
+      skipReason?: OutboundMessageSkipReason;
+      provider?: OutboundMessageProvider;
+      purpose?: OutboundMessagePurpose;
+      /**
+       * Part of the phone number or email address it went to. Phones match on digits, so 0803… finds +234803…
+       * @maxLength 120
+       * @example "8031234567"
+       */
+      recipient?: string;
+      /**
+       * Template name (pickriders-general-verification) or email registry key (verification-code)
+       * @maxLength 120
+       * @example "pickriders-general-verification"
+       */
+      template?: string;
+      /** Only messages to this user */
+      userId?: string;
+      /** Only messages about this order */
+      orderId?: string;
+      /**
+       * From this time (ISO 8601), inclusive
+       * @example "2026-11-01T00:00:00.000Z"
+       */
+      dateFrom?: string;
+      /**
+       * Up to this time (ISO 8601), inclusive
+       * @example "2026-11-14T23:59:59.999Z"
+       */
+      dateTo?: string;
+      /**
+       * @min 1
+       * @default 1
+       */
+      page?: number;
+      /**
+       * @min 1
+       * @max 100
+       * @default 25
+       */
+      limit?: number;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminListMessagesData;
+  }
+
+  /**
+   * No description
+   * @tags admins/messages
+   * @name AdminMessagesSummary
+   * @summary Counts by channel and status over a range (default 7 days), and the latest Termii balance
+   * @request GET:/api/v1/admins/messages/summary
+   * @secure
+   * @response `200` `AdminMessagesSummaryData`
+   */
+  export namespace AdminMessagesSummary {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /**
+       * From this time (ISO 8601), inclusive
+       * @example "2026-11-07T00:00:00.000Z"
+       */
+      dateFrom?: string;
+      /**
+       * Up to this time (ISO 8601), inclusive
+       * @example "2026-11-14T23:59:59.999Z"
+       */
+      dateTo?: string;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminMessagesSummaryData;
+  }
+
+  /**
+   * No description
+   * @tags admins/messages
+   * @name AdminGetMessage
+   * @summary One message with its redacted body preview and the provider response
+   * @request GET:/api/v1/admins/messages/{messageId}
+   * @secure
+   * @response `200` `AdminGetMessageData`
+   */
+  export namespace AdminGetMessage {
+    export type RequestParams = {
+      messageId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = AdminGetMessageData;
+  }
+
+  /**
+   * No description
    * @tags admins/alerts
    * @name AdminListAlerts
    * @summary Admin alerts, newest first. Default: the live ones (OPEN and CLAIMED)
@@ -6688,114 +6857,6 @@ export namespace Api {
     export type RequestBody = AdminResolveAlertRequestDto;
     export type RequestHeaders = {};
     export type ResponseBody = AdminResolveAlertData;
-  }
-
-  /**
-   * No description
-   * @tags admins/messages
-   * @name AdminListMessages
-   * @summary SMS and emails core sent, newest first, with filters. Kept 180 days
-   * @request GET:/api/v1/admins/messages
-   * @secure
-   * @response `200` `AdminListMessagesData`
-   */
-  export namespace AdminListMessages {
-    export type RequestParams = {};
-    export type RequestQuery = {
-      channel?: OutboundMessageChannel;
-      status?: OutboundMessageStatus;
-      /** Only SKIPPED messages held back for this reason */
-      skipReason?: OutboundMessageSkipReason;
-      provider?: OutboundMessageProvider;
-      purpose?: OutboundMessagePurpose;
-      /**
-       * Part of the phone number or email address it went to. Phones match on digits, so 0803… finds +234803…
-       * @maxLength 120
-       * @example "8031234567"
-       */
-      recipient?: string;
-      /**
-       * Template name (pickriders-general-verification) or email registry key (verification-code)
-       * @maxLength 120
-       * @example "pickriders-general-verification"
-       */
-      template?: string;
-      /** Only messages to this user */
-      userId?: string;
-      /** Only messages about this order */
-      orderId?: string;
-      /**
-       * From this time (ISO 8601), inclusive
-       * @example "2026-11-01T00:00:00.000Z"
-       */
-      dateFrom?: string;
-      /**
-       * Up to this time (ISO 8601), inclusive
-       * @example "2026-11-14T23:59:59.999Z"
-       */
-      dateTo?: string;
-      /**
-       * @min 1
-       * @default 1
-       */
-      page?: number;
-      /**
-       * @min 1
-       * @max 100
-       * @default 25
-       */
-      limit?: number;
-    };
-    export type RequestBody = never;
-    export type RequestHeaders = {};
-    export type ResponseBody = AdminListMessagesData;
-  }
-
-  /**
-   * No description
-   * @tags admins/messages
-   * @name AdminMessagesSummary
-   * @summary Counts by channel and status over a range (default 7 days), and the latest Termii balance
-   * @request GET:/api/v1/admins/messages/summary
-   * @secure
-   * @response `200` `AdminMessagesSummaryData`
-   */
-  export namespace AdminMessagesSummary {
-    export type RequestParams = {};
-    export type RequestQuery = {
-      /**
-       * From this time (ISO 8601), inclusive
-       * @example "2026-11-07T00:00:00.000Z"
-       */
-      dateFrom?: string;
-      /**
-       * Up to this time (ISO 8601), inclusive
-       * @example "2026-11-14T23:59:59.999Z"
-       */
-      dateTo?: string;
-    };
-    export type RequestBody = never;
-    export type RequestHeaders = {};
-    export type ResponseBody = AdminMessagesSummaryData;
-  }
-
-  /**
-   * No description
-   * @tags admins/messages
-   * @name AdminGetMessage
-   * @summary One message with its redacted body preview and the provider response
-   * @request GET:/api/v1/admins/messages/{messageId}
-   * @secure
-   * @response `200` `AdminGetMessageData`
-   */
-  export namespace AdminGetMessage {
-    export type RequestParams = {
-      messageId: string;
-    };
-    export type RequestQuery = {};
-    export type RequestBody = never;
-    export type RequestHeaders = {};
-    export type ResponseBody = AdminGetMessageData;
   }
 
   /**

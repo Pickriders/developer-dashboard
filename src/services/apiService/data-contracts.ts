@@ -1814,7 +1814,7 @@ export interface AdminLoginResponseDto {
    * @example 900
    */
   expiryDurationSeconds?: number;
-  /** Rotating refresh token for POST /auth/admins/refresh. Store it securely */
+  /** Rotating refresh token for POST /auth/admins/refresh. Store it securely. Absent when a refresh replayed the token rotated moments ago (another tab won the race): keep the refresh token you already hold */
   refreshToken?: string;
   /**
    * When the refresh token (the session) expires unless refreshed
@@ -6096,6 +6096,142 @@ export interface AdminReviewHandoffRequestDto {
   note?: string;
 }
 
+export interface RegisterLiveActivityTokenDto {
+  /** The activity's own push token (ActivityKit pushTokenUpdates), hex. */
+  token: string;
+  /** sandbox for development builds, production for TestFlight and the App Store. */
+  environment: "sandbox" | "production";
+  /**
+   * The app's bundle id; APNs needs it as the topic. Defaults to the server's.
+   * @example "com.pickriders"
+   */
+  bundleId?: string;
+}
+
+export interface RemoveLiveActivityTokenDto {
+  token: string;
+}
+
+export interface RegisterPushToStartTokenDto {
+  /** The activity's own push token (ActivityKit pushTokenUpdates), hex. */
+  token: string;
+  /** sandbox for development builds, production for TestFlight and the App Store. */
+  environment: "sandbox" | "production";
+  /**
+   * The app's bundle id; APNs needs it as the topic. Defaults to the server's.
+   * @example "com.pickriders"
+   */
+  bundleId?: string;
+}
+
+export enum OutboundMessageChannel {
+  SMS = "SMS",
+  EMAIL = "EMAIL",
+  LIVE_ACTIVITY = "LIVE_ACTIVITY",
+}
+
+export enum OutboundMessageStatus {
+  QUEUED = "QUEUED",
+  SENT = "SENT",
+  FAILED = "FAILED",
+  SKIPPED = "SKIPPED",
+}
+
+export enum OutboundMessageProvider {
+  TERMII = "TERMII",
+  SMTP = "SMTP",
+  APNS = "APNS",
+}
+
+export interface AdminMessageProviderResponseDto {
+  /** Termii: the account balance after this send */
+  balance?: number;
+  /** The balance currency or unit, when the provider says */
+  currency?: string;
+  /** The provider's status line, e.g. Successfully Sent or 250 OK */
+  message?: string;
+  /** SMTP: addresses the server refused */
+  rejected?: string[];
+}
+
+export interface AdminMessageDto {
+  id: string;
+  channel: OutboundMessageChannel;
+  provider: OutboundMessageProvider;
+  status: OutboundMessageStatus;
+  purpose: OutboundMessagePurpose;
+  /** Phone number or email address(es), comma separated when several */
+  to: string;
+  userId?: string;
+  orderId?: string;
+  /** Email registry key, e.g. verification-code */
+  templateKey?: string;
+  /** Template name, e.g. pickriders-general-verification */
+  templateName?: string;
+  /** Email subject */
+  subject?: string;
+  /** Plain text of the message with secrets masked (detail only) */
+  bodyPreview?: string;
+  providerMessageId?: string;
+  providerResponse?: AdminMessageProviderResponseDto;
+  /** Why the last attempt failed */
+  error?: string;
+  /** Send attempts so far */
+  attempts: number;
+  /** @format date-time */
+  createdAt: string;
+  /** @format date-time */
+  sentAt?: string;
+  /** @format date-time */
+  failedAt?: string;
+  /** Status SKIPPED: why the admin email controls held it back */
+  skipReason?: OutboundMessageSkipReason;
+  /** @format date-time */
+  skippedAt?: string;
+}
+
+export interface AdminListMessagesResponseDto {
+  nextPage?: number | null;
+  previousPage?: number | null;
+  currentPage: number;
+  results: AdminMessageDto[];
+  perPageLimit: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+export interface AdminMessageChannelCountDto {
+  channel: OutboundMessageChannel;
+  queued: number;
+  sent: number;
+  failed: number;
+  /** Held back by the admin email controls (turned off or paused) */
+  skipped: number;
+  total: number;
+}
+
+export interface AdminTermiiBalanceDto {
+  /** As Termii reported it on the latest send */
+  balance: number;
+  currency?: string;
+  /**
+   * When that send happened
+   * @format date-time
+   */
+  seenAt: string;
+}
+
+export interface AdminMessagesSummaryResponseDto {
+  /** @format date-time */
+  from: string;
+  /** @format date-time */
+  to: string;
+  total: number;
+  byChannel: AdminMessageChannelCountDto[];
+  /** Null until an SMS reported a balance */
+  termiiBalance: AdminTermiiBalanceDto | null;
+}
+
 export enum AdminAlertSeverity {
   URGENT = "URGENT",
   HIGH = "HIGH",
@@ -6222,112 +6358,6 @@ export interface AdminResolveAlertRequestDto {
    * @maxLength 500
    */
   note?: string;
-}
-
-export enum OutboundMessageChannel {
-  SMS = "SMS",
-  EMAIL = "EMAIL",
-}
-
-export enum OutboundMessageStatus {
-  QUEUED = "QUEUED",
-  SENT = "SENT",
-  FAILED = "FAILED",
-  SKIPPED = "SKIPPED",
-}
-
-export enum OutboundMessageProvider {
-  TERMII = "TERMII",
-  SMTP = "SMTP",
-}
-
-export interface AdminMessageProviderResponseDto {
-  /** Termii: the account balance after this send */
-  balance?: number;
-  /** The balance currency or unit, when the provider says */
-  currency?: string;
-  /** The provider's status line, e.g. Successfully Sent or 250 OK */
-  message?: string;
-  /** SMTP: addresses the server refused */
-  rejected?: string[];
-}
-
-export interface AdminMessageDto {
-  id: string;
-  channel: OutboundMessageChannel;
-  provider: OutboundMessageProvider;
-  status: OutboundMessageStatus;
-  purpose: OutboundMessagePurpose;
-  /** Phone number or email address(es), comma separated when several */
-  to: string;
-  userId?: string;
-  orderId?: string;
-  /** Email registry key, e.g. verification-code */
-  templateKey?: string;
-  /** Template name, e.g. pickriders-general-verification */
-  templateName?: string;
-  /** Email subject */
-  subject?: string;
-  /** Plain text of the message with secrets masked (detail only) */
-  bodyPreview?: string;
-  providerMessageId?: string;
-  providerResponse?: AdminMessageProviderResponseDto;
-  /** Why the last attempt failed */
-  error?: string;
-  /** Send attempts so far */
-  attempts: number;
-  /** @format date-time */
-  createdAt: string;
-  /** @format date-time */
-  sentAt?: string;
-  /** @format date-time */
-  failedAt?: string;
-  /** Status SKIPPED: why the admin email controls held it back */
-  skipReason?: OutboundMessageSkipReason;
-  /** @format date-time */
-  skippedAt?: string;
-}
-
-export interface AdminListMessagesResponseDto {
-  nextPage?: number | null;
-  previousPage?: number | null;
-  currentPage: number;
-  results: AdminMessageDto[];
-  perPageLimit: number;
-  totalRecords: number;
-  totalPages: number;
-}
-
-export interface AdminMessageChannelCountDto {
-  channel: OutboundMessageChannel;
-  queued: number;
-  sent: number;
-  failed: number;
-  /** Held back by the admin email controls (turned off or paused) */
-  skipped: number;
-  total: number;
-}
-
-export interface AdminTermiiBalanceDto {
-  /** As Termii reported it on the latest send */
-  balance: number;
-  currency?: string;
-  /**
-   * When that send happened
-   * @format date-time
-   */
-  seenAt: string;
-}
-
-export interface AdminMessagesSummaryResponseDto {
-  /** @format date-time */
-  from: string;
-  /** @format date-time */
-  to: string;
-  total: number;
-  byChannel: AdminMessageChannelCountDto[];
-  /** Null until an SMS reported a balance */
-  termiiBalance: AdminTermiiBalanceDto | null;
 }
 
 export enum ChatParticipantRole {
@@ -7725,7 +7755,7 @@ export interface CreateOrderRequestDto {
    * Up to 20 keys of your own (keys up to 40 characters, string values up to 500), returned with the order.
    * @example {"cart_id":"c_981"}
    */
-  metadata?: object;
+  metadata?: Record<string, string>;
   /**
    * auto rings riders now (or at the scheduled time). manual waits for POST /orders/{id}/dispatch.
    * @default "auto"
@@ -7909,8 +7939,11 @@ export interface PublicOrderDto {
   number: string;
   /** Your own id for the order, unique per mode. */
   reference: string | null;
-  /** @example {"cart_id":"c_981"} */
-  metadata: object;
+  /**
+   * Your own keys and string values, as you set them on the order.
+   * @example {"cart_id":"c_981"}
+   */
+  metadata: Record<string, string>;
   /** @example "quo_6560f0c2a1b2c3d4e5f60718" */
   quote_id: string | null;
   /** @example "NG-LA" */
@@ -8308,8 +8341,27 @@ export interface PublicEventDto {
   object: string;
   /** @example "evt_6560f0c2a1b2c3d4e5f60718" */
   id: string;
-  /** @example "order.delivered" */
-  type: string;
+  /**
+   * What happened. `ping` comes only from sending a test event to an endpoint.
+   * @example "order.delivered"
+   */
+  type:
+    | "order.created"
+    | "order.searching"
+    | "order.offer.created"
+    | "order.offer.expired"
+    | "order.rider_assigned"
+    | "order.rider_changed"
+    | "order.picked_up"
+    | "order.stop.arrived"
+    | "order.stop.completed"
+    | "order.delivered"
+    | "order.cancelled"
+    | "order.failed"
+    | "wallet.funded"
+    | "wallet.balance_low"
+    | "account.updated"
+    | "ping";
   /** @example "2026-11-11T09:30:00.000Z" */
   created: string;
   livemode: boolean;
@@ -8445,8 +8497,25 @@ export interface DeveloperSessionResponseDto {
 }
 
 export interface DeveloperLoginRequestDto {
-  /** @example "ada@acme.com" */
-  email: string;
+  /**
+   * Email, or leave out and send `phone`.
+   * @example "ada@acme.com"
+   */
+  email?: string;
+  /**
+   * Phone number, when signing in without `email`.
+   * @minLength 7
+   * @maxLength 20
+   * @example "+2348031234567"
+   */
+  phone?: string;
+  /**
+   * Country of `phone` (ISO 3166-1 alpha-2).
+   * @default "NG"
+   * @pattern /^[A-Z]{2}$/
+   * @example "NG"
+   */
+  countryCode?: string;
   /** @maxLength 128 */
   password: string;
   /**
@@ -8455,6 +8524,54 @@ export interface DeveloperLoginRequestDto {
    * @maxLength 200
    */
   invitationToken?: string;
+}
+
+export enum DeveloperLinkAccountUse {
+  CUSTOMER = "CUSTOMER",
+  RIDER = "RIDER",
+  BUSINESS = "BUSINESS",
+}
+
+export interface DeveloperLinkAccountDto {
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  /**
+   * When the account was created.
+   * @format date-time
+   */
+  memberSince?: string;
+  uses: DeveloperLinkAccountUse[];
+}
+
+export interface DeveloperLinkPreviewResponseDto {
+  /** Send to POST link to add developer access. Valid for `expiresIn` seconds. */
+  linkToken: string;
+  expiresIn: number;
+  account: DeveloperLinkAccountDto;
+  /**
+   * The team name used if the person doesn't choose one.
+   * @example "Ada's team"
+   */
+  suggestedTeamName: string;
+}
+
+export interface DeveloperLinkRequestDto {
+  /**
+   * From POST link/preview. Valid for 15 minutes.
+   * @maxLength 2000
+   */
+  linkToken: string;
+  /**
+   * The first team's name. Defaults to "<firstname>'s team".
+   * @minLength 2
+   * @maxLength 80
+   * @example "Acme"
+   */
+  teamName?: string;
 }
 
 export interface DeveloperMeResponseDto {
@@ -11160,42 +11277,11 @@ export type AdminRaiseHandoffBonusData = AdminHandoffDto;
 
 export type AdminReviewHandoffData = AdminHandoffDto;
 
-export interface AdminListAlertsParams {
-  /**
-   * Comma-separated statuses (OPEN, CLAIMED, RESOLVED). Default: OPEN,CLAIMED
-   * @example "OPEN,CLAIMED"
-   */
-  status?: string;
-  /**
-   * Alert type, e.g. HANDOFF_ACCIDENT
-   * @maxLength 64
-   * @example "HANDOFF_NO_RIDER"
-   */
-  type?: string;
-  /** true: only alerts I claimed */
-  mine?: "true" | "false";
-  /**
-   * @min 1
-   * @default 1
-   */
-  page?: number;
-  /**
-   * @min 1
-   * @max 200
-   * @default 50
-   */
-  limit?: number;
-}
+export type RegisterLiveActivityTokenData = any;
 
-export type AdminListAlertsData = AdminListAlertsResponseDto;
+export type RemoveLiveActivityTokenData = any;
 
-export type AdminAlertsSummaryData = AdminAlertsSummaryResponseDto;
-
-export type AdminSendTestAlertEmailData = AdminTestAlertEmailResponseDto;
-
-export type AdminClaimAlertData = AdminAlertDto;
-
-export type AdminResolveAlertData = AdminAlertDto;
+export type RegisterLivePushToStartTokenData = any;
 
 export interface AdminListMessagesParams {
   channel?: OutboundMessageChannel;
@@ -11261,6 +11347,43 @@ export interface AdminMessagesSummaryParams {
 export type AdminMessagesSummaryData = AdminMessagesSummaryResponseDto;
 
 export type AdminGetMessageData = AdminMessageDto;
+
+export interface AdminListAlertsParams {
+  /**
+   * Comma-separated statuses (OPEN, CLAIMED, RESOLVED). Default: OPEN,CLAIMED
+   * @example "OPEN,CLAIMED"
+   */
+  status?: string;
+  /**
+   * Alert type, e.g. HANDOFF_ACCIDENT
+   * @maxLength 64
+   * @example "HANDOFF_NO_RIDER"
+   */
+  type?: string;
+  /** true: only alerts I claimed */
+  mine?: "true" | "false";
+  /**
+   * @min 1
+   * @default 1
+   */
+  page?: number;
+  /**
+   * @min 1
+   * @max 200
+   * @default 50
+   */
+  limit?: number;
+}
+
+export type AdminListAlertsData = AdminListAlertsResponseDto;
+
+export type AdminAlertsSummaryData = AdminAlertsSummaryResponseDto;
+
+export type AdminSendTestAlertEmailData = AdminTestAlertEmailResponseDto;
+
+export type AdminClaimAlertData = AdminAlertDto;
+
+export type AdminResolveAlertData = AdminAlertDto;
 
 export type GetOrderChatData = ChatThreadDto;
 
@@ -11523,6 +11646,10 @@ export type MarkAsReadData = SupportUnreadResponseDto;
 export type DeveloperSignupData = DeveloperSessionResponseDto;
 
 export type DeveloperLoginData = DeveloperSessionResponseDto;
+
+export type DeveloperLinkPreviewData = DeveloperLinkPreviewResponseDto;
+
+export type DeveloperLinkAccountData = DeveloperSessionResponseDto;
 
 export type DeveloperMeData = DeveloperMeResponseDto;
 

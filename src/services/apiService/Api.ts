@@ -476,10 +476,16 @@ import {
   RefundOrderRequestDto,
   RefundableOrdersData,
   RefundableOrdersParams,
+  RegisterLiveActivityTokenData,
+  RegisterLiveActivityTokenDto,
+  RegisterLivePushToStartTokenData,
+  RegisterPushToStartTokenDto,
   RejectVehicleData,
   ReleaseOrderRiderData,
   ReleaseRiderRequestDto,
   RemoveGroupUsersData,
+  RemoveLiveActivityTokenData,
+  RemoveLiveActivityTokenDto,
   RemoveOrderCouponData,
   RemoveUserFromBusinessData,
   RequestOrderRidersData,
@@ -1886,7 +1892,7 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
       ...params,
     });
   /**
-   * No description
+   * @description Replaying the refresh token rotated in the last minute (another tab refreshed first) returns a new access token and no refreshToken: keep the one you hold. A later replay signs the session out.
    *
    * @tags auth
    * @name AdminRefreshSession
@@ -6278,6 +6284,119 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
   /**
    * No description
    *
+   * @tags live-activities
+   * @name RegisterLiveActivityToken
+   * @summary Register the push token of an order's Lock Screen card
+   * @request PUT:/api/v1/live-activities/orders/{orderId}/token
+   * @secure
+   * @response `204` `RegisterLiveActivityTokenData`
+   */
+  registerLiveActivityToken = (orderId: string, data: RegisterLiveActivityTokenDto, params: RequestParams = {}) =>
+    this.request<RegisterLiveActivityTokenData, any>({
+      path: `/api/v1/live-activities/orders/${orderId}/token`,
+      method: "PUT",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags live-activities
+   * @name RemoveLiveActivityToken
+   * @summary Forget an order's Lock Screen card (it ended, or the customer turned it off)
+   * @request DELETE:/api/v1/live-activities/orders/{orderId}/token
+   * @secure
+   * @response `204` `RemoveLiveActivityTokenData`
+   */
+  removeLiveActivityToken = (orderId: string, data: RemoveLiveActivityTokenDto, params: RequestParams = {}) =>
+    this.request<RemoveLiveActivityTokenData, any>({
+      path: `/api/v1/live-activities/orders/${orderId}/token`,
+      method: "DELETE",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags live-activities
+   * @name RegisterLivePushToStartToken
+   * @summary Register this device's push-to-start token (iOS 17.2+)
+   * @request PUT:/api/v1/live-activities/push-to-start-token
+   * @secure
+   * @response `204` `RegisterLivePushToStartTokenData`
+   */
+  registerLivePushToStartToken = (data: RegisterPushToStartTokenDto, params: RequestParams = {}) =>
+    this.request<RegisterLivePushToStartTokenData, any>({
+      path: `/api/v1/live-activities/push-to-start-token`,
+      method: "PUT",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags admins/messages
+   * @name AdminListMessages
+   * @summary SMS and emails core sent, newest first, with filters. Kept 180 days
+   * @request GET:/api/v1/admins/messages
+   * @secure
+   * @response `200` `AdminListMessagesData`
+   */
+  adminListMessages = (query: AdminListMessagesParams, params: RequestParams = {}) =>
+    this.request<AdminListMessagesData, any>({
+      path: `/api/v1/admins/messages`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags admins/messages
+   * @name AdminMessagesSummary
+   * @summary Counts by channel and status over a range (default 7 days), and the latest Termii balance
+   * @request GET:/api/v1/admins/messages/summary
+   * @secure
+   * @response `200` `AdminMessagesSummaryData`
+   */
+  adminMessagesSummary = (query: AdminMessagesSummaryParams, params: RequestParams = {}) =>
+    this.request<AdminMessagesSummaryData, any>({
+      path: `/api/v1/admins/messages/summary`,
+      method: "GET",
+      query: query,
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags admins/messages
+   * @name AdminGetMessage
+   * @summary One message with its redacted body preview and the provider response
+   * @request GET:/api/v1/admins/messages/{messageId}
+   * @secure
+   * @response `200` `AdminGetMessageData`
+   */
+  adminGetMessage = (messageId: string, params: RequestParams = {}) =>
+    this.request<AdminGetMessageData, any>({
+      path: `/api/v1/admins/messages/${messageId}`,
+      method: "GET",
+      secure: true,
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
    * @tags admins/alerts
    * @name AdminListAlerts
    * @summary Admin alerts, newest first. Default: the live ones (OPEN and CLAIMED)
@@ -6370,62 +6489,6 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
       body: data,
       secure: true,
       type: ContentType.Json,
-      format: "json",
-      ...params,
-    });
-  /**
-   * No description
-   *
-   * @tags admins/messages
-   * @name AdminListMessages
-   * @summary SMS and emails core sent, newest first, with filters. Kept 180 days
-   * @request GET:/api/v1/admins/messages
-   * @secure
-   * @response `200` `AdminListMessagesData`
-   */
-  adminListMessages = (query: AdminListMessagesParams, params: RequestParams = {}) =>
-    this.request<AdminListMessagesData, any>({
-      path: `/api/v1/admins/messages`,
-      method: "GET",
-      query: query,
-      secure: true,
-      format: "json",
-      ...params,
-    });
-  /**
-   * No description
-   *
-   * @tags admins/messages
-   * @name AdminMessagesSummary
-   * @summary Counts by channel and status over a range (default 7 days), and the latest Termii balance
-   * @request GET:/api/v1/admins/messages/summary
-   * @secure
-   * @response `200` `AdminMessagesSummaryData`
-   */
-  adminMessagesSummary = (query: AdminMessagesSummaryParams, params: RequestParams = {}) =>
-    this.request<AdminMessagesSummaryData, any>({
-      path: `/api/v1/admins/messages/summary`,
-      method: "GET",
-      query: query,
-      secure: true,
-      format: "json",
-      ...params,
-    });
-  /**
-   * No description
-   *
-   * @tags admins/messages
-   * @name AdminGetMessage
-   * @summary One message with its redacted body preview and the provider response
-   * @request GET:/api/v1/admins/messages/{messageId}
-   * @secure
-   * @response `200` `AdminGetMessageData`
-   */
-  adminGetMessage = (messageId: string, params: RequestParams = {}) =>
-    this.request<AdminGetMessageData, any>({
-      path: `/api/v1/admins/messages/${messageId}`,
-      method: "GET",
-      secure: true,
       format: "json",
       ...params,
     });

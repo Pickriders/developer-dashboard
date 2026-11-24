@@ -75,7 +75,10 @@ src/
 │   ├── legal/            the platform's terms, acceptable use, privacy notice and DPA (public;
 │   │                     drafts until `LEGAL.approved` in lib/legal/pages.ts, which legal flips)
 │   ├── sitemap.ts, robots.ts   what search engines may crawl: the docs and sign-up only
-│   ├── auth/             login, signup, verify (email then phone), forgot-password, invite
+│   ├── auth/             login, signup, verify (email then phone), forgot-password, invite. One person, one
+│   │                     Pickriders account: sign-up with a taken email or phone says so and offers sign-in;
+│   │                     sign-in takes an email or phone; an app account that isn't a developer yet gets
+│   │                     the link step (login/_components/link-account.tsx: auth.linkPreview, auth.link)
 │   ├── api/backend/      the proxy to the API: session cookie → bearer token (lib/session/proxy.ts)
 │   ├── api/session/      DELETE signs out (clears the cookie)
 │   ├── design/           the design system, live: every token and component (DESIGN.md)
