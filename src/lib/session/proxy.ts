@@ -7,14 +7,14 @@ import { clearedSessionCookie, sessionCookie } from "./cookie";
  *
  * - Only dashboard routes are forwarded, so this is not an open proxy.
  * - Writes must come from this origin (the cookie is SameSite=Lax; this is the second lock).
- * - Responses that start a session (sign-in, sign-up, password reset) have their token moved into
+ * - Responses that start a session (sign-in, sign-up, linking an account, password reset) have their token moved into
  *   the cookie and removed from the body, so page code never sees it.
  * - A 401 on a signed-in call clears the cookie: the session is over.
  */
 export const DASHBOARD_PREFIX = "developer/api/v1/dashboard/";
 
 export const SESSION_ROUTES = new Set(
-  ["auth/login", "auth/signup", "auth/password/reset"].map((p) => DASHBOARD_PREFIX + p),
+  ["auth/login", "auth/signup", "auth/link", "auth/password/reset"].map((p) => DASHBOARD_PREFIX + p),
 );
 
 const FORWARDED_REQUEST_HEADERS = [
