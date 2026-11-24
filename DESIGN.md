@@ -205,7 +205,12 @@ attention rules and deltas in `lib/dashboard/overview.ts`.
 **Auth** (`components/auth`): `AuthShell` (brand panel + form column), `AuthHeading`, `Field`
 (label, control, error or hint, wired for screen readers), `PasswordInput` (show/hide, Caps Lock),
 `PasswordMeter`, `CodeInput` (one real input drawn as boxes: paste, SMS autofill, shake),
-`ResendButton`, `FormAlert` / `ApiErrorAlert`, `SignOutButton`.
+`ResendButton`, `FormAlert` / `ApiErrorAlert`, `SignOutButton`. Someone who already has a Pickriders
+account is never refused: sign-up shows "You already have a Pickriders account" with **Sign in instead**, and
+signing in with an account that isn't a developer yet shows the **link** step: the person's account and the
+developer mark joined by a link, three steps (Sign in, Link account, then Confirm email or Start building),
+their account card, then What stays the same / What's new / Good to know in plain words, their team name,
+and one button. Nothing changes until it's pressed.
 
 **Kit** (`components/kit`): PageHeader, Panel, StatCard, MetricCard (a linked headline number with its
 change and a Sparkline), Sparkline, ProgressRing, IdText, CopyButton, CodeBlock,

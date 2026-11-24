@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFormik } from "formik";
-import { Lock } from "lucide-react";
+import { Lock, UserRoundCheck } from "lucide-react";
 import * as yup from "yup";
 
 import {
@@ -22,10 +22,10 @@ import {
   useServerErrors,
   visibleError,
 } from "@/components/auth";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/auth/password";
-import { COUNTRY, formatPhoneInput, nationalNumber } from "@/lib/auth/phone";
+import { COUNTRY, formatPhone, formatPhoneInput, nationalNumber } from "@/lib/auth/phone";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import { auth } from "@/lib/dashboard/api";
 import { type ApiError, fieldOf } from "@/lib/dashboard/errors";
@@ -60,6 +60,8 @@ export function SignupForm() {
   const invited = invitation.data ?? null;
   const signup = useApiMutation(auth.signup);
   const [failure, setFailure] = React.useState<ApiError | null>(null);
+  // The email or phone already belongs to a Pickriders account: sign in with it instead (and link).
+  const [existing, setExisting] = React.useState<{ field: "email" | "phone"; value: string } | null>(null);
   const serverErrors = useServerErrors<FieldName>();
 
   const form = useFormik({
@@ -82,10 +84,20 @@ export function SignupForm() {
         crossSessionBoundary(invited ? "/" : "/auth/verify?sent=1");
       } catch (e) {
         const error = e as ApiError;
+        if (error.code === "email_taken" || error.code === "phone_taken") {
+          const field = error.code === "email_taken" ? "email" : "phone";
+          return setExisting({
+            field,
+            value:
+              field === "email"
+                ? (invited?.email ?? values.email).trim()
+                : `${COUNTRY.dial}${nationalNumber(values.phone)}`,
+          });
+        }
         const field = fieldOf(error, FIELDS);
         if (!field) return setFailure(error);
         const value = values[field].trim();
-        serverErrors.set(field, value, error.code === "email_taken" ? <EmailTaken email={value} /> : error.message);
+        serverErrors.set(field, value, error.message);
         // Also in Formik's errors, so focus moves to the field.
         helpers.setFieldError(field, error.message);
       }
@@ -102,6 +114,22 @@ export function SignupForm() {
   const error = (name: FieldName): React.ReactNode =>
     serverErrors.get(name, form.values[name].trim()) ?? visibleError(form, name);
   const loginHref = `/auth/login${invitationToken ? `?invitation=${invitationToken}` : ""}`;
+
+  if (existing) {
+    return (
+      <AuthShell topRight={<AuthSwitch prompt="Have an account?" href={loginHref} label="Sign in" />}>
+        <AccountExists
+          {...existing}
+          invitationToken={invitationToken}
+          onChange={() => {
+            setExisting(null);
+            // Back to the form as they left it, at the field to change.
+            setTimeout(() => document.getElementById(existing.field)?.focus(), 0);
+          }}
+        />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell topRight={<AuthSwitch prompt="Have an account?" href={loginHref} label="Sign in" />}>
@@ -240,13 +268,70 @@ export function SignupForm() {
   );
 }
 
-function EmailTaken({ email }: { email: string }) {
+/**
+ * One person, one Pickriders account. The email or phone they typed already has one (often from the
+ * Pickriders app), so instead of an error we say so and take them to sign in with it: signing in
+ * offers to link developer access to that same account.
+ */
+function AccountExists({
+  field,
+  value,
+  invitationToken,
+  onChange,
+}: {
+  field: "email" | "phone";
+  value: string;
+  invitationToken: string | null;
+  onChange: () => void;
+}) {
+  const query = new URLSearchParams({ [field]: value, from: "signup" });
+  if (invitationToken) query.set("invitation", invitationToken);
+  const shown = field === "email" ? value : formatPhone(value);
   return (
-    <>
-      An account already uses this email.{" "}
-      <Link href={`/auth/login?email=${encodeURIComponent(email.trim())}`} className="font-medium underline">
-        Sign in instead
-      </Link>
-    </>
+    <div className="space-y-6">
+      <AuthHeading
+        icon={<UserRoundCheck />}
+        title="You already have a Pickriders account"
+        description={
+          <>
+            <b className="font-semibold text-fg">{shown}</b> is already on Pickriders, perhaps from the Pickriders app.
+            Sign in with that account and we&apos;ll add developer access to it. You won&apos;t need a new account or
+            password.
+          </>
+        }
+        className="mb-0"
+      />
+      <ul className="space-y-2 rounded-xl border border-line bg-surface-subtle p-4 text-sm leading-6 text-fg-muted">
+        <li className="flex gap-2">
+          <span className="font-bold text-brand-fg">1</span> Sign in with your Pickriders{" "}
+          {field === "email" ? "email" : "phone number"} and password.
+        </li>
+        <li className="flex gap-2">
+          <span className="font-bold text-brand-fg">2</span> Review what changes (very little) and link your account.
+        </li>
+        <li className="flex gap-2">
+          <span className="font-bold text-brand-fg">3</span> Start building in test mode.
+        </li>
+      </ul>
+      <div className="space-y-3">
+        <LinkButton href={`/auth/login?${query}`} fullWidth>
+          Sign in instead
+        </LinkButton>
+        <Button type="button" variant="ghost" fullWidth onClick={onChange}>
+          Use a different {field === "email" ? "email" : "phone number"}
+        </Button>
+      </div>
+      {field === "email" && (
+        <p className="text-center text-sm text-fg-muted">
+          Forgot the password?{" "}
+          <Link
+            href={`/auth/forgot-password?email=${encodeURIComponent(value)}`}
+            className="focus-ring rounded-sm font-bold text-brand-fg hover:underline"
+          >
+            Reset it
+          </Link>
+        </p>
+      )}
+    </div>
   );
 }

@@ -74,6 +74,7 @@ describe("proxy", () => {
 
   it.each([
     ["auth", "signup"],
+    ["auth", "link"],
     ["auth", "password", "reset"],
   ])("starts a session from %s/%s too", async (...route) => {
     const fetchImpl = upstream(201, { accessToken: "t", expiresIn: 60 });

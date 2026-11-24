@@ -22,7 +22,7 @@ const OFFLINE: ApiError = {
 
 /** Clearer words for a few codes; everything else keeps the API's own message. */
 const MESSAGES: Record<string, string> = {
-  invalid_credentials: "That email and password don't match.",
+  invalid_credentials: "Those details don't match. Check your email or phone number and password.",
   rate_limited: "Too many attempts. Wait a minute, then try again.",
   api_unreachable: OFFLINE.message,
   internal_error: "Something went wrong on our side. Try again in a moment.",

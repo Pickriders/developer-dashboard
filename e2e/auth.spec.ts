@@ -72,7 +72,11 @@ test("explains a wrong password and keeps the email", async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill("not-it");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page.getByRole("alert").filter({ hasText: "That email and password don't match." })).toBeVisible();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Those details don't match. Check your email or phone number and password." }),
+  ).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveValue("ada@acme.test");
   await expect(page.getByLabel("Password", { exact: true })).toBeFocused();
   await expect(page.getByRole("link", { name: "Reset your password" })).toHaveAttribute(
@@ -92,31 +96,89 @@ test("says what is missing only once you try to submit", async ({ page }) => {
   await expect(page.getByLabel("First name")).toBeFocused();
 });
 
-test("offers to sign in when the email already has an account", async ({ page }) => {
+test("an email that already has a Pickriders account is sent to sign in, not refused", async ({ page }) => {
   await signUp(page, { ...newPerson(), email: "ada@acme.test" });
 
-  await expect(page.getByText("An account already uses this email.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You already have a Pickriders account" })).toBeVisible();
+  await expect(page.getByText("ada@acme.test", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign in instead" })).toHaveAttribute(
     "href",
-    "/auth/login?email=ada%40acme.test",
+    "/auth/login?email=ada%40acme.test&from=signup",
   );
+
+  await page.getByRole("link", { name: "Sign in instead" }).click();
+  await expect(page.getByText("You already have a Pickriders account.")).toBeVisible();
+  await expect(page.getByLabel("Email or phone number")).toHaveValue("ada@acme.test");
+  await expect(page.getByLabel("Password", { exact: true })).toBeFocused();
 });
 
-test("keeps a taken phone number's error until the number changes", async ({ page }) => {
+test("a taken phone number offers to sign in with it, or go back and change it", async ({ page }) => {
+  const person = newPerson();
   // Ada's number, from the mock's seed.
-  await signUp(page, { ...newPerson(), phone: "8031234567" });
+  await signUp(page, { ...person, phone: "8031234567" });
 
-  const phoneError = page.locator("#phone-error");
-  await expect(phoneError).toHaveText(/already uses this phone number/);
+  await expect(page.getByRole("heading", { name: "You already have a Pickriders account" })).toBeVisible();
+  await expect(page.getByText("+234 803 123 4567")).toBeVisible();
+
+  // Back to the form as it was, at the phone number.
+  await page.getByRole("button", { name: "Use a different phone number" }).click();
   await expect(page.getByLabel(/Phone number/)).toBeFocused();
-
-  // Moving on (Formik re-validates on blur and change) must not hide what the API said.
-  await page.keyboard.press("Tab");
-  await page.getByLabel("First name").fill("Chidinma");
-  await expect(phoneError).toHaveText(/already uses this phone number/);
-
+  await expect(page.getByLabel("First name")).toHaveValue(person.firstname);
   await page.getByLabel(/Phone number/).fill("8039876543");
-  await expect(phoneError).toHaveCount(0);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/auth\/verify/);
+});
+
+test("links an existing Pickriders account in one step, then confirms the email", async ({ page, request }) => {
+  // Chioma, the seeded app customer, starts unlinked.
+  await request.post(`${MOCK_API}/__test/reset`);
+  await page.goto("/auth/login");
+  await page.getByLabel("Email or phone number").fill("chioma@acme.test");
+  await page.getByLabel("Password", { exact: true }).fill("customer-pass-1");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  // What it is, whose it is, and what changes, before anything does.
+  await expect(page.getByRole("heading", { name: "Welcome back, Chioma" })).toBeVisible();
+  const account = page.getByRole("region", { name: "Your Pickriders account" });
+  await expect(account).toContainText("Chioma Eze");
+  await expect(account).toContainText("chioma@acme.test");
+  await expect(account).toContainText("+234 803 555 1212");
+  await expect(account).toContainText("Member since March 2024");
+  for (const title of ["What stays the same", "What's new", "Good to know"]) {
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  }
+  await expect(page.getByText("One account, one password:")).toBeVisible();
+
+  await expect(page.getByLabel("Name your team")).toHaveValue("Chioma's team");
+  await page.getByLabel("Name your team").fill("Eze Logistics");
+  await page.getByRole("button", { name: "Link account and continue" }).click();
+
+  // The email isn't confirmed yet, so the usual next step: its code.
+  await expect(page).toHaveURL(/\/auth\/verify/);
+});
+
+test("signs in with a phone number, and Not now leaves the account as it was", async ({ page, request }) => {
+  // Chioma, the seeded app customer, starts unlinked.
+  await request.post(`${MOCK_API}/__test/reset`);
+  await page.goto("/auth/login");
+  await page.getByLabel("Email or phone number").fill("0803 555 1212");
+  await page.getByLabel("Password", { exact: true }).fill("customer-pass-1");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page.getByRole("heading", { name: "Welcome back, Chioma" })).toBeVisible();
+  await page.getByRole("button", { name: "Not now" }).click();
+
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByLabel("Email or phone number")).toHaveValue("0803 555 1212");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
+});
+
+test("says what's wrong with something that is neither an email nor a phone number", async ({ page }) => {
+  await page.goto("/auth/login");
+  await page.getByLabel("Email or phone number").fill("12345");
+  await page.getByLabel("Password", { exact: true }).fill("whatever-1");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.locator("#email-error")).toHaveText(/valid email, or a Nigerian phone number/);
 });
 
 test("resets a forgotten password and signs in", async ({ page, request }) => {
