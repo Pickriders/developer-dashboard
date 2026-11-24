@@ -254,7 +254,7 @@ export interface State {
     handoffCancelCompensation?: number;
     /** @default 150 */
     handoffConfirmRadiusM?: number;
-    /** @default 2 */
+    /** @default 1 */
     handoffsPerOrder?: number;
     supportEmails?: string[];
     /** @default 2 */
@@ -478,9 +478,10 @@ export interface StateConfigDto {
    */
   handoffConfirmRadiusM?: number;
   /**
-   * Handoff: completed handoffs allowed per order
+   * Handoff: rider handoffs allowed per order, 0 or 1 (an order is handed off once at most)
    * @min 0
-   * @default 2
+   * @max 1
+   * @default 1
    */
   handoffsPerOrder?: number;
   /**
@@ -5664,6 +5665,146 @@ export interface ListOrderResponseDto {
   totalPages: number;
 }
 
+export enum ChatParticipantRole {
+  CUSTOMER = "CUSTOMER",
+  RIDER = "RIDER",
+}
+
+export enum ChatClosedReason {
+  ENDED = "ENDED",
+  NOT_ELIGIBLE = "NOT_ELIGIBLE",
+  NO_RIDER = "NO_RIDER",
+}
+
+export interface ChatParticipantDto {
+  id: string;
+  firstname: string;
+  lastname: string;
+  photo?: string;
+  role: ChatParticipantRole;
+}
+
+export interface ChatQuickReplyDto {
+  /**
+   * Send it back as quickReplyKey
+   * @example "OUTSIDE"
+   */
+  key: string;
+  /** @example "I'm outside" */
+  text: string;
+  /** Put the text in the message box for the user to finish, instead of sending it */
+  prefill?: boolean;
+}
+
+export interface ChatThreadDto {
+  orderId: string;
+  orderNumber: string;
+  me: ChatParticipantRole;
+  /** Show the message box */
+  canSend: boolean;
+  /** A rider is on the order and it is not over */
+  open: boolean;
+  /**
+   * The order ended: the chat can be read until then, and is closed after
+   * @format date-time
+   */
+  readOnlyUntil?: string;
+  closedReason?: ChatClosedReason;
+  /** The person you chat with: the current rider, or the customer. Null while there is no rider */
+  other: ChatParticipantDto | null;
+  /** The seq of the latest message (0: none yet) */
+  lastSeq: number;
+  myLastReadSeq: number;
+  /** Seen ticks: the other side has read up to this seq */
+  otherLastReadSeq: number;
+  /** Messages from the other side you have not read */
+  unread: number;
+  /** Chips for your role. Empty when you cannot send */
+  quickReplies: ChatQuickReplyDto[];
+}
+
+export enum OrderMessageKind {
+  TEXT = "TEXT",
+  SYSTEM = "SYSTEM",
+}
+
+export enum ChatSenderRole {
+  CUSTOMER = "CUSTOMER",
+  RIDER = "RIDER",
+  SYSTEM = "SYSTEM",
+}
+
+export enum ChatSystemKey {
+  RIDER_ASSIGNED = "RIDER_ASSIGNED",
+  RIDER_ARRIVED_PICKUP = "RIDER_ARRIVED_PICKUP",
+  PICKED_UP = "PICKED_UP",
+  RIDER_ARRIVED_DROPOFF = "RIDER_ARRIVED_DROPOFF",
+  DELIVERED = "DELIVERED",
+  CANCELLED = "CANCELLED",
+  RIDER_CHANGED = "RIDER_CHANGED",
+}
+
+export interface OrderMessageDto {
+  id: string;
+  orderId: string;
+  /** Per-order position: 1, 2, 3... Render by it; a gap means catch up */
+  seq: number;
+  kind: OrderMessageKind;
+  senderRole: ChatSenderRole;
+  /** Unset for SYSTEM lines */
+  senderId?: string;
+  /** You sent it. REST only: socket messages leave it out, compare senderId with your id */
+  mine: boolean;
+  body: string;
+  quickReplyKey?: string;
+  systemKey?: ChatSystemKey;
+  /** The id your app gave the message */
+  clientId?: string;
+  /** @format date-time */
+  createdAt: string;
+}
+
+export interface ListOrderMessagesResponseDto {
+  /** Ascending by seq */
+  messages: OrderMessageDto[];
+  /** More in the same direction: older for the latest page and `before`, newer for `after` */
+  hasMore: boolean;
+}
+
+export interface SendOrderMessageRequestDto {
+  /**
+   * A UUID the app makes once per message and reuses on every retry of it
+   * @example "0b8a5d2e-4c1f-4f7a-9a43-6f1e2d9c7b10"
+   */
+  clientId: string;
+  /**
+   * 1 to 500 characters after trimming. Control characters are removed and 3+ line breaks become 2
+   * @maxLength 2000
+   * @example "I'm outside"
+   */
+  body: string;
+  /**
+   * The quick reply chip this came from (analytics only; body is the text shown)
+   * @pattern /^[A-Z0-9_]{1,40}$/
+   * @example "OUTSIDE"
+   */
+  quickReplyKey?: string;
+}
+
+export interface MarkOrderMessagesReadRequestDto {
+  /**
+   * The highest seq you have seen
+   * @min 0
+   * @example 12
+   */
+  upToSeq: number;
+}
+
+export interface MarkOrderMessagesReadResponseDto {
+  /** Your read marker now (never lower than before) */
+  upToSeq: number;
+}
+
 export interface RiderRequestHandoffRequestDto {
   reason: HandoffReason;
   /**
@@ -6358,146 +6499,6 @@ export interface AdminResolveAlertRequestDto {
    * @maxLength 500
    */
   note?: string;
-}
-
-export enum ChatParticipantRole {
-  CUSTOMER = "CUSTOMER",
-  RIDER = "RIDER",
-}
-
-export enum ChatClosedReason {
-  ENDED = "ENDED",
-  NOT_ELIGIBLE = "NOT_ELIGIBLE",
-  NO_RIDER = "NO_RIDER",
-}
-
-export interface ChatParticipantDto {
-  id: string;
-  firstname: string;
-  lastname: string;
-  photo?: string;
-  role: ChatParticipantRole;
-}
-
-export interface ChatQuickReplyDto {
-  /**
-   * Send it back as quickReplyKey
-   * @example "OUTSIDE"
-   */
-  key: string;
-  /** @example "I'm outside" */
-  text: string;
-  /** Put the text in the message box for the user to finish, instead of sending it */
-  prefill?: boolean;
-}
-
-export interface ChatThreadDto {
-  orderId: string;
-  orderNumber: string;
-  me: ChatParticipantRole;
-  /** Show the message box */
-  canSend: boolean;
-  /** A rider is on the order and it is not over */
-  open: boolean;
-  /**
-   * The order ended: the chat can be read until then, and is closed after
-   * @format date-time
-   */
-  readOnlyUntil?: string;
-  closedReason?: ChatClosedReason;
-  /** The person you chat with: the current rider, or the customer. Null while there is no rider */
-  other: ChatParticipantDto | null;
-  /** The seq of the latest message (0: none yet) */
-  lastSeq: number;
-  myLastReadSeq: number;
-  /** Seen ticks: the other side has read up to this seq */
-  otherLastReadSeq: number;
-  /** Messages from the other side you have not read */
-  unread: number;
-  /** Chips for your role. Empty when you cannot send */
-  quickReplies: ChatQuickReplyDto[];
-}
-
-export enum OrderMessageKind {
-  TEXT = "TEXT",
-  SYSTEM = "SYSTEM",
-}
-
-export enum ChatSenderRole {
-  CUSTOMER = "CUSTOMER",
-  RIDER = "RIDER",
-  SYSTEM = "SYSTEM",
-}
-
-export enum ChatSystemKey {
-  RIDER_ASSIGNED = "RIDER_ASSIGNED",
-  RIDER_ARRIVED_PICKUP = "RIDER_ARRIVED_PICKUP",
-  PICKED_UP = "PICKED_UP",
-  RIDER_ARRIVED_DROPOFF = "RIDER_ARRIVED_DROPOFF",
-  DELIVERED = "DELIVERED",
-  CANCELLED = "CANCELLED",
-  RIDER_CHANGED = "RIDER_CHANGED",
-}
-
-export interface OrderMessageDto {
-  id: string;
-  orderId: string;
-  /** Per-order position: 1, 2, 3... Render by it; a gap means catch up */
-  seq: number;
-  kind: OrderMessageKind;
-  senderRole: ChatSenderRole;
-  /** Unset for SYSTEM lines */
-  senderId?: string;
-  /** You sent it. REST only: socket messages leave it out, compare senderId with your id */
-  mine: boolean;
-  body: string;
-  quickReplyKey?: string;
-  systemKey?: ChatSystemKey;
-  /** The id your app gave the message */
-  clientId?: string;
-  /** @format date-time */
-  createdAt: string;
-}
-
-export interface ListOrderMessagesResponseDto {
-  /** Ascending by seq */
-  messages: OrderMessageDto[];
-  /** More in the same direction: older for the latest page and `before`, newer for `after` */
-  hasMore: boolean;
-}
-
-export interface SendOrderMessageRequestDto {
-  /**
-   * A UUID the app makes once per message and reuses on every retry of it
-   * @example "0b8a5d2e-4c1f-4f7a-9a43-6f1e2d9c7b10"
-   */
-  clientId: string;
-  /**
-   * 1 to 500 characters after trimming. Control characters are removed and 3+ line breaks become 2
-   * @maxLength 2000
-   * @example "I'm outside"
-   */
-  body: string;
-  /**
-   * The quick reply chip this came from (analytics only; body is the text shown)
-   * @pattern /^[A-Z0-9_]{1,40}$/
-   * @example "OUTSIDE"
-   */
-  quickReplyKey?: string;
-}
-
-export interface MarkOrderMessagesReadRequestDto {
-  /**
-   * The highest seq you have seen
-   * @min 0
-   * @example 12
-   */
-  upToSeq: number;
-}
-
-export interface MarkOrderMessagesReadResponseDto {
-  /** Your read marker now (never lower than before) */
-  upToSeq: number;
 }
 
 export interface AdminChatParticipantDto {
@@ -11149,6 +11150,34 @@ export interface GetOrderTypeChartParams {
 }
 
 export type GetOrderTypeChartData = GetOrderTypeChartResponseDto[];
+
+export type GetHandoffChatData = ChatThreadDto;
+
+export interface ListHandoffMessagesParams {
+  /**
+   * Messages after this seq (catch-up)
+   * @min 0
+   */
+  after?: number;
+  /**
+   * Messages before this seq (older page)
+   * @min 1
+   */
+  before?: number;
+  /**
+   * @min 1
+   * @max 100
+   * @default 50
+   */
+  limit?: number;
+  orderId: string;
+}
+
+export type ListHandoffMessagesData = ListOrderMessagesResponseDto;
+
+export type SendHandoffMessageData = OrderMessageDto;
+
+export type MarkHandoffMessagesReadData = MarkOrderMessagesReadResponseDto;
 
 export type RiderNearbyHandoffsData = HandoffViewDto[];
 

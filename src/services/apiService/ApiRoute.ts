@@ -273,6 +273,7 @@ import {
   GetExternalPaymentMetricsData,
   GetFinanceStatusData,
   GetGroupData,
+  GetHandoffChatData,
   GetHeartbeatData,
   GetInsightsLeaderboardData,
   GetInsightsOverviewData,
@@ -349,6 +350,7 @@ import {
   ListBroadcastsData,
   ListCouponsData,
   ListGroupsData,
+  ListHandoffMessagesData,
   ListIssuesData,
   ListMyIssuesData,
   ListOrderMessagesData,
@@ -363,6 +365,7 @@ import {
   MakeOfferRequestDto,
   MakeOrderOfferData,
   MarkAsReadData,
+  MarkHandoffMessagesReadData,
   MarkOrderMessagesReadData,
   MarkOrderMessagesReadRequestDto,
   MfaChallengeRequestDto,
@@ -454,6 +457,7 @@ import {
   RunData,
   SearchData,
   SecurityConfirmRequestDto,
+  SendHandoffMessageData,
   SendOrderMessageData,
   SendOrderMessageRequestDto,
   SendRiderLinkCodeData,
@@ -5951,6 +5955,99 @@ export namespace Api {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = GetOrderTypeChartData;
+  }
+
+  /**
+   * No description
+   * @tags orders
+   * @name GetHandoffChat
+   * @summary FROM or TO: your chat with the other rider of the handoff (open while TO is on the way, readable for 24 hours after it ends). CHAT_NOT_FOUND until a rider has accepted
+   * @request GET:/api/v1/orders/{orderId}/handoff/chat
+   * @secure
+   * @response `200` `GetHandoffChatData`
+   */
+  export namespace GetHandoffChat {
+    export type RequestParams = {
+      orderId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = GetHandoffChatData;
+  }
+
+  /**
+   * No description
+   * @tags orders
+   * @name ListHandoffMessages
+   * @summary Handoff chat messages, ascending by seq, paged like the order chat (after, before, limit)
+   * @request GET:/api/v1/orders/{orderId}/handoff/messages
+   * @secure
+   * @response `200` `ListHandoffMessagesData`
+   */
+  export namespace ListHandoffMessages {
+    export type RequestParams = {
+      orderId: string;
+    };
+    export type RequestQuery = {
+      /**
+       * Messages after this seq (catch-up)
+       * @min 0
+       */
+      after?: number;
+      /**
+       * Messages before this seq (older page)
+       * @min 1
+       */
+      before?: number;
+      /**
+       * @min 1
+       * @max 100
+       * @default 50
+       */
+      limit?: number;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = ListHandoffMessagesData;
+  }
+
+  /**
+   * No description
+   * @tags orders
+   * @name SendHandoffMessage
+   * @summary Send the other rider a message. Idempotent on clientId. CHAT_NOT_ALLOWED once the handoff ended, CHAT_RATE_LIMITED (429) when sending too fast
+   * @request POST:/api/v1/orders/{orderId}/handoff/messages
+   * @secure
+   * @response `200` `SendHandoffMessageData`
+   */
+  export namespace SendHandoffMessage {
+    export type RequestParams = {
+      orderId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = SendOrderMessageRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = SendHandoffMessageData;
+  }
+
+  /**
+   * No description
+   * @tags orders
+   * @name MarkHandoffMessagesRead
+   * @summary Mark the other rider's messages read up to a seq (their seen ticks)
+   * @request POST:/api/v1/orders/{orderId}/handoff/messages/read
+   * @secure
+   * @response `200` `MarkHandoffMessagesReadData`
+   */
+  export namespace MarkHandoffMessagesRead {
+    export type RequestParams = {
+      orderId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = MarkOrderMessagesReadRequestDto;
+    export type RequestHeaders = {};
+    export type ResponseBody = MarkHandoffMessagesReadData;
   }
 
   /**
